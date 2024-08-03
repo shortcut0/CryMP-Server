@@ -17,22 +17,19 @@ arrayutils = {
 table.__NO__RECURSION__ = {}
 
 ---------------------------
--- table.lookupName (finish this)
+-- table.getnested (finish this)
 
-table.lookupName = function(t, val)
+table.getnested = function(t, val, pattern)
 
-	local fLoad = (load or loadstring)
+	local h = t
+	for sMember in string.gmatch(val, "([^%.]+)") do
+		h = h[sMember]
+		if (h == nil) then
+			return
+		end
+	end
+	return h
 
-	if (not string.find(val, "([%.:]")) then
-		return _G[val] end
-
-	-- local idVar = "_G"
-	-- for sAddress in string.gmatch(val, "([^.:]*)") do
-		-- if (fLoad("return " .. idVar .. " == nil")) then
-			-- return idVar = idVar .. "." .. sAddress 
-		-- end 
-	-- end
-	return
 end
 
 ---------------------------
@@ -1074,7 +1071,7 @@ table.tostring = function(aArray, sTab, sName, bSubCall, bNoRecursion)
 			vKey = "[\"" .. tostring(i) .. "\"] = " end
 				
 		if (vType == "table" and not bNoRecursion) then
-			sRec = (table.tostring(v, sTab, "[\"" .. tostring(i) .. "\"] = ", aArray, 1))
+			sRec = (table.tostring(v, sTab, "[\"" .. tostring(i) .. "\"] = "))
 			if (string.empty(sRec)) then
 				bRec = true
 			else

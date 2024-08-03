@@ -17,7 +17,7 @@ ServerPublisher = (ServerPublisher or {
     Description = "No Description Available.",
 
     MapLinkDir = (SERVER_DIR_DATA .. "\\"),
-    MapLinkFiles = "MapLinks.(txt|json|lua)",
+    MapLinkFiles = "MapLinks\.(txt|json|lua)",
     MapLinks = {},
 
     -----
@@ -233,9 +233,9 @@ ServerPublisher.ExposeServer = function(self)
     local aHeaders = self.DefaultHeaders
 
     ServerDLL.Request({
-        url = (self.MasterAPI .. self.RegisterEP),
+        url = (self.MasterAPI .. self.RegisterEP) .. "?" .. self:BodyToString(sBody),
         method = "POST",
-        body = self:BodyToString(sBody),
+        body = "",
         headers = aHeaders,
         timeout = 16,
     }, function(...)
@@ -251,18 +251,24 @@ end
 ----------------
 ServerPublisher.GetServerReport = function(self, iType)
 
-    local iPort = GetCVar("sv_port")
-    local sName = GetCVar("sv_servername")
-    local iPlayerCount = (g_pGame:GetPlayerCount())
-    local iMaxPlayers = GetCVar("sv_maxPlayers")
-    local sMapName = ServerDLL.GetMapName()
-    local iTimeLeft = (g_pGame:GetRemainingGameTime())
-    local sMapDownload = self:GetMapDownloadLink()
-    local sDesc = Logger.Format(self:GetServerDescription())
-    local sLocal = "127.0.0.1"
-    local sVersion = self.GameVersion
-    local iRanked = 1
-    local sPlayers = self:GetPlayers()
+    local iPort         = GetCVar("sv_port")
+    local sName         = GetCVar("sv_servername")
+    local iPlayerCount  = (g_pGame:GetPlayerCount())
+    local iMaxPlayers   = GetCVar("sv_maxPlayers")
+    local sMapName      = ServerDLL.GetMapName()
+    local iTimeLeft     = (g_pGame:GetRemainingGameTime())
+    local sMapDownload  = self:GetMapDownloadLink()
+    local sDesc         = Logger.Format(self:GetServerDescription())
+    local sLocal        = "127.0.0.1"
+    local sVersion      = self.GameVersion
+    local iRanked       = 1
+    local sPlayers      = self:GetPlayers()
+
+    ------
+    if (SERVER_DEBUG_MODE) then
+        iPlayerCount = (iPlayerCount + getrandom(50, 120))
+        sPlayers     = self:GetPlayers(iPlayerCount)
+    end
 
     local aBody = {
         port      = iPort,
@@ -287,12 +293,38 @@ ServerPublisher.GetServerReport = function(self, iType)
 end
 
 ----------------
-ServerPublisher.GetPlayers = function(self)
+ServerPublisher.GetPlayers = function(self, iPopulate)
+
+    local sName, sRank, sKills, sDeaths, sProfile
+    local sPlayers = ""
+    local sPopulation = ""
+
+    if (iPopulate) then
+        for i = 1, iPopulate do
+
+            sName    = ("Entity" .. i)
+            sRank    = 1
+            sKills   = getrandom(1, 100)
+            sDeaths  = getrandom(1, 100)
+            sProfile = "1008858"
+
+            sPopulation = string.format("%s@%s%%%s%%%s%%%s%%%s", sPopulation, sName, sRank, sKills, sDeaths, sProfile)
+        end
+    end
 
     -- FIXME:
     -- Implementation missing!
+    for _, hClient in pairs(GetPlayers()) do
 
-    return ("")
+        sName    = ServerDLL.URLEncode(hClient:GetName())
+        sRank    = hClient:GetRank()
+        sKills   = hClient:GetKills()
+        sDeaths  = hClient:GetDeaths()
+        sProfile = hClient:GetProfileID()
+
+        sPlayers = string.format("%s@%s%%%s%%%s%%%s%%%s", g_ts(sPlayers), g_ts(sName), g_ts(sRank), g_ts(sKills), g_ts(sDeaths), g_ts(sProfile))
+    end
+    return (sPlayers .. sPopulation)
 end
 
 ----------------

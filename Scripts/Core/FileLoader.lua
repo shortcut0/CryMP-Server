@@ -20,14 +20,14 @@ FileLoader.LoadFile = function(self, sFile, sType)
     local bOk, sErr = ServerLFS.FileExists(sFile)
     if (not bOk) then
         self:SetError((sErr or eFileError_NotFound))
-        return false
+        return false, sErr
     end
 
     local hLib
     hLib, sErr = loadfile(sFile)
     if (not hLib or sErr) then
         self:SetError((sErr or eFileError_LoadFailed))
-        return false
+        return false, sErr
     end
 
     if (SERVER_DEBUG_MODE) then
@@ -46,6 +46,57 @@ FileLoader.LoadFile = function(self, sFile, sType)
     Server.Initializer:OnFileLoaded(sFile, sType)
 
     return true
+end
+
+----------------
+FileLoader.ReadFile = function(self, sFile, sType)
+
+    -- TODO: Check if the path is absolute, if not try to find the file with the prefix root dir
+    -- CheckDirAbsolute()
+
+    local bOk, sErr = ServerLFS.FileExists(sFile)
+    if (not bOk) then
+        self:SetError((sErr or eFileError_NotFound))
+        return nil, sErr
+    end
+
+    local sData = FileRead(sFile)
+    if (not sData) then
+        return
+    end
+
+    -- Statistical purposes..
+    Server.Initializer:OnFileLoaded(sFile, sType)
+
+    return sData
+end
+
+----------------
+FileLoader.ExecuteFile = function(self, sFile, sType, hDefault)
+
+    local sData, sError = self:ReadFile(sFile, sType)
+    if (string.empty(sData)) then
+        if (sError) then
+
+            -- FIXME: Error Handler
+            -- ErrorHandler()
+
+            ServerLogError("Error Reading file %s for executing (%s)", sFile, (sError or "N/A"))
+        end
+        return hDefault
+    end
+
+    local bOk, sErr = pcall(loadstring(sData))
+    if (not bOk) then
+
+        -- FIXME: Error Handler
+        -- ErrorHandler()
+
+        ServerLogError("Failed to execute file %s (%s)", sFile, sErr)
+        return hDefault
+    end
+
+    return sErr
 end
 
 ----------------

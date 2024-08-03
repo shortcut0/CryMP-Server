@@ -19,15 +19,6 @@ ServerRPC.Init = function(self)
     ServerLog("ServerRPC.Init()")
 end
 
-----------------
-ServerRPC.OnUpdate = function(self)
-end
-
-----------------
-ServerRPC.OnTimer = function(self, iTimer)
-end
-
-
 ------------------------------------------------
 --- CALLBACKS
 ServerRPC.Callbacks.OnUpdate = function()
@@ -52,8 +43,27 @@ end
 ----------------
 ServerRPC.Callbacks.OnConnection = function(self, iChannel, sIP)
 
-    if (ServerPCH) then
-        ServerPCH:OnConnection(iChannel, sIP)
+    if (ServerConnections) then
+        ServerConnections:OnConnection(iChannel, sIP)
     end
 
+end
+
+----------------
+ServerRPC.Callbacks.OnChannelDisconnect = function(self, iChannel, sIP)
+
+    if (ServerConnections) then
+        ServerConnections:OnConnectionClosed(iChannel, sIP)
+    end
+
+end
+
+----------------
+ServerRPC.Callbacks.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage)
+
+    -- FIXME: Check mutes here!
+    -- CheckMutes() - ServerPunish ??
+    -- if (not_muted) then
+    return ServerChat:OnChatMessage(iType, iSenderID, iTargetID, sMessage)
+    -- end
 end

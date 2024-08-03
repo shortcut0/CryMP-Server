@@ -30,11 +30,55 @@ ConfigCreate({
     ---> Server Configuration
     Config = {
 
-        sTestE = "Test ok!",
+        --------------------------
+        ---> Command Configuration
+        Commands = {
+
+            --- Available Prefixes to trigger commands
+            CommandPrefixes = {
+                "!",
+                "\\",
+                "/"
+            }
+
+        }, ---< Commands
+
+        ------------------
+        ---> Server Ranks
+        Ranks = {
+
+            --------------------------
+            --- List of Existing Ranks
+            --- Cosmetics:
+            ---  > Name,     The Short Name of the Rank
+            ---  > LongName, The Long Name of the Rank (If null, uses Short Name)
+            ---  > Color,    The Color used when displaying this Rank
+            RankList = {
+            ---   Authority        Global Identifier  Name                  Color                Will be assigned to new players
+                { Authority   = 0, ID = "GUEST",      Name = "Guest",       Color = CRY_COLOR_GREEN, Default = true },
+                { Authority   = 1, ID = "PLAYER",     Name = "Player",      Color = CRY_COLOR_WHITE },
+                { Authority   = 2, ID = "PREMIUM",    Name = "Premium",     Color = CRY_COLOR_WHITE },
+                { Authority   = 3, ID = "MODERATOR",  Name = "Moderator",   Color = CRY_COLOR_WHITE },
+                { Authority   = 4, ID = "ADMIN",      Name = "Admin",       Color = CRY_COLOR_WHITE },
+                { Authority   = 5, ID = "HEADADMIN",  Name = "HeadAdmin",   Color = CRY_COLOR_WHITE },
+                { Authority   = 6, ID = "SUPERADMIN", Name = "SuperAdmin",  Color = CRY_COLOR_WHITE }, -- indicating that this class is a developer class
+                { Authority   = 7, ID = "DEVELOPER",  Name = "Developer",   Color = CRY_COLOR_WHITE, Developer = true },
+                { Authority   = 8, ID = "OWNER",      Name = "Owner",       Color = CRY_COLOR_WHITE, Developer = true }
+            }
+
+        }, ---< Ranks
 
         --------------------------
         ---> Server Configuration
         Server = {
+
+            --- The Default Server Language
+            --- Available:
+            ---  > english
+            ---  > spanish
+            ---  > german
+            ---  > russian
+            Language = "english",
 
             ----------------------------------
             --- Info sent to the Master Server
@@ -74,7 +118,36 @@ ConfigCreate({
 
             } ---< GameRules
 
-        } ---< General
+        }, ---< General
+
+        -------------------------
+        ---> Server Name Settings
+        Names = {
+
+            -- Name Template
+            -- Format Variables are
+            --- > {a_country}   > Country Code
+            --- > {a_profile}   > Profile ID
+            NameTemplate = "Nomad:{a_country} (#{a_profile})",
+
+            -- Allow Spaces in Names
+            AllowSpaces = true,
+
+            -- Forbidden Names
+            ForbiddenNames = {
+                "Nomad",
+            },
+
+            -- Forbidden Symbols
+            ForbiddenSymbols = {
+                "@",
+                "%%",
+            },
+
+            -- Replacement Character used in sanitization
+            ReplacementCharacter = "_",
+
+        } ---< Names
 
     } ---< Config
 })

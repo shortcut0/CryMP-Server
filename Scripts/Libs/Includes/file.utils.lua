@@ -57,12 +57,12 @@ end
 -- fileutils.open
 
 fileutils.open = function(sFile, iMode)
-	local hFile = io.open(sFile, checkVar(iMode, FO_READ))
+	local hFile, sErr = io.open(sFile, checkVar(iMode, FO_READ))
 	if (not hFile) then
-		return end
+		return nil, sErr end
 	
 	------------
-	return hFile
+	return hFile, sErr
 end
 
 ---------------------------
@@ -71,6 +71,10 @@ end
 fileutils.delete = function(sFile)
 
 	------------
+	if (fileutils.LFS) then
+		return fileutils.LFS.FileDelete(sFile)
+	end
+
 	os.execute(string.format([[
 		IF EXIST "%s" DEL "%s"
 	]], sFile, sFile))
@@ -188,6 +192,45 @@ fileutils.read = function(sFile)
 end
 
 ---------------------------
+-- fileutils.write
+
+fileutils.write = function(sFile, sData, sMode)
+
+	---------
+	local lfs = fileutils.LFS
+	if (fileutils.ishandle(sFile)) then
+		sFile:write(sData)
+		return true
+	end
+
+	---------
+	local sDir = FileGetPath(sFile)
+	if (lfs) then
+		if (not lfs.DirExists(sDir)) then
+			lfs.DirCreate(sDir)
+		end
+	end
+
+	local hFile, sErr = fileutils.open(sFile, (sMode or FO_READ))
+	if (not hFile) then
+		return false end
+
+	---------
+	hFile:write(sData)
+	fileutils.close(hFile)
+
+	---------
+	return true
+end
+
+---------------------------
+-- fileutils.overwrite
+
+fileutils.overwrite = function(sFile, sData)
+	return FileWrite(sFile, sData, FO_OVERWRITE)
+end
+
+---------------------------
 -- fileutils.flush
 
 fileutils.flush = function(sFile)
@@ -214,6 +257,11 @@ end
 fileutils.getfiles = function(sPath)
 
 	---------
+	if (fileutils.LFS) then
+		return fileutils.LFS.DirGetFiles(sPath, GETFILES_FILES, ".*")
+	end
+
+	---------
 	local sPath = checkVar(sPath, string.getworkingdir())
 	-- local sFiles = string.getval(string.format("IF EXIST \"%s\\*\" DIR \"%s\" /B /ON /A-D", sPath, sPath), fileutils.LUA_5_3)
 	-- local sFiles = string.getval(string.format([[2>&1 >nul WHERE "%s:*" >nul && (DIR "%s" /B /ON /A-D) || (ECHO ?dir_empty?)]], sPath, sPath), fileutils.LUA_5_3)
@@ -234,6 +282,10 @@ end
 
 fileutils.getfolders = function(sPath)
 
+	if (fileutils.LFS) then
+		return fileutils.LFS.DirGetFiles(sPath, GETFILES_DIR, ".*")
+	end
+
 	---------
 	local sPath = checkVar(sPath, string.getworkingdir())
 	local sFolders = string.getval(string.format("IF EXIST \"%s\\*\" DIR \"%s\" /B /ON /AD", sPath, sPath), fileutils.LUA_5_3)
@@ -247,6 +299,10 @@ end
 
 fileutils.getdir = function(sPath)
 
+	if (fileutils.LFS) then
+		return fileutils.LFS.DirGetFiles(sPath, GETFIELS_ALL, ".*")
+	end
+
 	---------
 	local sPath = checkVar(sPath, string.getworkingdir())
 	local sFiles = string.getval(string.format("IF EXIST \"%s\\*\" DIR \"%s\" /B /ON", sPath, sPath), fileutils.LUA_5_3)
@@ -259,6 +315,10 @@ end
 -- fileutils.pathexists
 
 fileutils.pathexists = function(sPath)
+
+	if (fileutils.LFS) then
+		return fileutils.LFS.DirExists(sPath)
+	end
 
 	local bExists = (string.getval(string.format([[IF EXIST "%s" (ECHO 1 {file_out}) ELSE (ECHO 0 {file_out})]], sPath), fileutils.LUA_5_3, fileutils.LUA_5_3) == "1")
 
@@ -285,6 +345,10 @@ end
 -- fileutils.getattrib
 
 fileutils.getattrib = function(sPath)
+
+	if (fileutils.LFS) then
+		return fileutils.LFS.GetAttrib(sPath)
+	end
 
 	---------
 	if (not fileutils.pathexists(sPath)) then
@@ -321,6 +385,10 @@ end
 
 fileutils.isdir = function(sPath)
 
+	if (fileutils.LFS) then
+		return fileutils.LFS.DirIsDir(sPath)
+	end
+
 	---------
 	if (not fileutils.pathexists(sPath)) then
 		return false end
@@ -336,6 +404,10 @@ end
 -- fileutils.size_dir
 
 fileutils.size_dir = function(sPath, bRecursive)
+
+	if (fileutils.LFS) then
+		return fileutils.LFS.DirGetSize(sPath)
+	end
 	
 	---------
 	local sPath = string.ridtrailex(sPath, "\\", "/")
@@ -461,6 +533,8 @@ FileGetNameEx = fileutils.getnameex
 FileGetPath = fileutils.getpath
 FileGetSize = fileutils.size
 FileRead = fileutils.read
+FileWrite = fileutils.write
+FileOverwrite = fileutils.overwrite
 FileFlush = fileutils.flush
 FileIsFile = fileutils.isfile
 FileDelete = fileutils.delete

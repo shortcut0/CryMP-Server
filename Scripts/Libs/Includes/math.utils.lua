@@ -92,25 +92,60 @@ end;
 ---------------------------
 -- math.calctime
 
-math.calctime = function(s)
-	local fits = math.fits;
-	local c, s = fits(s, 86400 * 365 * 100);
-	local y, s = fits(s, 86400 * 365);
-	local d, s = fits(s, 86400);
-	local h, s = fits(s, 3600);
-	local m, s = fits(s, 60);
-	s = math.fits(math.t(s), 1);
-	if (y > 0 and y < 10) then 
-		y = "0" .. y; 
-	end;
-	if (c > 0 and c < 10) then 
-		c = "0" .. c; 
-	end;
-	if (m < 10) then m = "0" .. m; end;
-	if (h < 10) then h = "0" .. h; end;
-	if (d < 10) then d = "0" .. d; end;
-	if (s < 10) then s = "0" .. s; end;
-	return (math.t(c) > 0 and (c .. "c: ") or "") .. (math.t(y) > 0 and (y .. "y: ") or "") .. d .. "d: " .. h .. "h: " .. m .. "m: " .. s .. "s";
+math.calctime = function(seconds, style)
+
+	seconds = checkNumber(seconds, 0)
+	style = checkVar(style, 1)
+
+	if (seconds < 0) then
+		return "Infinite"
+	elseif (seconds < 1) then
+		return "0s"
+	end
+
+	local units = {
+		{ name = "c", value = 86400 * 365 * 100 }, -- Centuries
+		{ name = "y", value = 86400 * 365 },       -- Years
+		{ name = "d", value = 86400 },             -- Days
+		{ name = "h", value = 3600 },              -- Hours
+		{ name = "m", value = 60 },                -- Minutes
+		{ name = "s", value = 1 }                  -- Seconds
+	}
+
+	local result = {}
+	local s = seconds
+
+	for _, unit in ipairs(units) do
+		local fits = { math.floor(s / unit.value), s % unit.value }
+		table.insert(result, { name = unit.name, value = fits[1] })
+		s = fits[2]
+	end
+
+	local function formatResult(style)
+		local formatted = {}
+		local includeNext = false
+
+		for i, unit in ipairs(result) do
+			if unit.value > 0 then
+				includeNext = true
+			end
+			if includeNext or i == #result then
+				table.insert(formatted, string.format("%d%s", unit.value, unit.name))
+			end
+		end
+
+		if style == 3 then
+			return { result[6].value, result[5].value, result[4].value, result[3].value, result[2].value, result[1].value }
+		elseif style == 2 then
+			return table.concat(formatted, ", ")
+		elseif style == 1 then
+			return table.concat(formatted, ": ")
+		else
+			return table.concat(formatted, ":")
+		end
+	end
+
+	return formatResult(style)
 end
 
 ---------------------------

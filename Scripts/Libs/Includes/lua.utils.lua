@@ -34,6 +34,44 @@ luautils.throw_error = function(sMessage)
 end
 
 ---------------------------
+-- luautils.is_any
+
+luautils.is_any = function(h, ...)
+
+	local args = { ... }
+	if (table.empty(args)) then
+		return true -- ??
+	end
+
+	for _, x in pairs(args) do
+		if (h == x) then
+			return true
+		end
+	end
+
+	return false
+end
+
+---------------------------
+-- luautils.is_all
+
+luautils.is_all = function(h, ...)
+
+	local args = { ... }
+	if (table.empty(args)) then
+		return true -- ??
+	end
+
+	for _, x in pairs(args) do
+		if (h ~= x) then
+			return false
+		end
+	end
+
+	return true
+end
+
+---------------------------
 -- luautils.isFunction
 
 luautils.isFunction = function(hParam)
@@ -311,7 +349,7 @@ luautils.checkGlobal = function(hGlobal, hDefault, fCheck, pCheck)
 
 		-- execute string
 		bOk, sErr = pcall(fFunc)
-		if (not bOk and string.findex(checkString(sErr), "attempt to index global", "attempt to index a nil value")) then
+		if (not bOk) then-- or string.findex(checkString(sErr), "attempt to index field", "attempt to index global", "attempt to index a nil value")) then
 			return hDefault
 		end
 
@@ -651,8 +689,9 @@ end
 
 -------------------
 
+IsAny = luautils.is_any
+IsAll = luautils.is_all
 callAnd = luautils.callAndExecute
-
 inc = luautils.increase
 incEnd = function() return inc("end")  end
 unpack = (unpack or luautils.unpack)

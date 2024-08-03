@@ -1,5 +1,10 @@
 ----------------
 Server = {
+
+    -- FIXME: Add Identifiers!
+    IS_PUBLIC = nil,
+    IS_PRIVATE = (GetCVar("sv_lanOnly") >= 1 or nil)
+
 }
 
 ----------------
@@ -23,13 +28,18 @@ Server.Init = function(self)
 
     --------
     self.CORE_FILES = {
+        "ServerEvents",
         "ServerPublisher",
         "ServerRPC",
     }
 
+    -- Unused
     self.INTERNAL_FILES = {
-        "ConnectionHandler",
-        "ErrorHandler",
+    --    "ConnectionHandler",
+    --    "ErrorHandler",
+    --    "ServerUtils",
+    --    "ServerNames",
+    --    "ServerChannels",
     }
 
     if (not self:LoadConfigFiles()) then
@@ -66,13 +76,28 @@ Server.Init = function(self)
     self:Log("Server Initialized in %fs", self.INIT_TIMER.diff())
 
     SCRIPT_ERROR = false
+    SERVER_INITIALIZED = true
+
+    self:PostInit()
+end
+
+----------------
+Server.PostInit = function(self)
+
+    ServerEvents:PostInit()
+    EventCall(eServerEvent_OnScriptInit, true)
+end
+
+----------------
+Server.OnReload = function(self)
+
+    EventCall(eServerEvent_OnScriptReload)
 end
 
 ----------------
 Server.InitConfigs = function(self)
 
     ServerLog("Initializing Configurations...")
-
     ServerConfig:Init()
 end
 
@@ -98,6 +123,7 @@ Server.InitCore = function(self)
 
     ServerPublisher:Init()
     ServerRPC:Init()
+    ServerEvents:Init()
 end
 
 ----------------
@@ -144,9 +170,21 @@ Server.InitInternals = function(self)
 
     ServerLog("Initializing Internals...")
 
+    -- Priority
+    ServerUtils:Init() -- Exposes functions!
+
+    ServerAccess:Init()
+    ServerChat:Init()
+    PlayerHandler:Init()
+
+    ServerLocale:Init()
+    ServerCommands:Init()
+
     ServerPCH:Init()
     ErrorHandler:Init()
     ServerInjector:Init()
+    ServerNames:Init()
+    ServerChannels:Init()
 end
 
 ----------------
@@ -159,17 +197,37 @@ end
 Server.OnUpdate = function(self)
     self:UpdateCore()
     self:UpdateInternals()
+
+    for _, hClient in pairs(GetPlayers()) do
+        if (hClient.InfoInitialized) then
+            hClient:Update()
+        end
+    end
+
+    EventCall(eServerEvent_ScriptUpdate)
 end
 
 ----------------
 Server.OnTick = function(self)
+
     self:CoreTick()
+
+    for _, hClient in pairs(GetPlayers()) do
+        if (hClient.InfoInitialized) then
+            hClient:Tick()
+            EventCall(eServerEvent_OnClientTick, hClient)
+        end
+    end
+
+    EventCall(eServerEvent_ScriptTick)
 end
 
 ----------------
 Server.OnMinuteTick = function(self)
+    EventCall(eServerEvent_ScriptMinuteTick)
 end
 
 ----------------
 Server.OnHourTick = function(self)
+    EventCall(eServerEvent_ScriptHourTick)
 end

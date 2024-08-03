@@ -17,12 +17,12 @@ ServerInit = {}
 
 ----------------
 
-SERVER_DEBUG_MODE = false
+SERVER_DEBUG_MODE = true
 
 ----------------
 ServerInit.Init = function(self)
 
-    -----
+
     LOG_STARS = (string.rep("*", 40))
 
     MOD_NAME = ("CryMP-Server x" .. CRYMP_SERVER_BITS)
@@ -36,7 +36,7 @@ ServerInit.Init = function(self)
     ServerLogWarning = self:CreateLogAbstract(SystemLog, "$9[$4Server$9] Warning: ")
 
     -----
-    CreateLogFunction = self.CreateLogFunction
+    -- CreateLogFunction = self.CreateLogFunction
 
     -----
     ServerLog(LOG_STARS .. LOG_STARS)
@@ -92,6 +92,18 @@ ServerInit.Init = function(self)
     FSetCVar = ServerDLL.FSetCVar -- FIXME: Add this
 
     -----
+    if (FIRST_RELOAD_FINISHED) then
+        if (Server ~= nil) then
+            ServerLog(LOG_STARS)
+            local bOk, sErr = pcall(Server.OnReload, Server)
+            if (not bOk) then
+                ServerLogError("OnReload Call failed (%s)", (sErr or "N/A"))
+            end
+            ServerLog(LOG_STARS)
+        end
+    end
+
+    -----
     ServerLog("Initializing Scripts..")
     for _, fFunc in pairs({
         -- More ?
@@ -104,6 +116,7 @@ ServerInit.Init = function(self)
         end
     end
 
+    FIRST_RELOAD_FINISHED = true
     return true
 end
 
@@ -139,6 +152,11 @@ ServerInit.LoadLibraries = function(self, sPath)
                 -- EDIT: Comment later
             end
         end
+    end
+
+    -- Overwrite FileSystem Handle with our own File System
+    if (fileutils) then
+        fileutils.LFS = ServerLFS
     end
 
     return true
@@ -201,15 +219,15 @@ ServerInit.LoadFile = function(self, sFile, sType)
     sType = (sType or "Unspecified")
 
     -----
-    local hLib, bOk, sErr
+    local hLib, bOk, sErr, sErr2
     hLib, sErr = loadfile(sFile)
     if (not hLib or sErr) then
         return false, self:OnError("%s while trying to load file %s", (sErr or "N/A"), sFile)
     end
 
-    bOk, sErr = pcall(hLib)
+    bOk, sErr2 = pcall(hLib)
     if (not bOk) then
-        return false, self:OnError("%s while trying to execute file %s", (sErr or "N/A"), sFile)
+        return false, self:OnError("%s while trying to execute file %s", (sErr2 or sErr or "N/A"), sFile)
     end
 
     -- Statistical reasons
@@ -230,7 +248,9 @@ ServerInit.CreateLogAbstract = function(self, fBase, sPrefix)
         if (#{...} > 0) then
             n = string.format(n, ...)
         end
-        fBase(n)
+        for line in string.gmatch(n, "[^\n]+") do
+            fBase(line)
+        end
     end
     return fLog
 end

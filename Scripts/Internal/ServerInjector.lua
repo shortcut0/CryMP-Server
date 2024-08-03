@@ -56,18 +56,21 @@ end
 ServerInjector.InjectAll = function(aArray)
 
     local sFile = (ServerInjector.FILE)
-
     local aHost = (aArray.This)
-    for _, aInject in pairs(aArray) do
+    if (isString(aHost)) then
+        aHost = _G[aHost]
+    end
+    local aFuncs = {}
 
+    for _, aInject in pairs(aArray) do
         if (isFunc(aInject)) then
-            aInject(aHost)
+            table.insert(aFuncs, aInject)
 
             -- Statistical purposes
             if (sFile) then
                 ServerInjector.LOADED_FILES[sFile].Calls = (ServerInjector.LOADED_FILES[sFile].Calls + 1)
             end
-        else
+        elseif (isArray(aInject)) then
             ServerInjector.Inject(aInject)
 
             -- Statistical purposes
@@ -75,6 +78,10 @@ ServerInjector.InjectAll = function(aArray)
                 ServerInjector.LOADED_FILES[sFile].Injections = (ServerInjector.LOADED_FILES[sFile].Injections + 1)
             end
         end
+    end
+
+    for _, fFunc in pairs(aFuncs) do
+        fFunc(aHost)
     end
 end
 
@@ -100,29 +107,20 @@ ServerInjector.Inject = function(aParams)
     if (not hClass) then
 
         -- FIXME: Error Handler
+        -- ErrorHandler()
+
+        ServerLogError("Class %s to Inject not found", sEntity)
         return
     end
 
-    local function Replace(sT, c)
-        local hTarget
+    local function Replace(sT, c, f)
         local aNest = string.split(sT, ".")
         local iNest = table.size(aNest)
-        for i, s in pairs(aNest) do
-
-            if (hTarget) then
-                hTarget = hTarget[s]
-            elseif (i == 1) then
-                hTarget = c[s]
-            end
-
-            if (i < iNest and hTarget == nil) then
-
-                -- Just create it?
-                -- hTarget[s] = {}
-
-                -- FIXME: Error Handler
-                -- return ServerLogError("Target %s at index %d to inject on %s not found", s, i, sEntity)
-            end
+        if (iNest == 1) then
+            c[sT] = f
+        else
+            table.remove(aNest, 1)
+            return Replace(table.concat(aNest, "."), c, f)
         end
     end
 
@@ -133,7 +131,6 @@ ServerInjector.Inject = function(aParams)
     else
         Replace(sTarget, hClass, fFunction)
     end
-
 end
 
 --[[

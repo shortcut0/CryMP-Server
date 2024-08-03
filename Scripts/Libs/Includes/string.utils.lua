@@ -54,6 +54,17 @@ end
 ---------------------------
 -- string.islc
 
+string.fc = function(s, check)
+	local fc = string.sub(s, 1, 1)
+	if (check) then
+		return (fc == check)
+	end
+	return fc
+end
+
+---------------------------
+-- string.islc
+
 string.islc = function(s)
 	return (string.lower(s) == s)
 end
@@ -432,17 +443,6 @@ string.formatex = function(s, ...)
 end
 
 ---------------------------
--- string.count
--- Self-Explanatory
-
-string.count = function(s, sFind)
-
-	--------
-	local sTemp, iOccurences = string.gsub(s, sFind, "")
-	return (iOccurences)
-end
-
----------------------------
 -- string.findex
 -- Arg1 String must contain any of ArgN substrings
 -- 	string.findex("TestString1", "String") 			-> True
@@ -796,7 +796,7 @@ end
 
 string.count = function(s, sCount, bEscape)
 
-	local sString = (bEscape and string.escape(s) or s)
+	local sString = (bEscape and string.escape(sCount) or sCount)
 	local _, iFound = string.gsub(s, sString, "")
 	return iFound
 
@@ -1245,8 +1245,8 @@ string.escape = function(sString, aExtra)
         [')'] = '%)',       -- Right parenthesis
         ['['] = '%[',       -- Left square bracket
         [']'] = '%]',       -- Right square bracket
-        ['{'] = '%{',       -- Left curly bracket
-        ['}'] = '%}',       -- Right curly bracket
+        --['{'] = '%{',       -- Left curly bracket
+        --['}'] = '%}',       -- Right curly bracket
         ['^'] = '%^',       -- Caret
         ['$'] = '%$',       -- Dollar sign
         ['-'] = '%-',        -- Minus
