@@ -36,10 +36,14 @@ ServerEvents.PostInit = function(self)
 
     --------
     ServerLog(LOG_STARS .. LOG_STARS)
-    ServerLog("[%02d] Server Server Events:", table.it(self.LinkedEvents, function(x, i, v) return ((x or 0) + table.count(v)) end))
+
+    local iTotalLinks = table.it(self.LinkedEvents, function(x, i, v) return ((x or 0) + table.count(v)) end)
+    ServerLog("[%02d] Server Server Events:", iTotalLinks)
     for iEvent, aLinked in pairs(self.LinkedEvents) do
         ServerLog(" > [% 2d] Linked Callbacks: % 2d", iEvent, table.count(aLinked))
     end
+
+    Logger:LogEventTo(GetDevs(), eLogEvent_ServerScripts, "Linked ${red}%d${gray} Server Events..", iTotalLinks)
 end
 
 ------------------
@@ -61,8 +65,11 @@ ServerEvents.RegisterEvents = function(self)
     eServerEvent_OnClientInit       = 7  -- ()           When Server Initialized
     eServerEvent_OnClientTick       = 8  -- ()           When Server Initialized
     eServerEvent_OnUpdate           = 9  -- ()           When Server Initialized
+    eServerEvent_OnClientValidated  = 10  -- ()           When Server Initialized
+    eServerEvent_OnClientDisconnect = 11  -- ()           When Server Initialized
+    eServerEvent_SavePlayerData     = 12  -- ()           When Server Initialized
 
-    eServerEvent_End            = 10
+    eServerEvent_End            = 13
 end
 
 ------------------
@@ -78,7 +85,7 @@ ServerEvents.CallEvent = function(self, iEvent, ...)
 
     local sError
     if (not isNumber(iEvent)) then
-        sError = error("attempt to call invalid event (bad identifier)")
+        sError = error("attempt to call invalid event (bad identifier (" .. g_ts(iEvent) .. ")")
     elseif (iEvent <= eServerEvent_Begin or iEvent >= eServerEvent_End) then
         sError = error("attempt to call invalid event (out of range)")
     end
@@ -88,9 +95,8 @@ ServerEvents.CallEvent = function(self, iEvent, ...)
             error(sError)
         else
 
-            -- FIXME: Error Handler
-            -- HandleError()
 
+            HandleError("Execute Event (%d) Failed (%s)", sError)
             return ServerLogError(sError)
         end
     end
@@ -103,6 +109,8 @@ ServerEvents.CallEvent = function(self, iEvent, ...)
     local hReturn
     local bOk, sErr
     local sHost, sFunc
+    local aArgs = { ... }
+    table.insert(aArgs, iEvent)
 
     for _, aInfo in pairs(aEvents) do
 
@@ -110,13 +118,12 @@ ServerEvents.CallEvent = function(self, iEvent, ...)
         sFunc = aInfo.Func
         if (aInfo.Active) then
             if (SERVER_DEBUG_MODE) then
-                hReturn = aInfo.Function(checkGlobal(sHost), ...)
+                hReturn = aInfo.Function(checkGlobal(sHost), unpack(aArgs))
             else
-                bOk, sErr = pcall(aInfo.Function, checkGlobal(sHost), ...)
+                bOk, sErr = pcall(aInfo.Function, checkGlobal(sHost), unpack(aArgs))
                 if (not bOk) then
 
-                    -- FIXME: Error Handler
-                    -- HandleError()
+                    HandleError("Execute Event (%d) Failed (%s)", sErr)
 
                     ServerLogError("Execute Event %d for Host \"%s\" for function \"%s\" failed", iEvent, sHost, sFunc)
                     ServerLogError("%s", (sErr or "N/A"))
@@ -144,11 +151,11 @@ ServerEvents.LinkEvent = function(self, iEvent, hThis, hFunc)
 
     local sError
     if (not isNumber(iEvent)) then
-        sError = error("attempt to link invalid event (bad identifier)")
+        sError = ("attempt to link invalid event (bad identifier (" .. g_ts(iEvent) .. "))  ")
     elseif (iEvent <= eServerEvent_Begin or iEvent >= eServerEvent_End) then
-        sError = error("attempt to link invalid event (out of range)")
+        sError = ("attempt to link invalid event (out of range)")
     elseif (not isString(hThis)) then
-        sError = error("due to performance issues, host for events cannot be a table")
+        sError = ("due to performance issues, host for events cannot be a table")
     end
 
     if (sError) then
@@ -156,9 +163,7 @@ ServerEvents.LinkEvent = function(self, iEvent, hThis, hFunc)
             error(sError)
         else
 
-            -- FIXME: Error Handler
-            -- HandleError()
-
+            HandleError("Event Linking Error (%s)", sError)
             return ServerLogError(sError)
         end
     end

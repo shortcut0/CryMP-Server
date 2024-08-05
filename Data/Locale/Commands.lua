@@ -16,16 +16,16 @@ CreateLocalization("l_commandresp_con_scripterror", {
 })
 
 CreateLocalization("l_commandresp_con_condition", {
-    english = { regular = sCmdPreSpace .. "(${1}: ${red}Failed: Unfulfilled Conditions${gray})" }
+    english = { regular = sCmdPreSpace .. "${gray}(${1}: ${red}Failed: Unfulfilled Conditions${gray})" }
 })
 
 
 CreateLocalization("l_commandresp_con_success", {
-    english = { regular = sCmdPreSpace .. "(${1}: ${green}Success${gray}${2})" }
+    english = { regular = sCmdPreSpace .. "${gray}(${1}: ${green}Success${gray}${2})" }
 })
 
 CreateLocalization("l_commandresp_con_nofeedback", {
-    english = { regular = sCmdPreSpace .. "(${1}: ${orange}No Feedback${gray}${2})" }
+    english = { regular = sCmdPreSpace .. "${gray}(${1}: ${orange}No Feedback${gray}${2})" }
 })
 
 CreateLocalization("l_commandresp_con_notfound", {
@@ -60,7 +60,7 @@ CreateLocalization("l_commandresp_chat_condition", {
 })
 
 CreateLocalization("l_commandresp_chat_success", {
-    english = { regular = "(${1}: Success${2})" }
+    english = { regular = "(${1}: ${2})" }
 })
 
 CreateLocalization("l_commandresp_chat_nofeedback", {
@@ -99,37 +99,52 @@ CreateLocalization("l_commanderr_test", {
     }
 })
 
+
+
 ------------------------------------------------------
 ------------------------------------------------------
---- !Validate
+--- ARGUMENT MESSAGES
 
-CreateLocalization("l_command_validate_arg1_desc", {
-    english = { regular = "The Profile ID" },
-    spanish = { regular = "El ID de Perfil" },
-    german = { regular = "Die Profil-ID" },
-    russian = { regular = "ID profilya" }
+CreateLocalization("l_commandarg_player_notfounnd", {
+    english = "Player ${1} not found",
+    russian = "Player ${1} ne naiden",
+    turkish = "Oyuncu ${1} bulunamadi",
+    german = "Spieler ${1} nicht gefunden",
+    spanish = "Jugador ${1} no encontrado"
 })
 
-CreateLocalization("l_command_validate_arg1_name", {
-    english = { regular = "Profile" },
-    spanish = { regular = "Perfil" },
-    german = { regular = "Profil" },
-    russian = { regular = "Profil" }
+CreateLocalization("l_commandarg_required", {
+    english = "Argument <${1}> Expects a value",
+    russian = "Argument <${1}> ozhidaet znachenie",
+    turkish = "Arguman <${1}> bir deger bekliyor",
+    german = "Argument <${1}> erwartet einen Wert",
+    spanish = "Argumento <${1}> espera un valor"
 })
 
-CreateLocalization("l_command_validate_arg2_desc", {
-    english = { regular = "The Profile Hash" },
-    spanish = { regular = "El Hash del Perfil" },
-    german = { regular = "Der Profil-Hash" },
-    russian = { regular = "Hash profilya" }
+CreateLocalization("l_commandarg_notnumber", {
+    english = "Argument ${1} Expects a Number",
+    russian = "Argument ${1} ozhidaet chislo",
+    turkish = "Arguman ${1} bir sayi bekliyor",
+    german = "Argument ${1} erwartet eine Zahl",
+    spanish = "Argumento ${1} espera un numero"
 })
 
-CreateLocalization("l_command_validate_arg2_name", {
-    english = { regular = "Hash" },
-    spanish = { regular = "Hash" },
-    german = { regular = "Hash" },
-    russian = { regular = "Hash" }
+CreateLocalization("l_commandarg_toolow", {
+    english = "Argument ${1} Lower Limit ${2}",
+    russian = "Argument ${1} nizhnij predel ${2}",
+    turkish = "Arguman ${1} alt sinir ${2}",
+    german = "Argument ${1} untere Grenze ${2}",
+    spanish = "Argumento ${1} limite inferior ${2}"
 })
+
+CreateLocalization("l_commandarg_toohigh", {
+    english = "Argument ${1} Upper Limit ${2}",
+    russian = "Argument ${1} verkhniy predel ${2}",
+    turkish = "Arguman ${1} üst sinir ${2}",
+    german = "Argument ${1} obere Grenze ${2}",
+    spanish = "Argumento ${1} limite superior ${2}"
+})
+
 
 ------------------------------------------------------
 ------------------------------------------------------

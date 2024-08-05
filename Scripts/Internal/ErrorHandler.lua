@@ -1,21 +1,44 @@
 ----------------
 ErrorHandler = {
-    CollectedErrors = {}
+    CollectedErrors = {},
+    LogTimer = timernew(5),
+    UnloggedErrorCount = 0
 }
 
 ----------------
 ErrorHandler.Init = function(self)
-    ErrorHandler = self.ErrorHandler
+    HandleError = self.OnError
 end
 
 ----------------
-ErrorHandler.ErrorHandler = function(self, sMessage, ...)
+ErrorHandler.OnError = function(sMessage, ...)
 
     local sFormatted = string.formatex(sMessage, ...)
-    Logger:LogEvent(eLogEvent_ScriptError, sFormatted)
+
+    ErrorHandler:CollectedError(sFormatted)
+    ErrorHandler:Log(sFormatted)
+
+end
+
+----------------
+ErrorHandler.Log = function(self, sFormatted)
+
+    if (self.LogTimer.expired()) then
+        self.LogTimer.refresh()
+        Logger:LogEvent(eLogEvent_ScriptError, string.format("%d New Script Errors Occured, Check Error Log!", self.UnloggedErrorCount))
+        self.UnloggedErrorCount = 0
+    end
+
+    self.UnloggedErrorCount = ((self.UnloggedErrorCount or 0) + 1)
+    ServerLogError("Script Error: %s", sFormatted)
+end
+
+----------------
+ErrorHandler.CollectedError = function(self, sFormatted)
 
     table.insert(self.CollectedErrors, {
         Timer   = timernew(),
         Message = sFormatted
     })
+
 end

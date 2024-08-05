@@ -22,12 +22,16 @@ SERVER_DEBUG_MODE = true
 ----------------
 ServerInit.Init = function(self)
 
+    SCRIPT_ERROR = true
 
     LOG_STARS = (string.rep("*", 40))
 
-    MOD_NAME = ("CryMP-Server x" .. CRYMP_SERVER_BITS)
-    MOD_VERSION = ("v" .. CRYMP_SERVER_VERSION)
-    MOD_BITS = CRYMP_BITS
+    MOD_RAW_NAME = ("CryMP-Server")
+    MOD_EXE_NAME = (MOD_RAW_NAME .. ".exe")
+    MOD_NAME     = (MOD_RAW_NAME .. " x" .. CRYMP_SERVER_BITS)
+    MOD_VERSION  = ("v" .. CRYMP_SERVER_VERSION)
+    MOD_BITS     = CRYMP_SERVER_BITS
+    MOD_COMPILER = CRYMP_SERVER_COMPILER
 
     -----
     SystemLog        = System.LogAlways
@@ -57,6 +61,7 @@ ServerInit.Init = function(self)
 
     SERVER_FILE_MAIN    = "Server.lua"
     SERVER_FILE_LOGGER  = "Logger.lua"
+    SERVER_FILE_GLOBALS = "Globals.lua"
 
     -----
     eFileType_Server    = "Server"
@@ -108,6 +113,7 @@ ServerInit.Init = function(self)
     for _, fFunc in pairs({
         -- More ?
         self.LoadLibraries,
+        self.LoadGlobals,
         self.InitLogger,
         self.InitServer
     }) do
@@ -116,6 +122,10 @@ ServerInit.Init = function(self)
         end
     end
 
+    -- Link Some Stuff
+    -- ServerDLL.SetCallback(SV_EVENT_ON_GAME_RULES_CREATED, function() ServerInit:Init()  end)
+
+    SCRIPT_ERROR = false
     FIRST_RELOAD_FINISHED = true
     return true
 end
@@ -159,6 +169,23 @@ ServerInit.LoadLibraries = function(self, sPath)
         fileutils.LFS = ServerLFS
     end
 
+    return true
+end
+
+----------------
+ServerInit.LoadGlobals = function(self)
+
+    -----
+    local sFile = (SERVER_DIR_CORE .. SERVER_FILE_GLOBALS)
+    if (not ServerLFS.FileExists(sFile)) then
+        return false, self:OnError("Logger Script %s not found", sFile)
+    end
+
+    if (not self:LoadFile(sFile, eFileType_Core)) then
+        return false
+    end
+
+    ------
     return true
 end
 

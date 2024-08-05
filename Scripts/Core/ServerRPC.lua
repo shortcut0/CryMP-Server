@@ -51,11 +51,16 @@ end
 
 ----------------
 ServerRPC.Callbacks.OnChannelDisconnect = function(self, iChannel, sIP)
-
     if (ServerConnections) then
         ServerConnections:OnConnectionClosed(iChannel, sIP)
     end
+end
 
+----------------
+ServerRPC.Callbacks.OnClientDisconnect = function(self, iChannel, hClient, sReason)
+    if (ServerConnections) then
+        ServerConnections:OnDisconnected(hClient, sReason)
+    end
 end
 
 ----------------

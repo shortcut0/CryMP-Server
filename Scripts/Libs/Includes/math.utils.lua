@@ -94,6 +94,11 @@ end;
 
 math.calctime = function(seconds, style)
 
+	if (not isNumber(seconds)) then
+		-- error() :oOOO
+		return seconds
+	end
+
 	seconds = checkNumber(seconds, 0)
 	style = checkVar(style, 1)
 

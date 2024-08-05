@@ -14,8 +14,6 @@ Server.Init = function(self)
     Logger.CreateAbstract(self, { LogClass = "Server", Color = "$4" })
     self:Log("Init()")
 
-    SCRIPT_ERROR = true
-
     --------
     self.INIT_TIMER = timernew()
     self.Initializer = ServerInit
@@ -84,6 +82,8 @@ end
 ----------------
 Server.PostInit = function(self)
 
+    -- we must re-initialize these!!
+    Logger:InitLogEvents()
     ServerEvents:PostInit()
     EventCall(eServerEvent_OnScriptInit, true)
 end
@@ -179,6 +179,8 @@ Server.InitInternals = function(self)
 
     ServerLocale:Init()
     ServerCommands:Init()
+
+    ServerPlugins:Init()
 
     ServerPCH:Init()
     ErrorHandler:Init()

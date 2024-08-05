@@ -91,11 +91,16 @@ end
 
 table.insertFirst = function(t, add)
 	local tNew = { add }
-	if (table.size(t) == 0) then
-		return tNew
-	end
 	for i, v in pairs(t) do
 		table.insert(tNew, v)
+	end
+
+	local max = math.max(table.count(t), table.count(tNew))
+	for i in pairs(t) do
+		t[i] = nil -- overwrite
+	end
+	for i = 1, max do
+		t[i] = tNew[i] -- add back
 	end
 	return tNew
 end

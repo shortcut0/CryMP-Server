@@ -72,6 +72,15 @@ ConfigCreate({
         ---> Server Configuration
         Server = {
 
+            ------------------
+            --- Welcome Config
+            Welcome = {
+
+                --- The Chat message appearing when a user entered the server
+                ChatMessage = "@l_ui_welcomechat",
+
+            }, ---< Welcome
+
             --- The Default Server Language
             --- Available:
             ---  > english
@@ -84,14 +93,20 @@ ConfigCreate({
             --- Info sent to the Master Server
             Report = {
 
+                -- Name of the Server Displayed
+                Name = "CryMP-Server ${mod_version}",
+
                 -- Time between each Status Report, in Seconds
                 UpdateRate = 60.0,
+
+                -- Time after which to send a new report if previous request failed
+                ErrorRecovery = 10.0,
 
                 -- The Server Description
                 -- Format Variables are
                 --- > {mod_name}        > Server Mod Name
                 --- > {mod_version}     > Server Mod Version
-                Description = "Server Running on ${mod_name} - ${mod_version}",
+                Description = "\tServer Running on ${mod_exe} ${mod_version} (x${mod_bits})\nCompiled Using ${mod_compiler}",
 
             }, ---< Report
 
@@ -146,6 +161,24 @@ ConfigCreate({
 
             -- Replacement Character used in sanitization
             ReplacementCharacter = "_",
+
+        }, ---< Names
+
+        ----------------------------
+        ---> Server Message Settings
+        Messages = {
+
+            Console = {
+
+                Queue = {
+
+                    Enabled = true, -- Status of the Console Queue
+                    PopCount = 2, -- Amount of messages to pep each cycle
+                    PopDelay = 1, -- In Milliseconds
+
+                } ---< Queue
+
+            } ---< Console
 
         } ---< Names
 

@@ -78,9 +78,7 @@ FileLoader.ExecuteFile = function(self, sFile, sType, hDefault)
     if (string.empty(sData)) then
         if (sError) then
 
-            -- FIXME: Error Handler
-            -- ErrorHandler()
-
+            HandleError("Error Reading file %s for executing (%s)", sFile, (sError or "N/A"))
             ServerLogError("Error Reading file %s for executing (%s)", sFile, (sError or "N/A"))
         end
         return hDefault
@@ -89,10 +87,8 @@ FileLoader.ExecuteFile = function(self, sFile, sType, hDefault)
     local bOk, sErr = pcall(loadstring(sData))
     if (not bOk) then
 
-        -- FIXME: Error Handler
-        -- ErrorHandler()
-
-        ServerLogError("Failed to execute file %s (%s)", sFile, sErr)
+        HandleError("Failed to execute file %s (%s)", sFile, g_ts(sErr))
+        ServerLogError("Failed to execute file %s (%s)", sFile, g_ts(sErr))
         return hDefault
     end
 

@@ -37,6 +37,8 @@ ServerAccess = {
 ----------------
 ServerAccess.Init = function(self)
 
+    GetInvalidID     = self.GetInvalidID
+
     GetDefaultRank   = self.GetDefaultRank
     GetLowestRank    = self.GetLowestRank
     GetHighestRank   = self.GetHighestRank
@@ -53,10 +55,12 @@ ServerAccess.Init = function(self)
 
     self:LoadFile()
     self:RegisterRanks()
-    Logger:InitLogEvents()
 
     ServerLog("Registered %d Server Ranks", table.count(self.RegisteredRanks))
-    ServerLog("Loaded %d Registered Users", table.count(self.RegisteredUsers))
+
+    local sUserLog = string.format("Loaded ${red}%d${gray} Registered Users", table.count(self.RegisteredUsers))
+    ServerLog(sUserLog)
+    Logger:LogEventTo(GetDevs(), eLogEvent_DataLog, sUserLog)
 
     LinkEvent(eServerEvent_OnScriptReload, "ServerAccess", "SaveFile")
 end
@@ -114,6 +118,11 @@ end
 ----------------
 ServerAccess.IsProfileValid = function(self, sID)
     return (sID ~= "0" or sID ~= "-1")
+end
+
+----------------
+ServerAccess.GetInvalidID = function(self)
+    return "0"
 end
 
 ----------------

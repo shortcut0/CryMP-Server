@@ -1,6 +1,8 @@
 ----------------
 Logger = {
-    ConsoleMessageCenterPos = 60
+    ConsoleMessageCenterPos = 60,
+    LogTag                  = "System ",
+    DefaultColor            = CRY_COLOR_RED,
 }
 
 ----------------
@@ -12,7 +14,7 @@ Logger.Init = function(self)
     -------------
     LOG_STARS = string.rep("*", 40)
 
-    CLIENT_CONSOLE_LEN = 116 -- Length of the client console
+    CLIENT_CONSOLE_LEN = 113 -- Length of the client console
 
     LOG_NORMAL = 0
     LOG_ERROR = 1
@@ -31,6 +33,14 @@ Logger.Init = function(self)
     eLogEvent_Command           = 6
     eLogEvent_Commands          = 7
 
+    -- FIXME: !!
+    eLogEvent_Config        = 8
+    eLogEvent_DataLog       = 9
+    eLogEvent_ServerScripts = 10
+    eLogEvent_ServerLocale  = 11
+    eLogEvent_Plugins       = 12
+    eLogEvent_Debug         = 13
+
     -- Must be done twice, now? and after ranks are initialized .. oof!
     self:InitLogEvents()
 
@@ -44,6 +54,19 @@ Logger.Init = function(self)
         Logger:LogEvent(...)
     end
 
+    Debug = function(...)
+        local s = ""
+        for _, v in pairs({...}) do
+            if (isArray(v)) then
+                LogEvent(eLogEvent_Debug, table.tostring(v))
+            end
+            s = s .. g_ts(v) .. ", "
+        end
+        if (s ~= "") then
+            Logger:LogEvent(eLogEvent_Debug, s)
+        end
+    end
+
     -------------
     g_Logger = self
 end
@@ -51,20 +74,136 @@ end
 ----------------
 Logger.InitLogEvents = function(self, iEvent, sMessage, ...)
 
+
+    self.ConsoleMessageCenterPos = 60
+    self.LogTag                  = "System "
+    self.DefaultColor            = CRY_COLOR_RED
+
     self.LOG_EVENTS = {
-        [eLogEvent_Server]      = { NoLocale = false, PlayerMessages = true, Tag = "Server",  Color = CRY_COLOR_RED,   Access = { Regular = RANK_DEVELOPER } },
-        [eLogEvent_Connection]  = { NoLocale = false, PlayerMessages = true, Tag = "Connect", Color = CRY_COLOR_RED,   Access = { Regular = RANK_GUEST,    Extended = RANK_MODERATOR } },
-        [eLogEvent_ScriptError] = { NoLocale = false, PlayerMessages = true, Tag = "Error",   Color = CRY_COLOR_RED,   Access = { Regular = RANK_DEVELOPER} },
+        [eLogEvent_Server] = {
+            NoLocale        = false,
+            PlayerMessages  = true,
+            Tag             = "Server",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_DEVELOPER }
+        },
+
+        [eLogEvent_Connection] = {
+            NoLocale        = false,
+            PlayerMessages  = true,
+            Tag             = "Connect",
+            Color           = self.DefaultColor,
+            Access          = {
+                Regular   = RANK_GUEST,
+                Extended  = RANK_MODERATOR
+            }
+        },
+
+        [eLogEvent_ScriptError] = {
+            NoServerLog     = true,
+            NoLocale        = false,
+            PlayerMessages  = true,
+            Tag             = "Script-Error",
+            Color           = self.DefaultColor,
+            MsgColor        = CRY_COLOR_RED,
+            Access          = { Regular = RANK_DEVELOPER }
+        },
 
         -- Chat
-        [eLogEvent_ChatMessageAll]    = { NoLocale = false,  PlayerMessages = true, Tag = "Chat",    Color = CRY_COLOR_WHITE, Access = { Regular = RANK_GUEST} },
-        [eLogEvent_ChatMessageTeam]   = { NoLocale = false,  PlayerMessages = true, Tag = "Chat",    Color = CRY_COLOR_WHITE, Access = { Regular = RANK_GUEST} },
-        [eLogEvent_ChatMessageTarget] = { NoLocale = false,  PlayerMessages = true, Tag = "Chat",    Color = CRY_COLOR_WHITE, Access = { Regular = RANK_GUEST} },
+        [eLogEvent_ChatMessageAll] = {
+            NoLocale        = false,
+            PlayerMessages  = true,
+            Tag             = "Chat",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_GUEST }
+        },
+
+        [eLogEvent_ChatMessageTeam] = {
+            NoLocale        = false,
+            PlayerMessages  = true,
+            Tag             = "Chat",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_GUEST }
+        },
+
+        [eLogEvent_ChatMessageTarget] = {
+            NoLocale        = false,
+            PlayerMessages  = true,
+            Tag             = "Chat",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_GUEST }
+        },
+
+        -- Debug
+        [eLogEvent_Debug] = {
+            ConsoleType     = MSG_DEBUG,
+            Locale          = false,
+            NoLocale        = false,
+            PlayerMessages  = true,
+            Tag             = "Debug",
+            Color           = self.DefaultColor,
+            Access          = { Regular = GetDevRanks(1) }
+        },
 
         -- Commands
-        [eLogEvent_Command]  = { ConsoleType = MSG_CONSOLE_FIXED, Locale = true, NoLocale = false,  PlayerMessages = true, Tag = "Chat",    Color = CRY_COLOR_WHITE, Access = { Regular = RANK_GUEST} },
-        [eLogEvent_Commands] = { NoLocale = false,  PlayerMessages = true, Tag = "Commands",    Color = CRY_COLOR_WHITE, Access = { Regular = RANK_MODERATOR } },
+        [eLogEvent_Command] = {
+            ConsoleType     = MSG_CONSOLE_FIXED,
+            Locale          = true,
+            NoLocale        = false,
+            PlayerMessages  = true,
+            Tag             = "Chat",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_GUEST }
+        },
 
+        [eLogEvent_Commands] = {
+            NoLocale        = false,
+            PlayerMessages  = true,
+            Tag             = "Commands",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_MODERATOR }
+        },
+
+        [eLogEvent_Plugins] = {
+            NoLocale        = false,
+            PlayerMessages  = true,
+            Tag             = "Plugins",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_MODERATOR }
+        },
+
+        -- Misc
+        [eLogEvent_Config] = {
+            ConsoleType     = nil, -- Normal Centered
+            PlayerMessages  = true,
+            Tag             = "Config",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_MODERATOR }
+        },
+
+        [eLogEvent_ServerScripts] = {
+            ConsoleType     = nil, -- Normal Centered
+            PlayerMessages  = true,
+            Tag             = "Scripts",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_MODERATOR }
+        },
+
+        [eLogEvent_DataLog] = {
+            ConsoleType     = nil, -- Normal Centered
+            PlayerMessages  = true,
+            Tag             = "Data",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_MODERATOR }
+        },
+
+        [eLogEvent_ServerLocale] = {
+            ConsoleType     = nil, -- Normal Centered
+            PlayerMessages  = true,
+            Tag             = "Locale",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_MODERATOR }
+        },
     }
 
 end
@@ -76,9 +215,7 @@ Logger.LogToServer = function(self, aInfo, sMessage, ...)
     if (sMessage and not aInfo.NoLocale) then
         sLocalized = Localize(sMessage, SERVER_LANGUAGE, true)
         if (sLocalized == nil or aInfo.NoLocale) then
-            sLocalized = sMessage
-            ServerLog(":3")
-            ServerLog("Not localized (%s)",sMessage)
+            sLocalized = string.formatex(sMessage, ...)
         else
             sLocalized = self:FormatLocalized(sLocalized, { ... })
         end
@@ -93,7 +230,7 @@ Logger.LogEvent = function(self, iEvent, sMessage, ...)
 
     local aInfo = self.LOG_EVENTS[iEvent]
     if (not isArray(aInfo)) then
-        return error("info not found?")
+        return error("info not found "..g_ts(iEvent))
     end
 
     if (not sMessage) then
@@ -205,12 +342,13 @@ end
 ----------------
 Logger.LogToPlayers = function(self, aInfo, sMessage, aFormat, aClients, sLogTag)
 
+    sMessage = self:ReplaceColors(sMessage)
     aClients = (aClients or GetPlayers())
     if (table.empty(aClients)) then
         return ServerLog("No Clients")
     end
 
-    local sEntity = string.format((aInfo.TagClass or "$9Server(%s%s$9)"), aInfo.Color, aInfo.Tag)
+    local sEntity = string.format((aInfo.TagClass or "$9" .. (self.LogTag) .. "(%s%s$9)"), aInfo.Color, aInfo.Tag)
     local sAppendTag = aInfo.AppendTag
 
     local iRankExtended = (aInfo.Access.Extended) -- Rank required to view a the extended message
@@ -243,7 +381,7 @@ Logger.LogToPlayers = function(self, aInfo, sMessage, aFormat, aClients, sLogTag
                 if (not aInfo.NoLocale) then
                     sLocalized, sExtended = Localize(sMessage, sLang)
                     if (sLocalized == nil) then
-                        ServerLog("assuming non-locale for message %s", sMessage)
+                        --ServerLog("assuming non-locale for message %s", sMessage)
                         sLocalized = self:FormatMessage(sMessage, aFormat)
                     else
                         sLocalized = self:FormatLocalized(sLocalized, aFormat)
@@ -254,14 +392,16 @@ Logger.LogToPlayers = function(self, aInfo, sMessage, aFormat, aClients, sLogTag
                     end
                 end
 
+                --ServerLog("ENTITY:::: %s",g_ts(sEntity))
+
                 if (sAppendTag) then
                     sEntity = sEntity .. ("(" .. LocalizeForClient(hClient, sAppendTag, {}) .. ")")
                 end
 
-                ServerChat:Send((aInfo.ConsoleType or MSG_CONSOLE), hClient, sLocalized, sEntity)
-                ServerLog("Final message for client %s: %s", hClient:GetName(), sLocalized)
+                SendMsg((aInfo.ConsoleType or MSG_CONSOLE), hClient, ((aInfo.MsgColor or "") .. sLocalized), sEntity)
+                --ServerLog("Final message for client %s: %s", hClient:GetName(), sLocalized)
             else
-                ServerLog("no access %d<%d<%d",iRank,iRankNormal,iRankExtended or-1)
+                -- ServerLog("no access %d<%d<%d",iRank,iRankNormal,iRankExtended or-1)
             end
         end
     end
@@ -281,7 +421,7 @@ end
 Logger.FormatLocalized = function(self, sMessage, aFormat)
 
     local sFormatted = sMessage
-    for _, sFmt in pairs(aFormat) do
+    for _, sFmt in pairs((aFormat or {})) do
         sFormatted = string.gsub(sFormatted, "${" .. _ .. "}", sFmt)
     end
 
@@ -319,12 +459,15 @@ end
 Logger.Format = function(sMessage, aFormatAppend)
 
     local aFormat = table.merge({
-        ["mod_name"]       = MOD_NAME,
-        ["mod_bits"]       = MOD_BITS,
-        ["mod_version"]    = MOD_VERSION,
+        ["mod_rawname"]    = MOD_RAW_NAME, -- CryMP-Server
+        ["mod_exe"]        = MOD_EXE_NAME, -- CryMP-Server.exe
+        ["mod_name"]       = MOD_NAME,     -- CryMP-Server x64 bit
+        ["mod_bits"]       = MOD_BITS,     -- 64 bit
+        ["mod_version"]    = MOD_VERSION,  -- v21
+        ["mod_compiler"]   = MOD_COMPILER, -- MSVC 2019
     }, (aFormatAppend or {}))
 
-    local sFormatted = sMessage
+    local sFormatted = (sMessage or "")
     for sTag, sColor in pairs(aFormat) do
         sFormatted = (string.gsub(sFormatted, string.format("${%s}", sTag), sColor))
     end

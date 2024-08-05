@@ -1,32 +1,46 @@
 ----------------
-ServerChat = {
+ServerChat = (ServerChat or {
     ConsoleMessageCenterPos = 38,
+    ConsoleTotalLength = CLIENT_CONSOLE_LEN,
 
     RegisteredEntities = {},
-
     ChatEntities = {
         { ID = "SERVER",    Name = "CryMP-Server" },
-        { ID = "TEST",      Name = "Test" }
+        { ID = "TEST",      Name = "Test" },
+        { ID = "DEBUG",     Name = "Server-Debug" },
     },
 
     TM_START = 0,
-    TM_END   = 0
-}
+    TM_END   = 0,
+
+    ConsoleQueue = {
+
+        -- Configurable
+        Enabled  = true,
+        PopCount = 1,
+        PopDelay = 100, -- In Milliseconds
+
+        -- Static
+        LastPop  = timernew(0),
+        Queue    = {},
+    }
+})
 
 ----------------
 ServerChat.Init = function(self)
 
     ALL = 0
 
-    MSG_CONSOLE       = 0
-    MSG_CONSOLE_FIXED = 1 -- Ignoring ConsoleMessageCenterPos (is this the wrong name?)
-    MSG_CENTER        = 3 -- Center
-    MSG_SERVER        = 4
-    MSG_INFO          = 5
-    MSG_ERROR         = 6
+    MSG_CONSOLE          = 0
+    MSG_CONSOLE_FIXED    = 1 -- Ignoring ConsoleMessageCenterPos (is this the wrong name?)
+    MSG_CONSOLE_CENTERED = 7 -- Ignoring ConsoleMessageCenterPos (is this the wrong name?)
+    MSG_CENTER           = 3 -- Center
+    MSG_SERVER           = 4
+    MSG_INFO             = 5
+    MSG_ERROR            = 6
 
     self.TM_START = 0
-    self.TM_END   = 6
+    self.TM_END   = 7
 
     inc(self.TM_END, 1)
 
@@ -62,29 +76,90 @@ ServerChat.Init = function(self)
 
     incEnd()
 
-    --LinkEvent(eServerEvent_ScriptTick, "ServerChat", "Test")
+    for _, sCfg in pairs({
+        "Enabled", "PopCount", "PopDelay"
+    }) do
+        self.ConsoleQueue[sCfg] = ConfigGet(("Messages.Console.Queue." .. sCfg), self.ConsoleQueue[sCfg], eConfigGet_Any)
+    end
 
     -- FIXME:
     TEAM_NEUTRAL = 0
     TEAM_US = 1
     TEAM_NK = 2
+
+    --------------
+    LinkEvent(eServerEvent_ScriptUpdate, "ServerChat", "OnUpdate")
 end
 
 ----------------
-ServerChat.Test = function(self)
+ServerChat.QueuePush = function(self, sMessage, aClients)
+    table.insertFirst(self.ConsoleQueue.Queue, {
+        Message = sMessage,
+        SendTo  = aClients
+    })
+end
 
-    local aClients = GetPlayers()
-    if (table.count(aClients) > 0 and not self.d) then
-       -- SendMsg(CHAT_SERVER, aClients, "CHAT_SERVER Test fixed console to all clients")
-       -- SendMsg(CHAT_SERVER, aClients[1], "CHAT_SERVER Test fixed console to 1 client")
+----------------
+ServerChat.UpdateQueue = function(self)
+    local iPopCount = (self.ConsoleQueue.PopCount or 1)
+    local iPopDelay = (self.ConsoleQueue.PopDelay / 1000)
+    local hPopTimer = self.ConsoleQueue.LastPop
 
-      --  SendMsg(CHAT_TEST, aClients, "CHAT_TEST Test fixed console to all clients")
-     --   SendMsg(CHAT_TEST, aClients[1], "CHAT_TEST Test fixed console to 1 client")
+    if (not hPopTimer.expired(iPopDelay)) then
+        return
+    end
 
-        SendMsg(CHAT_TEST_TEAM, aClients, "CHAT_TEST_TEAM Test fixed console to all clients")
-        SendMsg(CHAT_TEST_TEAM, aClients[1], "CHAT_TEST_TEAM Test fixed console to 1 client")
+    local aQueue = self.ConsoleQueue.Queue
+    local iQueue = table.count(aQueue)
+    if (iQueue == 0) then
+        return
+    end
 
-        self.d = 1
+    local aPopList = {}
+    local iPopMax  = math.limit(iPopCount, 1, iQueue)
+    local aPopNext
+    for i = 1, iPopMax do
+        aPopNext = aQueue[(iQueue - i + 1)]
+        aPopNext.QueueID = (iQueue - i + 1)
+        table.insert(aPopList, aPopNext)
+    end
+
+    for _, aPop in pairs(aPopList) do
+        if (aPop.SendTo == ALL) then
+            g_pGame:SendTextMessage(TextMessageConsole, aPop.Message, TextMessageToAll)
+        else
+            for __, hClient in pairs(aPop.SendTo) do
+                g_pGame:SendTextMessage(TextMessageConsole, aPop.Message, TextMessageToClient, hClient.id)
+            end
+        end
+        table.remove(aQueue, aPop.QueueID)
+    end
+
+    hPopTimer.refresh()
+end
+
+----------------
+ServerChat.OnUpdate = function(self)
+
+    self:UpdateQueue()
+end
+
+----------------
+ServerChat.DeleteChatEntities = function(self)
+
+    ServerLog("Deleting Chat Entities")
+
+    local hEntity, sEntityID
+    for sID, aInfo in pairs(self.RegisteredEntities) do
+
+        hEntity     = GetEntity(aInfo.Entity)
+        sEntityID   = string.format("SV_CHAT_ENTITY_%s", aInfo.ID)
+        if (hEntity and hEntity.IsChatEntity and hEntity.ChatName) then
+            RemoveEntity(hEntity.id)
+        end
+
+        _G[sEntityID] = nil
+        self.RegisteredEntities[sID].Entity = self:CreateChatEntity(aInfo)
     end
 end
 
@@ -96,16 +171,17 @@ ServerChat.CreateChatEntity = function(self, aInfo)
 
     local hEntity = _G[sID]
     if (hEntity ~= nil) then
-        if (hEntity.IsChatEntity and hEntity.ChatName == sName) then
+        hEntity = GetEntity(hEntity.id)
+        if (hEntity and hEntity.IsChatEntity and hEntity.ChatName == sName) then
             return hEntity
         end
     end
 
     local hNew = SpawnEntity({
-        class = "Fists",
-        name = sName,
-        position = { x = 0, y = 0, z = 0 },
-        orientation = { x = 0, y = 0, z = 1 }
+        class       = "Fists",
+        name        = sName,
+        position    = { x = 0, y = 0, z = 0 },
+        orientation = { x = 0, y = 0, z = 1 },
     })
 
     if (not hNew) then
@@ -159,7 +235,7 @@ ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage,
         end
         sMsg     = "l_console_chatmessage_target"
 
-        if (hSender.PMMessage) then
+        if (hSender and hSender.PMMessage) then
 
             iLogType = eLogEvent_ChatMessagePM
             sMsg     = "l_console_chatmessage_pm"
@@ -216,18 +292,23 @@ ServerChat.SendTextMessage = function(self, iType, aTargetList, sMessage, sMessa
     end
 
     local sFinalMsg = sMessage
+    local bUseQueue = self.ConsoleQueue.Enabled
 
     local iRealType
-    if (iType == MSG_CONSOLE or iType == MSG_CONSOLE_FIXED) then
-        if (iType ~= MSG_CONSOLE_FIXED) then
-            if (sMessage2) then
+    if (IsAny(iType, MSG_CONSOLE, MSG_CONSOLE_FIXED, MSG_CONSOLE_CENTERED)) then
 
+        if (iType == MSG_CONSOLE) then
+            if (sMessage2) then
                 sFinalMsg = string.format("%" .. (self.ConsoleMessageCenterPos + (string.count(sMessage2, "%$%d") * 2)) .. "s$9: %s", sMessage2, sMessage)
             else
                 sFinalMsg = string.format("%-" .. (self.ConsoleMessageCenterPos) .. "s", sMessage)
                 -- FIXME
             end
+        elseif (iType == MSG_CONSOLE_CENTERED) then
+            sFinalMsg = string.mspace(sMessage, (self.ConsoleTotalLength / 1), nil, string.COLOR_CODE)
         end
+
+        sFinalMsg = Logger.Format(sFinalMsg, {})
         iRealType = TextMessageConsole
 
     elseif (iType == MSG_CENTER) then
@@ -248,17 +329,33 @@ ServerChat.SendTextMessage = function(self, iType, aTargetList, sMessage, sMessa
     end
 
     if (aTargetList == ALL) then
-        g_pGame:SendTextMessage(iRealType, sFinalMsg, TextMessageToAll)
+
+        if (iRealType == TextMessageConsole and bUseQueue) then
+            self:QueuePush(sFinalMsg, TextMessageToAll)
+        else
+            g_pGame:SendTextMessage(iRealType, sFinalMsg, TextMessageToAll)
+        end
 
         -- FIXME: Proper logging!
         ServerLog("To All: %s", sFinalMsg)
+    elseif (aTargetList == nil) then
+        throw_error("no receipients")
     else
         if (not aTargetList.id) then
-            for _, hClient in pairs(aTargetList) do
-                g_pGame:SendTextMessage(iRealType, sFinalMsg, TextMessageToClient, hClient.id)
+
+            if (iRealType == TextMessageConsole and bUseQueue) then
+                self:QueuePush(sFinalMsg, aTargetList)
+            else
+                for _, hClient in pairs(aTargetList) do
+                    g_pGame:SendTextMessage(iRealType, sFinalMsg, TextMessageToClient, hClient.id)
+                end
             end
         else
-            g_pGame:SendTextMessage(iRealType, sFinalMsg, TextMessageToClient, aTargetList.id)
+            if (iRealType == TextMessageConsole and bUseQueue) then
+                self:QueuePush(sFinalMsg, { aTargetList })
+            else
+                g_pGame:SendTextMessage(iRealType, sFinalMsg, TextMessageToClient, aTargetList.id)
+            end
         end
     end
 end

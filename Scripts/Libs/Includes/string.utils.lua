@@ -52,6 +52,16 @@ string.new = function(s)
 end
 
 ---------------------------
+-- string.capital
+
+string.capitalN = function(s, c)
+	if (string.empty(s)) then return "" end
+	if (string.len(s) == 1) then return string.upper(s) end
+	local b = string.sub(s, (c or 1), (c or 1))
+	return string.upper(b) .. (string.lower(string.sub(s, (c or 1) + 1)) or "")
+end
+
+---------------------------
 -- string.islc
 
 string.fc = function(s, check)
@@ -352,12 +362,16 @@ end
 ---------------------------
 -- string.mspace
 
-string.mspace = function(s, space, s_len_div, bClean, sChar)
+string.mspace = function(s, space, s_len_div, sClean, sChar)
 
 	------------
 	local iLen = string.len(s)
 	if (sClean) then
 		iLen = string.len(string.gsub(s, sClean, "")) end
+
+	if (iLen > space) then
+		return s
+	end
 
 	------------
 	local s_len = (iLen) / (s_len_div or 1);

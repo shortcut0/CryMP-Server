@@ -5,8 +5,8 @@ AddCommand({
 
     Arguments = {
         {
-            Name = "@l_command_validate_arg1_name",
-            Desc = "@l_command_validate_arg1_desc",
+            Name = "@l_command_arg_PROFILE_N",
+            Desc = "@l_command_arg_PROFILE_D",
             Required = true,
 
             Optional = false,
@@ -17,23 +17,15 @@ AddCommand({
             Concat   = false,
         },
         {
-            Name = "@l_command_validate_arg2_name",
-            Desc = "@l_command_validate_arg2_desc",
+            Name = "@l_command_arg_HASH_N",
+            Desc = "@l_command_arg_HASH_D",
             Required = true
         }
     },
 
     Properties = {
         NoChatResponse = true,
-        Quiet = true, -- Silence feedback from this command
-        Host = nil,
-        HostCondition = {
-
-            IgnoreSilence = true,
-            ErrorMessage = "You're already Validated",
-            Key = "Info.Validated", -- A member key
-            Value = { false, nil }, -- Required value(s)
-        }
+        NoConsoleResponse = true
     },
 
     -- self is the user unless specified otherwise

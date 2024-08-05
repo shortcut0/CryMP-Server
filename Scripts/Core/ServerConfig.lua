@@ -38,9 +38,29 @@ ServerConfig.Init = function(self)
         self.ActiveConfig = self.DefaultConfig
     end
 
+    -------------------
+    --- Init Logging!
     local aActive = (self:GetActiveConfig())
+    local iEntries = table.countRec(aActive.Config)
+    local iCVars = table.count(self.ModifiedCVars)
+
     ServerLog("Active Config: %s", aActive.ID)
-    ServerLog(" > Configuration Entries: %02d, CVars Changed: %02d", table.countRec(aActive.Config), table.count(self.ModifiedCVars))
+    ServerLog(" > Configuration Entries: %02d, CVars Changed: %02d", iEntries, iCVars)
+
+end
+
+-------------
+ServerConfig.PostInit = function(self)
+
+    ServerLog("Config.PostInit()")
+
+    -------------------
+    --- Init Logging!
+    local aActive = (self:GetActiveConfig())
+    local iEntries = table.countRec(aActive.Config)
+    local iCVars = table.count(self.ModifiedCVars)
+
+    Logger:LogEventTo(GetDevs(), eLogEvent_Config, "Selected Config %s with ${red}%d${gray} Modifications and ${red}%d${gray} CVars", aActive.ID, iEntries, iCVars)
 
 end
 

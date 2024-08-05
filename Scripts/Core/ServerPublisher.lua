@@ -5,15 +5,26 @@ ServerPublisher = (ServerPublisher or {
     RegisterEP = "/reg.php", -- Register Endpoint
     UpdateEP = "/up.php", -- Update Endpoint
 
+    Timeout = 30,
+
     DefaultHeaders = {
         ["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8"
+    },
+    JSONHeaders = {
+        ["Content-Type"] = "applicaton/json"
     },
 
     GameVersion = "6156",
 
     -----
+    UseJSONReport = true, -- Send Report as JSON Instead of literal url parameter
+
+    -----
     LastUpdate = timernew(0),
+    UpdateFail = timernew(0),
+    ExposedFail = timernew(0),
     UpdateRate = 30.0,
+    ErrorRecovery = 30.0,
     Description = "No Description Available.",
 
     MapLinkDir = (SERVER_DIR_DATA .. "\\"),
@@ -44,9 +55,13 @@ ServerPublisher.Init = function(self)
     self.MapLinks = table.merge(ConfigGet("Server.MapLinks", {}, eConfigGet_Array), self:LoadMapLinks())
 
     -----
+    self.ErrorRecovery = ConfigGet("Server.Report.ErrorRecovery", 10, eConfigGet_Number)
     self.UpdateRate = ConfigGet("Server.Report.UpdateRate", 30, eConfigGet_Number)
-    self.ServerDescription = ConfigGet("Server.Report.Description", "No Description Available.", eConfigGet_String)
+    self.Description = ConfigGet("Server.Report.Description", "No Description Available.", eConfigGet_String)
     self.Initialized = true
+
+    local sName = ConfigGet("Server.Report.Name", GetCVar("sv_servername)"), eConfigGet_String)
+    System.SetCVar("sv_servername", sName)
 end
 
 ----------------
@@ -77,9 +92,8 @@ ServerPublisher.LoadMapLinks = function(self)
                         aLinks[string.lower(sMap)] = sLink
                     end
                 else
-                    -- FIXME: Error Handler
-                    -- HandleError()
 
+                    HandleError("Failed to read Map Link file %s (%s)", ServerLFS.FileGetName(sFile), g_ts(sErr))
                     ServerLogError("Failed to read Map Link file %s (%s)", ServerLFS.FileGetName(sFile), g_ts(sErr))
                 end
 
@@ -89,9 +103,8 @@ ServerPublisher.LoadMapLinks = function(self)
                     if (table.size(hTemp) == 2) then
                         aLinks[string.lower(hTemp[1])] = hTemp[2]
                     else
-                        -- FIXME: Error Handler
-                        -- HandleError()
 
+                        HandleError("Bad Line (%d) in Map Links file %s (%s)", _, ServerLFS.FileGetName(sFile), g_ts(sErr))
                         ServerLogError("[%d] Bad Line in Map Links file %s (%s)", _, ServerLFS.FileGetName(sFile), g_ts(sErr))
                     end
                 end
@@ -103,9 +116,8 @@ ServerPublisher.LoadMapLinks = function(self)
                         aLinks[string.lower(aLink.map)] = aLink.link
                     end
                 else
-                    -- FIXME: Error Handler
-                    -- HandleError()
 
+                    HandleError("Failed to read Map Link file %s (%s)", ServerLFS.FileGetName(sFile), g_ts("Json Error"))
                     ServerLogError("Failed to read Map Link file %s (%s)", ServerLFS.FileGetName(sFile), g_ts("Json Error"))
                 end
 
@@ -132,7 +144,7 @@ ServerPublisher.OnTick = function(self)
 
     -- Update
     if (self.Exposed and self.ExposedSuccess) then
-        if (self.LastUpdate.expired()) then
+        if (self.LastUpdate.expired() or (self.UpdateFail and self.UpdateFail.expired())) then
             self.LastUpdate.refresh(self.UpdateRate)
             self:UpdateServer()
         end
@@ -142,22 +154,22 @@ end
 ----------------
 ServerPublisher.UpdateServer = function(self)
 
-    local hFail = self.ExposedFail
-    if (hFail and not hFail.expired()) then
-        return -- Prevent DDosing
-    end
+    self.UpdateFail = nil
 
-    local sBody = self:GetServerReport(eServerReport_Status)
+    local sBody = self:GetServerReport(eServerReport_Report)
     local aHeaders = self.DefaultHeaders
+    if (self.UseJSONReport) then
+        aHeaders = self.JSONHeaders
+    end
 
     ServerDLL.Request({
         url = (self.MasterAPI .. self.UpdateEP),
         method = "POST",
-        body = self:BodyToString(sBody),
+        body = sBody,
         headers = aHeaders,
-        timeout = 10,
-    }, function(...)
-        self:OnUpdated(...)
+        timeout = self.Timeout,
+    }, function(a,b,c)
+        ServerPublisher:OnUpdated(a, b, c)
     end)
 
     self:Log("Updating Server")
@@ -166,6 +178,7 @@ end
 ----------------
 ServerPublisher.OnUpdated = function(self, sError, sResponse, iCode)
 
+    self.UpdateFail = timernew(self.ErrorRecovery)
     if (iCode ~= 200) then
         return self:LogError("Status Update failed with code %d (%s)", checkNumber(iCode), g_ts(sError))
     end
@@ -174,6 +187,7 @@ ServerPublisher.OnUpdated = function(self, sError, sResponse, iCode)
         return self:LogError("Server Status Update failed")
     end
 
+    self.UpdateFail = nil
     self:Log("Server Status Updated")
 end
 
@@ -181,7 +195,7 @@ end
 ServerPublisher.OnExposed = function(self, sError, sResponse, iCode)
 
     self.Exposed = false
-    self.ExposedFail = timernew(10)
+    self.ExposedFail = timernew(self.ErrorRecovery)
 
     if (iCode ~= 200) then
         return self:LogError("Expose failed with code %d (%s)", checkNumber(iCode), g_ts(sResponse))
@@ -231,71 +245,119 @@ ServerPublisher.ExposeServer = function(self)
 
     local sBody = self:GetServerReport(eServerReport_Expose)
     local aHeaders = self.DefaultHeaders
+    if (self.UseJSONReport) then
+        aHeaders = self.JSONHeaders
+    end
 
     ServerDLL.Request({
-        url = (self.MasterAPI .. self.RegisterEP) .. "?" .. self:BodyToString(sBody),
+        url = (self.MasterAPI .. self.RegisterEP),
         method = "POST",
-        body = "",
+        body = sBody,
         headers = aHeaders,
-        timeout = 16,
+        timeout = self.Timeout,
     }, function(...)
-        self:OnExposed(...)
+        ServerPublisher:OnExposed(...)
     end)
 
     self.Exposed = true
     self.ExposedSuccess = false
 
-    self:Log("Exposing Server...")
+    self:Log("Exposing Server at %s...", (self.MasterAPI .. self.RegisterEP))
 end
 
 ----------------
 ServerPublisher.GetServerReport = function(self, iType)
 
-    local iPort         = GetCVar("sv_port")
+
+    -- Server Config
     local sName         = GetCVar("sv_servername")
-    local iPlayerCount  = (g_pGame:GetPlayerCount())
-    local iMaxPlayers   = GetCVar("sv_maxPlayers")
-    local sMapName      = ServerDLL.GetMapName()
-    local iTimeLeft     = (g_pGame:GetRemainingGameTime())
-    local sMapDownload  = self:GetMapDownloadLink()
+    local sPakLink      = self:GetServerPakLink()
     local sDesc         = Logger.Format(self:GetServerDescription())
-    local sLocal        = "127.0.0.1"
+    local sLocal        = "localhost"
     local sVersion      = self.GameVersion
-    local iRanked       = 1
-    local sPlayers      = self:GetPlayers()
+    local sPass         = (self:GetServerPassword() ~= "0" and "1" or "0")
+
+    -- Map Config
+    local iDirectX10    = 1
+    local sMapName      = ServerDLL.GetMapName()
+    local sMapTitle     = self:GetMapTitle(sMapName)
+    local sMapDownload  = self:GetMapDownloadLink()
+    local iTimeLeft     = (g_pGame:GetRemainingGameTime())
+
+    -- Player Config
+    local iMaxPlayers   = GetCVar("sv_maxPlayers")
+    local hPlayerList   = self:GetPlayers()
+    local iPlayerCount  = table.count(hPlayerList)
+    if (isString(hPlayerList)) then
+        iPlayerCount    = string.count(hPlayerList, "@")
+    end
+
+    -- Net Config
+    local iPort         = GetCVar("sv_port")
+    local iPublicPort   = GetCVar("sv_port")
+    local bGameSpy      = "0"
+
+    -- General Config
+    local iVoiceChat    = GetCVar("net_enable_voice_chat") >= 1
+    local iIsDedicated  = (ServerDLL.IsDedicated() and 1 or 0)
+    local iAntiCheat    = g_ts(GetCVar("sv_cheatprotection"))
+    local iGPOnly       = "0" -- FIXME
+    local iFriendlyFire = g_ts(GetCVar("g_friendlyFireRatio"))
+    local iRanked       = "1"
 
     ------
     if (SERVER_DEBUG_MODE) then
         iPlayerCount = (iPlayerCount + getrandom(50, 120))
-        sPlayers     = self:GetPlayers(iPlayerCount)
+        hPlayerList     = self:GetPlayers(iPlayerCount)
     end
 
     local aBody = {
-        port      = iPort,
-        maxpl     = iMaxPlayers,
-        numpl     = iPlayerCount,
-        name      = sName,
-        map       = sMapName,
-        timel     = iTimeLeft,
-        mapdl     = sMapDownload,
-        ver       = sVersion,
-        ranked    = iRanked,
-        desc      = sDesc,
-        ["local"] = sLocal -- Ughhh
+        cookie       = nil,
+        players      = nil,
+        port         = iPort,
+        gamespy      = bGameSpy,
+        desc         = sDesc,
+        timel        = iTimeLeft,
+        name         = sName,
+        numPlayers   = iPlayerCount,
+        maxpl        = iMaxPlayers,
+        pak          = sPakLink,
+        map          = sMapName,
+        mapnm        = sMapTitle,
+        mapdl        = sMapDownload,
+        pass         = sPass,
+        ranked       = iRanked,
+        gameVersion  = sVersion,
+        ["local"]    = sLocal,
+        public_port  = iPublicPort,
+        dx10         = iDirectX10,
+        voicechat    = iVoiceChat,
+        dedicated    = g_ts(iIsDedicated),
+        anticheat    = iAntiCheat,
+        gamepadsonly = iGPOnly,
+        friendlyfire = iFriendlyFire
     }
 
     if (iType == eServerReport_Status) then
         aBody.cookie  = self.Cookie
-        aBody.players = sPlayers
+        aBody.players = hPlayerList
     end
 
-    return aBody
+    if (self.UseJSONReport) then
+        return json.encode(aBody)
+    end
+
+    return self:BodyToString(aBody)
 end
 
 ----------------
 ServerPublisher.GetPlayers = function(self, iPopulate)
 
-    local sName, sRank, sKills, sDeaths, sProfile
+    local sName, sRank, sKills, sDeaths, sProfile, sTeam
+
+    local aPlayers = {}
+    local aPopulation = {}
+
     local sPlayers = ""
     local sPopulation = ""
 
@@ -307,8 +369,17 @@ ServerPublisher.GetPlayers = function(self, iPopulate)
             sKills   = getrandom(1, 100)
             sDeaths  = getrandom(1, 100)
             sProfile = "1008858"
+            sTeam    = getrandom(0, 2)
 
             sPopulation = string.format("%s@%s%%%s%%%s%%%s%%%s", sPopulation, sName, sRank, sKills, sDeaths, sProfile)
+            table.insert(aPopulation, {
+                name       = sName,
+                rank       = sRank,
+                kills      = sKills,
+                deaths     = sDeaths,
+                profile_id = sProfile,
+                team       = sTeam
+            })
         end
     end
 
@@ -316,20 +387,54 @@ ServerPublisher.GetPlayers = function(self, iPopulate)
     -- Implementation missing!
     for _, hClient in pairs(GetPlayers()) do
 
-        sName    = ServerDLL.URLEncode(hClient:GetName())
+        sName    = hClient:GetName()
         sRank    = hClient:GetRank()
         sKills   = hClient:GetKills()
         sDeaths  = hClient:GetDeaths()
         sProfile = hClient:GetProfileID()
+        sTeam    = hClient:GetTeam()
 
         sPlayers = string.format("%s@%s%%%s%%%s%%%s%%%s", g_ts(sPlayers), g_ts(sName), g_ts(sRank), g_ts(sKills), g_ts(sDeaths), g_ts(sProfile))
+        table.insert(aPlayers, {
+            name       = sName,
+            rank       = sRank,
+            kills      = sKills,
+            deaths     = sDeaths,
+            profile_id = sProfile,
+            team       = sTeam
+        })
+    end
+
+    if (self.UseJSONReport) then
+        return table.merge(aPlayers, aPopulation)
     end
     return (sPlayers .. sPopulation)
 end
 
 ----------------
+ServerPublisher.GetMapTitle = function(self, sMap)
+
+    local sForced = GetCVar("server_maptitle")
+    if (string.len(sForced) < 1 or sForced == "0") then
+        local sTitle = (string.match(string.lower(sMap), ".-/.-/(.*)") or sMap)
+        return string.capitalN(sTitle)
+    end
+    return sForced
+end
+
+----------------
 ServerPublisher.GetMapDownloadLink = function(self)
     return (self.MapLinks[string.lower(ServerDLL.GetMapName())] or "")
+end
+
+----------------
+ServerPublisher.GetServerPakLink = function(self)
+    return ConfigGet("Server.PAKUrl", "", eConfigGet_String)
+end
+
+----------------
+ServerPublisher.GetServerPassword = function(self)
+    return GetCVar("sv_password")
 end
 
 ----------------

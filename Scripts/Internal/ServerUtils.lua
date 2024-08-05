@@ -8,12 +8,15 @@ ServerUtils.Init = function(self)
     ------------
     self:InitEntityClasses()
 
+    --- Players
+    GetPlayers   = self.GetPlayers
+    GetPlayer    = self.GetPlayer
 
     --- Entities
-    GetPlayers   = self.GetPlayers
     GetEntities  = self.GetEntities
     GetEntity    = self.GetEntity
-    DeleteEntity = System.DeleteEntity
+    DeleteEntity = System.RemoveEntity
+    RemoveEntity = System.RemoveEntity
     SpawnEntity  = System.SpawnEntity
     IsEntity     = self.IsEntity
 
@@ -24,6 +27,53 @@ ServerUtils.InitEntityClasses = function(self)
 
     ENTITY_CLASS_PLAYER = "Player"
     ENTITY_CLASS_ALIEN  = "Alien"
+end
+
+----------------
+ServerUtils.GetPlayer = function(hId, bGreedy)
+
+    if (isString(hId)) then
+        local aFound = {}
+        local aChanFound = {}
+        local sId = string.lower(hId)
+        local bChan, iChan
+
+        for _, hClient in pairs(GetPlayers()) do
+            if (bGreedy) then
+                if (string.match(string.lower(hClient:GetName()), sId)) then
+                    table.insert(aFound, hClient)
+                end
+            elseif (string.match(hClient:GetName(), sId)) then
+                table.insert(aFound, hClient)
+            end
+
+            iChan = string.match(sId, "^chan(%d+)$")
+            if (iChan) then
+                if (hClient:GetChannel() == g_tn(iChan)) then
+                    table.insert(aChanFound, hClient)
+                end
+            end
+        end
+        local iResults = table.size(aFound)
+        if (table.count(aChanFound) == 1 and (iResults > 1 or iResults == 0)) then
+            return aChanFound[1]
+        end
+        if (iResults > 1) then
+            return
+        elseif (iResults == 0 and not bGreedy) then
+            return GetPlayer(sId, true)
+        end
+        return aFound[1]
+    end
+
+    local hPlayer = GetEntity(hId)
+    if (hPlayer) then
+        if (not hPlayer.IsPlayer) then
+            return
+        end
+    end
+
+    return
 end
 
 ----------------

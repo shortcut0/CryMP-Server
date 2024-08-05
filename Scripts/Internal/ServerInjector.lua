@@ -19,10 +19,14 @@ ServerInjector.Init = function(self)
     self:LoadFiles()
 
     ServerLog(LOG_STARS)
-    ServerLog("[%04d] Injections:", table.it(self.LOADED_FILES, function(x, i, v) return ((x or 0) + v.Injections) end))
+
+    local iTotalInjections = table.it(self.LOADED_FILES, function(x, i, v) return ((x or 0) + v.Injections) end)
+    ServerLog("[%04d] Injections:", iTotalInjections)
     for sFile, aData in pairs(self.LOADED_FILES) do
         ServerLog(" > [%-15s] Loaded: %5s, Calls: %02d, Injections: %03d", ServerLFS.FileGetName(sFile), g_ts(aData.Error ~= true), aData.Calls, aData.Injections)
     end
+
+    Logger:LogEventTo(GetDevs(), eLogEvent_ServerScripts, "Injected ${red}%d${gray} Script Functions..", iTotalInjections)
 end
 
 -------------------

@@ -35,6 +35,7 @@ ServerChannels.Init = function(self)
     ChannelExists = self.ChannelExists
 
     ServerLog("Loaded %d Saved IP Data", table.size(self.IPData))
+    Logger:LogEventTo(GetDevs(), eLogEvent_DataLog, "Loaded ${red}%d${gray} IP Database entries..", table.size(self.IPData))
 end
 
 -------------------
@@ -134,7 +135,7 @@ end
 
 -------------------
 ServerChannels.GetDefaultData = function(self)
-    return (self.Default)
+    return table.copy(self.Default)
 end
 
 -------------------
