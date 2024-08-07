@@ -15,6 +15,14 @@ CreateLocalization("l_commandresp_con_scripterror", {
     }
 })
 
+CreateLocalization("l_commandresp_con_premium", {
+    english = sCmdPreSpace .. "${gray}(${white}${1}: ${red}Failed: Reserved for Premium Members${grey})",
+})
+
+CreateLocalization("l_commandresp_con_noaccess", {
+    english = sCmdPreSpace .. "${gray}(${white}${1}: ${red}Failed: Insufficient Access${grey})",
+})
+
 CreateLocalization("l_commandresp_con_condition", {
     english = { regular = sCmdPreSpace .. "${gray}(${1}: ${red}Failed: Unfulfilled Conditions${gray})" }
 })
@@ -39,6 +47,7 @@ CreateLocalization("l_commandresp_con_noaccess", {
 CreateLocalization("l_commandresp_con_reserved", {
     english = { regular  = sCmdPreSpace .. "${gray}(${white}${1}: ${red}Reserved for {2}${grey})", }
 })
+
 
 ------------------------------------------------------
 ------------------------------------------------------
@@ -81,6 +90,14 @@ CreateLocalization("l_commandresp_chat_reserved", {
 
 CreateLocalization("l_commandresp_chat_manyfound", {
     english = { regular = "(${1}: Open your Console to view the ${2} Results)" }
+})
+
+CreateLocalization("l_commandresp_chat_premium", {
+    english = "(${1}: Reserved for Premium)"
+})
+
+CreateLocalization("l_commandresp_chat_noaccess", {
+    english = "(${1}: Insufficient Access)"
 })
 
 
@@ -148,3 +165,34 @@ CreateLocalization("l_commandarg_toohigh", {
 
 ------------------------------------------------------
 ------------------------------------------------------
+CreateLocalization("l_ui_no_description", {
+    english = "No Description Available",
+    russian = "Net Opisaniya",
+    turkish = "Aciklama Yok",
+    german = "Keine Beschreibung",
+    spanish = "Sin Descripcion"
+})
+
+CreateLocalization("l_ui_command_desc_commands", {
+    english = "Lists all Available Commands to your Console",
+    russian = "Spisok vsekh dostupnykh komand dlya vashey konsoli",
+    turkish = "Konsolunuzdaki Tüm Kullanilabilir Komutlari Listeler",
+    german = "Listet alle verfügbaren Befehle auf Ihrer Konsole auf",
+    spanish = "Lista todos los comandos disponibles en tu consola"
+})
+
+CreateLocalization("l_ui_commands_openconsole", {
+    english = "Open your Console to View the List of Available Commands!",
+    russian = "Otkroyte konsol dlya prosmotra spiska dostupnykh komand!",
+    turkish = "Mevcut Komutlarin Listesini Görmek Icin Konsolunuzu Acin!",
+    german = "Öffnen Sie Ihre Konsole, um die Liste der verfügbaren Befehle anzuzeigen!",
+    spanish = "¡Abre tu consola para ver la lista de comandos disponibles!"
+})
+
+CreateLocalization("l_ui_commands_help", {
+    english = "${yellow}INFO: ${gray}Type ${white}!${gray}Command ${yellow}--help ${gray} To View Info about a Command",
+    russian = "${yellow}INFO: ${gray}Vvedite ${white}!${gray}Komanda ${yellow}--help ${gray} dlya prosmotra informatsii o komande",
+    turkish = "${yellow}BILGI: ${gray}${white}!${gray}Komut ${yellow}--yardim ${gray} yazarak bir komut hakkinda bilgi edinebilirsiniz",
+    german = "${yellow}INFO: ${gray}Geben Sie ${white}!${gray}Befehl ${yellow}--hilfe ${gray} ein, um Informationen zu einem Befehl anzuzeigen",
+    spanish = "${yellow}INFO: ${gray}Escribe ${white}!${gray}Comando ${yellow}--ayuda ${gray} para ver información sobre un comando"
+})

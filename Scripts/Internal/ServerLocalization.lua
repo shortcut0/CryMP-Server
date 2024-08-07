@@ -23,14 +23,7 @@ ServerLocale.Init = function(self)
     local aLocalizationData = self.Localization
     local sLog = string.format("Loaded ${red}%d${gray} Localizations", table.count(aLocalizationData))
 
-    ServerLog(sLog)
     Logger:LogEventTo(GetDevs(), eLogEvent_ServerLocale, sLog)
-
-    for sLocale, aInfo in pairs(aLocalizationData) do
-    --    ServerLog(" [%-30s] Languages: %d", sLocale, table.count(aInfo))
-    end
-
-
 end
 
 ----------------
@@ -63,7 +56,7 @@ ServerLocale.LocalizeText = function(self, sId, sLang, bForceExt)
     local aLocale = self.Localization[sId]
 
     if (not sId) then
-        error("no id")
+        throw_error("no id")
     end
 
     if (string.find(sId, " ") or not string.fc(sId, "@")) then

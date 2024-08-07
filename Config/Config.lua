@@ -34,6 +34,9 @@ ConfigCreate({
         ---> Command Configuration
         Commands = {
 
+            --- Create Server Console Command Representation of each Command (server_cmd_*)
+            CreateCCommand = true,
+
             --- Available Prefixes to trigger commands
             CommandPrefixes = {
                 "!",
@@ -55,15 +58,15 @@ ConfigCreate({
             ---  > Color,    The Color used when displaying this Rank
             RankList = {
             ---   Authority        Global Identifier  Name                  Color                Will be assigned to new players
-                { Authority   = 0, ID = "GUEST",      Name = "Guest",       Color = CRY_COLOR_GREEN, Default = true },
-                { Authority   = 1, ID = "PLAYER",     Name = "Player",      Color = CRY_COLOR_WHITE },
-                { Authority   = 2, ID = "PREMIUM",    Name = "Premium",     Color = CRY_COLOR_WHITE },
-                { Authority   = 3, ID = "MODERATOR",  Name = "Moderator",   Color = CRY_COLOR_WHITE },
-                { Authority   = 4, ID = "ADMIN",      Name = "Admin",       Color = CRY_COLOR_WHITE },
-                { Authority   = 5, ID = "HEADADMIN",  Name = "HeadAdmin",   Color = CRY_COLOR_WHITE },
+                { Authority   = 0, ID = "GUEST",      Name = "Guest",       Color = CRY_COLOR_GREEN,    Default = true },
+                { Authority   = 1, ID = "PLAYER",     Name = "Player",      Color = CRY_COLOR_WHITE                    },
+                { Authority   = 2, ID = "PREMIUM",    Name = "Premium",     Color = CRY_COLOR_BLUE,     Premium = true },
+                { Authority   = 3, ID = "MODERATOR",  Name = "Moderator",   Color = CRY_COLOR_ORANGE                   },
+                { Authority   = 4, ID = "ADMIN",      Name = "Admin",       Color = CRY_COLOR_RED                      },
+                { Authority   = 5, ID = "HEADADMIN",  Name = "HeadAdmin",   Color = CRY_COLOR_RED                      },
                 { Authority   = 6, ID = "SUPERADMIN", Name = "SuperAdmin",  Color = CRY_COLOR_WHITE }, -- indicating that this class is a developer class
-                { Authority   = 7, ID = "DEVELOPER",  Name = "Developer",   Color = CRY_COLOR_WHITE, Developer = true },
-                { Authority   = 8, ID = "OWNER",      Name = "Owner",       Color = CRY_COLOR_WHITE, Developer = true }
+                { Authority   = 7, ID = "DEVELOPER",  Name = "Developer",   Color = CRY_COLOR_MAGENTA,  Developer = true },
+                { Authority   = 8, ID = "OWNER",      Name = "Owner",       Color = CRY_COLOR_MAGENTA,  Developer = true }
             }
 
         }, ---< Ranks
@@ -125,8 +128,112 @@ ConfigCreate({
         General = {
 
             -----------------------
+            --- Ping Control Config
+            PingControl = {
+
+                -- Fixed Ping for all Players
+                FixedPing = -1,
+
+                -- Ping Multiplier for all Players
+                PingMultiplier = 1.0,
+
+                ---------------
+                --- Ping Limits
+                PingLimit = {
+
+                    -- Which type of ping to check
+                    -- Real = Real Ping
+                    -- Fake = Fake Ping (Server Influenced, by the variables above)
+                    CheckType = "Real",
+
+                    -- Maximum ping after which the player will receive a warning
+                    Limit = 300,
+
+                    -- Infaction Delay (in seconds)
+                    InfractionDelay = 3,
+
+                    -- Maximum infractions after which the Player will be kicked
+                    MaxInfractions = 3,
+
+                    -- Warning Message
+                    WarningMessage = "@l_ui_pingwarning",
+
+                    -- Amount of time to ban after exceeding infeaction limit
+                    -- If it's 0, the player will only be kicked
+                    BanTime = 0,
+
+
+
+                } ---< PingLimit
+
+            }, ---< PingControl
+
+            -----------------------
             ---> Game Rule Specific
             GameRules = {
+
+                ----------------------
+                --- Hit Configuration
+                HitConfig = {
+
+                    --------------
+                    --- Team Kills
+                    TeamKills = {
+
+                        -- Damage Multiplier for hitting teammates
+                        DamageMultiplier = 0.0, -- disabled
+
+                        -- Threshold after which the player gets punished
+                        PunishThreshold = 5,
+
+                        -- Ban time (0 for kick)
+                        BanTime = 0,
+
+                    }, ---< TeamKills
+
+                    -- Deduct rewards for killing bots
+                    DeductBotKills = false,
+
+                    -- Deduct Kills for killing teammates
+                    DeductTeamKills = 1,
+
+                    -- Deduct kills for suiciding
+                    DeductSuicideKills = 0,
+
+                    -- Add Deaths for suiciding (1 + this)
+                    SuicideAddDeaths = 0,
+
+                    -- If Server give out assistance based rewards for kills
+                    KillAssistanceRewards = true,
+
+                    -- timeout for assisting in kills
+                    KillAssistanceTimeout = 12.5,
+
+                    -- The assistance calulation type
+                    -- 1 = Divide rewards by amount of damage dealt
+                    -- 2 = Divide by the amount of hits landed
+                    KillAssistanceType = 1,
+
+                    -- The Minimum threshold to receive a share of the rewards (in percentage)
+                    KillAssistanceThreshold = 5,
+
+                }, ---< HitConfig
+
+                -------------------------
+                -- Prestige Configuration
+                Prestige = {
+
+                    -- Awards Players who captured a bunker prestige when someone spawns there
+                    -- Or when a Player spawns in someones vehicle
+                    AwardSpawnPrestige = true,
+
+                    -- For Bunkers
+                    BunkerSpawnAward = 100,
+
+                    -- For Vehicles
+                    VehicleSpawnAward = 100
+
+                }, ---< Prestige
 
                 -- Skip Pre Game?
                 SkipPreGame = true,

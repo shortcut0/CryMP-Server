@@ -6,40 +6,41 @@ Logger = {
 }
 
 ----------------
+
+LOG_STARS           = string.rep("*", 40)
+CLIENT_CONSOLE_LEN  = 113 -- Length of the client console
+
+----------------
+
+LOG_NORMAL  = 0
+LOG_ERROR   = 1
+LOG_WARNING = 2
+
+----------------
+
+eLogEvent_Server            = 0
+eLogEvent_Connection        = 1
+eLogEvent_ScriptError       = 2
+eLogEvent_ChatMessageAll    = 3
+eLogEvent_ChatMessageTeam   = 4
+eLogEvent_ChatMessageTarget = 5
+eLogEvent_Command           = 6
+eLogEvent_Commands          = 7
+eLogEvent_Config            = 8
+eLogEvent_DataLog           = 9
+eLogEvent_ServerScripts     = 10
+eLogEvent_ServerLocale      = 11
+eLogEvent_Plugins           = 12
+eLogEvent_Debug             = 13
+
+--------------------------------
+--- Init
 Logger.Init = function(self)
 
     -------------
     ServerLog("Logger.Init()")
 
     -------------
-    LOG_STARS = string.rep("*", 40)
-
-    CLIENT_CONSOLE_LEN = 113 -- Length of the client console
-
-    LOG_NORMAL = 0
-    LOG_ERROR = 1
-    LOG_WARNING = 2
-
-    -------------
-    -- Log Events
-    eLogEvent_Server        = 0
-    eLogEvent_Connection    = 1
-    eLogEvent_ScriptError   = 2
-
-    eLogEvent_ChatMessageAll    = 3
-    eLogEvent_ChatMessageTeam   = 4
-    eLogEvent_ChatMessageTarget = 5
-
-    eLogEvent_Command           = 6
-    eLogEvent_Commands          = 7
-
-    -- FIXME: !!
-    eLogEvent_Config        = 8
-    eLogEvent_DataLog       = 9
-    eLogEvent_ServerScripts = 10
-    eLogEvent_ServerLocale  = 11
-    eLogEvent_Plugins       = 12
-    eLogEvent_Debug         = 13
 
     -- Must be done twice, now? and after ranks are initialized .. oof!
     self:InitLogEvents()
@@ -71,7 +72,8 @@ Logger.Init = function(self)
     g_Logger = self
 end
 
-----------------
+--------------------------------
+--- Init
 Logger.InitLogEvents = function(self, iEvent, sMessage, ...)
 
 
@@ -208,7 +210,8 @@ Logger.InitLogEvents = function(self, iEvent, sMessage, ...)
 
 end
 
-----------------
+--------------------------------
+--- Init
 Logger.LogToServer = function(self, aInfo, sMessage, ...)
 
     local sLocalized = sMessage
@@ -221,11 +224,12 @@ Logger.LogToServer = function(self, aInfo, sMessage, ...)
         end
     end
 
-    ServerLog("(%s) %s", (aInfo.Tag or "Server"), (sLocalized or "No Message"))
+    local sFinalMsg = self.Format(string.format("(%s) %s", (aInfo.Tag or "Server"), (sLocalized or "No Message")))
+    ServerLog(sFinalMsg)
 end
 
-
-----------------
+--------------------------------
+--- Init
 Logger.LogEvent = function(self, iEvent, sMessage, ...)
 
     local aInfo = self.LOG_EVENTS[iEvent]
@@ -234,7 +238,7 @@ Logger.LogEvent = function(self, iEvent, sMessage, ...)
     end
 
     if (not sMessage) then
-        error("no message")
+        throw_error("no message")
     end
 
     -----------
@@ -248,16 +252,17 @@ Logger.LogEvent = function(self, iEvent, sMessage, ...)
     self:LogToServer(aInfo, sMessage, ...)
 end
 
-----------------
+--------------------------------
+--- Init
 Logger.LogEventTo = function(self, aClients, iEvent, sMessage, ...)
 
     local aInfo = self.LOG_EVENTS[iEvent]
     if (not isArray(aInfo)) then
-        return error("info not found?")
+        return throw_error("info not found?")
     end
 
     if (not sMessage) then
-        error("no message")
+        throw_error("no message")
     end
 
     -----------
@@ -271,16 +276,17 @@ Logger.LogEventTo = function(self, aClients, iEvent, sMessage, ...)
     self:LogToServer(aInfo, sMessage, ...)
 end
 
-----------------
+--------------------------------
+--- Init
 Logger.LogChatEvent = function(self, iLogType, iChatType, sMessage, hSender, aClients, sChatMsg)
 
     local aInfo = self.LOG_EVENTS[iLogType]
     if (not isArray(aInfo)) then
-        return error("info not found?")
+        return throw_error("info not found?")
     end
 
     if (not sMessage) then
-        error("no message")
+        throw_error("no message")
     end
 
     -----------
@@ -320,12 +326,13 @@ Logger.LogChatEvent = function(self, iLogType, iChatType, sMessage, hSender, aCl
     self:LogToServer(aInfo, sMessage, sSenderName, sChatMsg)
 end
 
-----------------
+--------------------------------
+--- Init
 Logger.LogCommandEvent = function(self, aClients, sLocale, ...)
 
     local aInfo = self.LOG_EVENTS[eLogEvent_Command]
     if (not sLocale) then
-        error("no sLocale")
+        throw_error("no sLocale")
     end
 
     -----------
@@ -339,20 +346,24 @@ Logger.LogCommandEvent = function(self, aClients, sLocale, ...)
     self:LogToServer(aInfo, sMessage, ...)
 end
 
-----------------
+--------------------------------
+--- Init
 Logger.LogToPlayers = function(self, aInfo, sMessage, aFormat, aClients, sLogTag)
 
     sMessage = self:ReplaceColors(sMessage)
     aClients = (aClients or GetPlayers())
     if (table.empty(aClients)) then
-        return ServerLog("No Clients")
+        return
     end
 
     local sEntity = string.format((aInfo.TagClass or "$9" .. (self.LogTag) .. "(%s%s$9)"), aInfo.Color, aInfo.Tag)
     local sAppendTag = aInfo.AppendTag
 
     local iRankExtended = (aInfo.Access.Extended) -- Rank required to view a the extended message
-    local iRankNormal = (aInfo.Access.Regular)    -- Rank required to view a the regular message
+    local iRankNormal = (aInfo.Access.Regular)-- or GetLowestRank())    -- Rank required to view a the regular message
+    if (not iRankNormal) then
+        throw_error("no rank ?")
+    end
     local bExtended = (iRankExtended == nil)      -- Can a user see the extended message?)
 
     local sLocalized
@@ -366,7 +377,10 @@ Logger.LogToPlayers = function(self, aInfo, sMessage, aFormat, aClients, sLogTag
 
         if (hClient.IsPlayer) then
             -- the clients rank (access)
-            iRank = hClient:GetAccess()
+            iRank = (hClient:GetAccess() or 0)
+            if (not iRank) then
+                throw_error("no rank???")
+            end
 
             -- the language of the client
             sLang = (hClient:GetPreferredLanguage() or SERVER_LANGUAGE)
@@ -377,7 +391,7 @@ Logger.LogToPlayers = function(self, aInfo, sMessage, aFormat, aClients, sLogTag
             -- can the user view the message?
             if (iRank >= iRankNormal) then
                 sLocalized = sMessage
-                sLocalizedExtended = sMessage
+                sExtended = sMessage
                 if (not aInfo.NoLocale) then
                     sLocalized, sExtended = Localize(sMessage, sLang)
                     if (sLocalized == nil) then
@@ -407,17 +421,20 @@ Logger.LogToPlayers = function(self, aInfo, sMessage, aFormat, aClients, sLogTag
     end
 end
 
-----------------
+--------------------------------
+--- Init
 Logger.FormatTime = function(iTime, iStyle)
     return (string.formatex(sMessage, unpack(aFormat)))
 end
 
-----------------
+--------------------------------
+--- Init
 Logger.FormatMessage = function(self, sMessage, aFormat)
     return (string.formatex(sMessage, unpack(aFormat)))
 end
 
-----------------
+--------------------------------
+--- Init
 Logger.FormatLocalized = function(self, sMessage, aFormat)
 
     local sFormatted = sMessage
@@ -428,7 +445,8 @@ Logger.FormatLocalized = function(self, sMessage, aFormat)
     return self:ReplaceColors(sFormatted)
 end
 
-----------------
+--------------------------------
+--- Init
 Logger.ReplaceColors = function(self, sMessage)
 
     local aColors = {
@@ -455,7 +473,8 @@ Logger.ReplaceColors = function(self, sMessage)
     return sFixed
 end
 
-----------------
+--------------------------------
+--- Init
 Logger.Format = function(sMessage, aFormatAppend)
 
     local aFormat = table.merge({
@@ -475,17 +494,19 @@ Logger.Format = function(sMessage, aFormatAppend)
     return Logger:ReplaceColors(sFormatted)
 end
 
-----------------
+--------------------------------
+--- Init
 Logger.FormatError = function(sMessage)
     local sFormatted
     return (sFormatted or sMessage)
 end
 
-----------------
+--------------------------------
+--- Init
 Logger.CreateLogFunction = function(self, iType, fBase, sPrefix)
 
     local f = function(this, s, ...)
-        local n = ((sPrefix or "")) .. s
+        local n = ((sPrefix or "")) .. g_ts(s)
         if (#{...} > 0) then
             n = string.format(n, ...)
         end
@@ -510,7 +531,8 @@ Logger.CreateLogFunction = function(self, iType, fBase, sPrefix)
     return fLog
 end
 
-----------------
+--------------------------------
+--- Init
 Logger.CreateAbstract = function(self, aParams)
 
     local hLogger = Logger

@@ -1,6 +1,6 @@
 -------------------
 ServerInjector = {
-    Pending = {}, -- ???
+    QueuedFunctions = {},
 
     FILE = nil,
     LOADED_FILES = {},
@@ -17,13 +17,15 @@ ServerInjector.Init = function(self)
 
     self.LOADED_FILES = {}
     self:LoadFiles()
-
-    ServerLog(LOG_STARS)
+    self:ExecuteQueue()
 
     local iTotalInjections = table.it(self.LOADED_FILES, function(x, i, v) return ((x or 0) + v.Injections) end)
-    ServerLog("[%04d] Injections:", iTotalInjections)
-    for sFile, aData in pairs(self.LOADED_FILES) do
-        ServerLog(" > [%-15s] Loaded: %5s, Calls: %02d, Injections: %03d", ServerLFS.FileGetName(sFile), g_ts(aData.Error ~= true), aData.Calls, aData.Injections)
+    if (SERVER_DEBUG_MODE) then
+        ServerLog(LOG_STARS)
+        ServerLog("[%04d] Injections:", iTotalInjections)
+        for sFile, aData in pairs(self.LOADED_FILES) do
+            ServerLog(" > [%-15s] Loaded: %5s, Calls: %02d, Injections: %03d", ServerLFS.FileGetName(sFile), g_ts(aData.Error ~= true), aData.Calls, aData.Injections)
+        end
     end
 
     Logger:LogEventTo(GetDevs(), eLogEvent_ServerScripts, "Injected ${red}%d${gray} Script Functions..", iTotalInjections)
@@ -57,6 +59,22 @@ ServerInjector.LoadFiles = function(self)
 end
 
 -------------------
+ServerInjector.ExecuteQueue = function(self)
+
+    if (table.empty(self.QueuedFunctions)) then
+        return
+    end
+
+    for _, aCall in pairs(self.QueuedFunctions) do
+        for __, hFunc in pairs(aCall[2]) do
+            hFunc(aCall[1])
+        end
+    end
+
+    self.QueuedFunctions = nil
+end
+
+-------------------
 ServerInjector.InjectAll = function(aArray)
 
     local sFile = (ServerInjector.FILE)
@@ -84,8 +102,8 @@ ServerInjector.InjectAll = function(aArray)
         end
     end
 
-    for _, fFunc in pairs(aFuncs) do
-        fFunc(aHost)
+    if (not table.empty(aFuncs)) then
+        table.insert(ServerInjector.QueuedFunctions, { aHost, aFuncs })
     end
 end
 
@@ -93,15 +111,11 @@ end
 -------------------
 ServerInjector.Inject = function(aParams)
 
-    local sEntity = aParams.Class
-    local hEntity = aParams.Entity
-
-    local sTarget = aParams.Target
-
-    local sFunction = aParams.Target
+    local sEntity   = aParams.Class
+    local hEntity   = aParams.Entity
+    local sTarget   = aParams.Target
     local fFunction = aParams.Function
-
-    local iType = (aParams.Type or eInjection_Replace)
+    local iType     = (aParams.Type or eInjection_Replace)
 
     if (hEntity) then
         ServerInjector.InjectEntity(aParams)
@@ -118,13 +132,24 @@ ServerInjector.Inject = function(aParams)
     end
 
     local function Replace(sT, c, f)
+
+        --Debug(string.format("replace %s on %s",sT,g_ts(c)))
         local aNest = string.split(sT, ".")
         local iNest = table.size(aNest)
         if (iNest == 1) then
-            c[sT] = f
+            if (iType == eInjection_Replace) then
+                c[sT] = f
+            else
+
+                -- FIXME
+                throw_error("implementation missing")
+            end
         else
-            table.remove(aNest, 1)
-            return Replace(table.concat(aNest, "."), c, f)
+            local h = table.remove(aNest, 1)
+            if (not c[h]) then
+                throw_error("index " .. g_ts(h) .. " not found")
+            end
+            return Replace(table.concat(aNest, "."), c[h], f)
         end
     end
 

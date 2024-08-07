@@ -14,9 +14,7 @@ ServerPlugins.Init = function(self)
     end
 
     self:LoadPlugins()
-
-    ServerLog("Loaded %d Plugins", table.count(self.Plugins))
-    Logger:LogEvent(eLogEvent_Plugins, "Loaded %d Plugins", table.count(self.Plugins))
+    Logger:LogEvent(eLogEvent_Plugins, "Loaded ${red}%d${gray} Plugins", table.count(self.Plugins))
 end
 
 -------------------

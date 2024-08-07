@@ -57,7 +57,7 @@ end
 string.capitalN = function(s, c)
 	if (string.empty(s)) then return "" end
 	if (string.len(s) == 1) then return string.upper(s) end
-	local b = string.sub(s, (c or 1), (c or 1))
+	local b = string.sub(s, 1, (c or 1))
 	return string.upper(b) .. (string.lower(string.sub(s, (c or 1) + 1)) or "")
 end
 
@@ -374,11 +374,11 @@ string.mspace = function(s, space, s_len_div, sClean, sChar)
 	end
 
 	------------
-	local s_len = (iLen) / (s_len_div or 1);
-	local side_len = math.floor((space / 2) - (s_len / 2));
+	local s_len = (iLen) / (s_len_div or 1)
+	local side_len = math.floor((space / 2) - (s_len / 2))
 
-	local add = side_len * 2 + s_len < space;
-	return string.rep(checkVar(sChar, " "), math.floor(side_len)) .. s .. string.rep(checkVar(sChar, " "), add and side_len + 1 or side_len);
+	local add = side_len * 2 + s_len < space
+	return string.rep(checkVar(sChar, " "), math.floor(side_len)) .. s .. string.rep(checkVar(sChar, " "), add and side_len + 1 or side_len)
 
 end
 
@@ -403,13 +403,30 @@ end
 string.repeats = function(s, iRepeats)
 
 	--------
-	if (not isNumber(iRepeats) or iRepeats <= 1) then
-		return s end
+	local patt_a = "{%%a:(.-)%}"
 
 	--------
-	local sResult = s
+	local sAppend = (string.match(s, patt_a) or "")
+	local sResult = string.gsuba(s, {
+		{ "%%1", 1 },
+		{ patt_a, "" }
+	})
+	if (iRepeats == 0) then return "" end
+	if (iRepeats == 1) then return sResult end
+
+	--------
+	sResult = string.gsuba(s, {
+		{ "%%1", 1 },
+		{ patt_a, sAppend }
+	})
 	for i = 1, (iRepeats - 1) do
-		sResult = sResult .. s
+		if (i == (iRepeats - 1)) then
+			sAppend = ""
+		end
+		sResult = sResult .. string.gsuba(s, {
+			{ "%%1", (i + 1) },
+			{ patt_a, sAppend }
+		})
 	end
 
 	--------
@@ -726,9 +743,29 @@ string.randomize = function(s)
 end
 
 ---------------------------
--- string.split
+-- string.splitG
+-- the better .split!
 
-string.split = function(sString, sDelims)
+string.splitG = function(s, d)
+	local a = {}
+	for split in string.gmatch(s, d) do
+		table.insert(a, split)
+	end
+	return a
+end
+
+---------------------------
+-- string.split
+-- NOTE:
+-- THis function is (basically) the same as string.gmatch but WORSE.
+-- "Fixing" it is too late since it's been implemented in too many places
+-- And the Syntax for .gmatch is a little different.
+-- split(x, "\n") here is the same as .gmatch("[^\n]+,
+-- so just using .gmatch here will cause massive problems in all places that
+-- utilize "\n" as the split character!!
+-- just let this be as it is for now!
+
+string.split = function(sString, sDelims, level)
 
 	if (string.empty(sString)) then
 		return {}
@@ -741,24 +778,41 @@ string.split = function(sString, sDelims)
 
 	local iDelimsLen = string.len(sDelims)
 	if (iDelimsLen <= 1) then
-		iDelimsLen = 0 end
+		iDelimsLen = 0
+	else
+		iDelimsLen = iDelimsLen - 1
+	end
 
 	local aRes = {}
 	local sCollect = ""
+	local nSkip
 	for i = 1, iString do
-		local sChar = string.sub(sString, i, i + iDelimsLen)
-		if (sDelims == "") then
-			table.insert(aRes, sChar)
-		elseif (sChar == sDelims) then
-			table.insert(aRes, sCollect)
-			sCollect = ""
-		else
-			sCollect = sCollect .. string.sub(sString, i, i)
-		end
 
-		if (sCollect ~= "" and i == iString) then
-			table.insert(aRes, sCollect)
+		if (not nSkip or i >= nSkip) then
+
+			local sChar = string.sub(sString, i, i + iDelimsLen)
+			if (sDelims == "") then
+				table.insert(aRes, sChar)
+			elseif (sChar == sDelims) then
+
+				if (sCollect ~= "" or (i > 1 and i < iString)) then
+					table.insert(aRes, sCollect)
+				end
+				nSkip = (i + iDelimsLen + 1)
+				sCollect = ""
+			else
+				sCollect = sCollect .. string.sub(sString, i, i)
+			end
+
+			if (sCollect ~= "" and i == iString) then
+				table.insert(aRes, sCollect)
+			end
+
 		end
+	end
+
+	for i = 1, (level or 0) do
+		table.popFirst(aRes, i)
 	end
 	return aRes
 

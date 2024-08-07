@@ -11,10 +11,20 @@ ServerConfig = (ServerConfig or {
 })
 
 -------------
+
 ServerConfig.ActiveConfig = nil
 ServerConfig.LoadedConfigs = {}
 
 -------------
+
+eConfigGet_Any     = 0
+eConfigGet_Number  = 1
+eConfigGet_String  = 2
+eConfigGet_Boolean = 3
+eConfigGet_Array   = 4
+
+--------------------------------
+--- Init
 ServerConfig.Init = function(self)
 
     ServerLog("Config.Init()")
@@ -22,12 +32,6 @@ ServerConfig.Init = function(self)
     -----
     ConfigGet = self.Get
     ConfigCreate = self.Create
-
-    eConfigGet_Any     = 0
-    eConfigGet_Number  = 1
-    eConfigGet_String  = 2
-    eConfigGet_Boolean = 3
-    eConfigGet_Array   = 4
 
     -----
     self:LoadServerConfig()
@@ -49,7 +53,8 @@ ServerConfig.Init = function(self)
 
 end
 
--------------
+--------------------------------
+--- Init
 ServerConfig.PostInit = function(self)
 
     ServerLog("Config.PostInit()")
@@ -61,10 +66,10 @@ ServerConfig.PostInit = function(self)
     local iCVars = table.count(self.ModifiedCVars)
 
     Logger:LogEventTo(GetDevs(), eLogEvent_Config, "Selected Config %s with ${red}%d${gray} Modifications and ${red}%d${gray} CVars", aActive.ID, iEntries, iCVars)
-
 end
 
--------------
+--------------------------------
+--- Init
 ServerConfig.LoadServerConfig = function(self)
 
     local aFiles = ServerLFS.DirGetFiles(SERVER_DIR_CONFIG, GETFILES_FILES, ".*\.lua$")
@@ -80,36 +85,37 @@ ServerConfig.LoadServerConfig = function(self)
             -- TODO: Error Handler
             -- ErrorHandler()
 
-            ServerLogError("Failed to load Config file %s (%s)", ServerLFS.FileGetName(sFile), FileLoader.LAST_ERROR)
+            HandleError("Failed to load Config file %s (%s)", ServerLFS.FileGetName(sFile), FileLoader.LAST_ERROR)
         end
 
         iConfigCount = table.count(self.LoadedConfigs)
         if (iConfigCount == iLastCount) then
-            ServerLogWarning("File %s is not a proper Config file!", ServerLFS.FileGetName(sFile))
+            HandleError("File %s is not a proper Config file!", ServerLFS.FileGetName(sFile))
         end
 
         iLastCount = iConfigCount
     end
 end
 
--------------
+--------------------------------
+--- Init
 ServerConfig.Create = function(aConfig)
 
     if (not aConfig) then
-        error("ConfigCreate() no config provided")
+        throw_error("ConfigCreate() no config provided")
     end
 
     if (not isArray(aConfig)) then
-        error("ConfigCreate() config provided is not an array")
+        throw_error("ConfigCreate() config provided is not an array")
     end
 
     if (not isArray(aConfig.Config)) then
-        error("ConfigCreate() config provided in arg is not an array")
+        throw_error("ConfigCreate() config provided in arg is not an array")
     end
 
     local sId = checkString(aConfig.ID, ServerConfig:GetConfigId())
     if (ServerConfig:GetConfig(sId)) then
-        error(string.format("Config %s already exists", sId))
+        throw_error(string.format("Config %s already exists", sId))
     end
 
     ServerConfig.LoadedConfigs[sId] = aConfig
@@ -122,7 +128,8 @@ ServerConfig.Create = function(aConfig)
     end
 end
 
--------------
+--------------------------------
+--- Init
 ServerConfig.SetActiveConfig = function(self, sId)
 
     ServerLog("Activating Config %s", sId)
@@ -139,7 +146,8 @@ ServerConfig.SetActiveConfig = function(self, sId)
     end
 end
 
--------------
+--------------------------------
+--- Init
 ServerConfig.ResolveConfig = function(self, aData, sTrace)
 
     if (not isArray(aData)) then
@@ -185,7 +193,8 @@ ServerConfig.ResolveConfig = function(self, aData, sTrace)
     end
 end
 
--------------
+--------------------------------
+--- Init
 ServerConfig.RestoreCVars = function(self)
 
     local aOriginal = self.ModifiedCVars
@@ -198,7 +207,8 @@ ServerConfig.RestoreCVars = function(self)
     self.ModifiedCVars = {}
 end
 
--------------
+--------------------------------
+--- Init
 ServerConfig.ChangeCVars = function(self, aList, bNoSave)
 
     if (not isArray(aList)) then
@@ -217,22 +227,26 @@ ServerConfig.ChangeCVars = function(self, aList, bNoSave)
     end
 end
 
--------------
+--------------------------------
+--- Init
 ServerConfig.GetActiveConfig = function(self, sId)
     return (self.ActiveConfig)
 end
 
--------------
+--------------------------------
+--- Init
 ServerConfig.GetConfig = function(self, sId)
     return self.LoadedConfigs[sId]
 end
 
--------------
+--------------------------------
+--- Init
 ServerConfig.GetConfigId = function(self)
     return (string.format("Config-%02d", table.count(self.LoadedConfigs)))
 end
 
--------------
+--------------------------------
+--- Init
 ServerConfig.Get = function(sGet, hDefault, iType)
     local hValue = checkGlobal("ServerConfig.ActiveConfig.Config." .. sGet, hDefault)
 

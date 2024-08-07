@@ -13,18 +13,25 @@ luautils = {
 }
 
 ---------------------------
+
+luautils.ERROR_HANDLER = nil
+
+---------------------------
 -- luautils.throw_error
 
 luautils.throw_error = function(sMessage)
 
 
+	ERROR_THROWN = true
+
 	local sMsg = string.format("Error Thrown (%s)\n\t%s", tostring(sMessage), tostring(tracebackEx()))
-	local fMsg = (luautils.ErrorMessageHandler)
-	if (fMsg) then
-		--fMsg(sMsg)
+	local fHandle = (luautils.ERROR_HANDLER)
+	if (fHandle) then
+		fHandle(sMsg)
 	end
 
 	error(sMsg)
+
 
 	--local i = 0
 	--while ((_G["nothing_" .. i]) ~= nil) do
@@ -514,7 +521,7 @@ luautils.switch = function(value)
                 return hDef
             end
         else
-            error("No case found for value: " .. tostring(value))
+			throw_error("No case found for value: " .. tostring(value))
         end
     end
 end

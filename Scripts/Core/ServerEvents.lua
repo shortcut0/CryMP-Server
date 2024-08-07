@@ -8,6 +8,30 @@ ServerEvents = {
 }
 
 ------------------
+
+eServerEvent_OnScriptReload     = 1  -- ()           When Server gets re-initialized
+eServerEvent_OnScriptInit       = 2  -- (status)     When Server Initialized
+eServerEvent_ScriptUpdate       = 3  -- ()           When Server Initialized
+eServerEvent_ScriptTick         = 4  -- ()           When Server Initialized
+eServerEvent_ScriptMinuteTick   = 5  -- ()           When Server Initialized
+eServerEvent_ScriptHourTick     = 6  -- ()           When Server Initialized
+eServerEvent_OnClientInit       = 7  -- ()           When Server Initialized
+eServerEvent_OnClientTick       = 8  -- ()           When Server Initialized
+eServerEvent_OnUpdate           = 9  -- ()           When Server Initialized
+eServerEvent_OnClientValidated  = 10  -- ()           When Server Initialized
+eServerEvent_OnClientDisconnect = 11  -- ()           When Server Initialized
+eServerEvent_SavePlayerData     = 12  -- ()           When Server Initialized
+eServerEvent_OnServerInit       = 13  -- ()           When Server Initialized
+eServerEvent_OnPostInit         = 14  -- ()           When Server Initialized
+
+eServerEvent_ResolveSpawnLocation   = 15  -- ()           When Server Initialized
+eServerEvent_OnClientRevived        = 16  -- ()           When Server Initialized
+
+eServerEvent_Begin          = 0
+eServerEvent_End            = 17
+
+------------------------------------
+--- Init
 ServerEvents.Init = function(self)
 
     self:RegisterEvents()
@@ -25,7 +49,8 @@ ServerEvents.Init = function(self)
     LinkEvent = EventLink
 end
 
-------------------
+------------------------------------
+--- Init
 ServerEvents.PostInit = function(self)
 
     --------
@@ -35,44 +60,32 @@ ServerEvents.PostInit = function(self)
     -- LinkEvent(eServerEvent_ScriptTick, "this_host_does_not_exist", "this_function_does_not_exist")
 
     --------
-    ServerLog(LOG_STARS .. LOG_STARS)
-
     local iTotalLinks = table.it(self.LinkedEvents, function(x, i, v) return ((x or 0) + table.count(v)) end)
-    ServerLog("[%02d] Server Server Events:", iTotalLinks)
-    for iEvent, aLinked in pairs(self.LinkedEvents) do
-        ServerLog(" > [% 2d] Linked Callbacks: % 2d", iEvent, table.count(aLinked))
+    if (SERVER_DEBUG_MODE) then
+        ServerLog(LOG_STARS .. LOG_STARS)
+        ServerLog("[%02d] Server Server Events:", iTotalLinks)
+        for iEvent, aLinked in pairs(self.LinkedEvents) do
+            ServerLog(" > [% 2d] Linked Callbacks: % 2d", iEvent, table.count(aLinked))
+        end
     end
 
     Logger:LogEventTo(GetDevs(), eLogEvent_ServerScripts, "Linked ${red}%d${gray} Server Events..", iTotalLinks)
 end
 
-------------------
+------------------------------------
+--- Init
 ServerEvents.Error = function(self)
     this_function_does_not_exist()
 end
 
-------------------
+------------------------------------
+--- Init
 ServerEvents.RegisterEvents = function(self)
 
-    eServerEvent_Begin          = 0
-
-    eServerEvent_OnScriptReload     = 1  -- ()           When Server gets re-initialized
-    eServerEvent_OnScriptInit       = 2  -- (status)     When Server Initialized
-    eServerEvent_ScriptUpdate       = 3  -- ()           When Server Initialized
-    eServerEvent_ScriptTick         = 4  -- ()           When Server Initialized
-    eServerEvent_ScriptMinuteTick   = 5  -- ()           When Server Initialized
-    eServerEvent_ScriptHourTick     = 6  -- ()           When Server Initialized
-    eServerEvent_OnClientInit       = 7  -- ()           When Server Initialized
-    eServerEvent_OnClientTick       = 8  -- ()           When Server Initialized
-    eServerEvent_OnUpdate           = 9  -- ()           When Server Initialized
-    eServerEvent_OnClientValidated  = 10  -- ()           When Server Initialized
-    eServerEvent_OnClientDisconnect = 11  -- ()           When Server Initialized
-    eServerEvent_SavePlayerData     = 12  -- ()           When Server Initialized
-
-    eServerEvent_End            = 13
 end
 
-------------------
+------------------------------------
+--- Init
 ServerEvents.ResetEvents = function(self)
 
     for i = eServerEvent_Begin, eServerEvent_End do
@@ -80,19 +93,20 @@ ServerEvents.ResetEvents = function(self)
     end
 end
 
-------------------
+------------------------------------
+--- Init
 ServerEvents.CallEvent = function(self, iEvent, ...)
 
     local sError
     if (not isNumber(iEvent)) then
-        sError = error("attempt to call invalid event (bad identifier (" .. g_ts(iEvent) .. ")")
+        sError = throw_error("attempt to call invalid event (bad identifier (" .. g_ts(iEvent) .. ")")
     elseif (iEvent <= eServerEvent_Begin or iEvent >= eServerEvent_End) then
-        sError = error("attempt to call invalid event (out of range)")
+        sError = throw_error("attempt to call invalid event (out of range)")
     end
 
     if (sError) then
         if (SERVER_DEBUG_MODE) then
-            error(sError)
+            throw_error(sError)
         else
 
 
@@ -146,7 +160,8 @@ ServerEvents.CallEvent = function(self, iEvent, ...)
     return hReturn
 end
 
-------------------
+------------------------------------
+--- Init
 ServerEvents.LinkEvent = function(self, iEvent, hThis, hFunc)
 
     local sError

@@ -25,16 +25,18 @@ ServerChannels = (ServerChannels or {
 -------------------
 ServerChannels.Init = function(self)
 
-
+    -- Config
     self.DataDir  = (SERVER_DIR_DATA .. "IP-Data\\")
     self.DataFile = "IP-Database.lua"
 
-    ServerEvents:LinkEvent(eServerEvent_OnScriptReload, "ServerChannels", "SaveFile")
-    self:LoadFile()
-
+    -- Functions
     ChannelExists = self.ChannelExists
 
-    ServerLog("Loaded %d Saved IP Data", table.size(self.IPData))
+    -- Events
+    ServerEvents:LinkEvent(eServerEvent_OnScriptReload, "ServerChannels", "SaveFile")
+
+    -- Load File & Log
+    self:LoadFile()
     Logger:LogEventTo(GetDevs(), eLogEvent_DataLog, "Loaded ${red}%d${gray} IP Database entries..", table.size(self.IPData))
 end
 

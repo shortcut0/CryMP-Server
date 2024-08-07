@@ -4,14 +4,18 @@ FileLoader = {
 }
 
 ----------------
-FileLoader.Init = function(self)
 
-    eFileError_NotFound = "File does not exist."
-    eFileError_LoadFailed = "Failed to load the file."
-    eFileError_ExecFailed = "Failed to execute the file."
+eFileError_NotFound   = "File does not exist."
+eFileError_LoadFailed = "Failed to load the file."
+eFileError_ExecFailed = "Failed to execute the file."
+
+--------------------------------
+--- Init
+FileLoader.Init = function(self)
 end
 
-----------------
+--------------------------------
+--- Init
 FileLoader.LoadFile = function(self, sFile, sType)
 
     -- TODO: Check if the path is absolute, if not try to find the file with the prefix root dir
@@ -48,7 +52,8 @@ FileLoader.LoadFile = function(self, sFile, sType)
     return true
 end
 
-----------------
+--------------------------------
+--- Init
 FileLoader.ReadFile = function(self, sFile, sType)
 
     -- TODO: Check if the path is absolute, if not try to find the file with the prefix root dir
@@ -71,7 +76,8 @@ FileLoader.ReadFile = function(self, sFile, sType)
     return sData
 end
 
-----------------
+--------------------------------
+--- Init
 FileLoader.ExecuteFile = function(self, sFile, sType, hDefault)
 
     local sData, sError = self:ReadFile(sFile, sType)
@@ -95,7 +101,8 @@ FileLoader.ExecuteFile = function(self, sFile, sType, hDefault)
     return sErr
 end
 
-----------------
+--------------------------------
+--- Init
 FileLoader.SetError = function(self, sError)
     self.LAST_ERROR = sError
 end

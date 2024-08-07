@@ -17,7 +17,7 @@ ServerInit = {}
 
 ----------------
 
-SERVER_DEBUG_MODE = true
+SERVER_DEBUG_MODE = false
 
 ----------------
 ServerInit.Init = function(self)
@@ -99,12 +99,10 @@ ServerInit.Init = function(self)
     -----
     if (FIRST_RELOAD_FINISHED) then
         if (Server ~= nil) then
-            ServerLog(LOG_STARS)
             local bOk, sErr = pcall(Server.OnReload, Server)
             if (not bOk) then
                 ServerLogError("OnReload Call failed (%s)", (sErr or "N/A"))
             end
-            ServerLog(LOG_STARS)
         end
     end
 
@@ -125,6 +123,7 @@ ServerInit.Init = function(self)
     -- Link Some Stuff
     -- ServerDLL.SetCallback(SV_EVENT_ON_GAME_RULES_CREATED, function() ServerInit:Init()  end)
 
+    ServerLog(LOG_STARS .. LOG_STARS)
     SCRIPT_ERROR = false
     FIRST_RELOAD_FINISHED = true
     return true
@@ -167,6 +166,11 @@ ServerInit.LoadLibraries = function(self, sPath)
     -- Overwrite FileSystem Handle with our own File System
     if (fileutils) then
         fileutils.LFS = ServerLFS
+    end
+
+    -- Overwrite Error Handler Handle with our our handler
+    if (luautils) then
+        luautils.ERROR_HANDLER = HandleError
     end
 
     return true
@@ -293,4 +297,5 @@ ServerInit.OnWaring = function(self, sWarning, ...)
 end
 
 ----------------
+ServerDLL.SetScriptErrorLog(true)
 ServerInit:Init()

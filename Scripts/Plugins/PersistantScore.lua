@@ -67,13 +67,9 @@ CreatePlugin({
     ---------------------
     OnProfileValidated = function(self, hClient, sID)
 
-        Debug(sID)
-        HandleError("%s",sID)
-        HandleError("%s",g_sGameRules)
-
         local aScore = self.Score[g_sGameRules][sID]
         if (not aScore) then
-            return HandleError("No Score found!")
+            return-- HandleError("No Score found!")
         end
 
         local aConfig = self.Config[g_sGameRules]

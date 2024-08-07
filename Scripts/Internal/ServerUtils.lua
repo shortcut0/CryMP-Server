@@ -20,6 +20,9 @@ ServerUtils.Init = function(self)
     SpawnEntity  = System.SpawnEntity
     IsEntity     = self.IsEntity
 
+    --- Utils
+    ByteSuffix   = self.ByteSuffix
+
 end
 
 ----------------
@@ -27,6 +30,21 @@ ServerUtils.InitEntityClasses = function(self)
 
     ENTITY_CLASS_PLAYER = "Player"
     ENTITY_CLASS_ALIEN  = "Alien"
+end
+
+----------------
+ServerUtils.ByteSuffix = function(iBytes)
+
+    local aSuffixes = {"B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"}
+    local iSuffixes = table.count(aSuffixes)
+    local iCurr = 1
+
+    while (iBytes >= 1024 and iCurr < iSuffixes) do
+        iBytes = (iBytes / 1024)
+        iCurr = (iCurr + 1)
+    end
+
+    return string.format("%.2f%s", iBytes, aSuffixes[iCurr])
 end
 
 ----------------

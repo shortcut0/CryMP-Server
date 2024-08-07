@@ -29,8 +29,10 @@ ServerChat = (ServerChat or {
 ----------------
 ServerChat.Init = function(self)
 
+    ----------
     ALL = 0
 
+    ----------
     MSG_CONSOLE          = 0
     MSG_CONSOLE_FIXED    = 1 -- Ignoring ConsoleMessageCenterPos (is this the wrong name?)
     MSG_CONSOLE_CENTERED = 7 -- Ignoring ConsoleMessageCenterPos (is this the wrong name?)
@@ -39,11 +41,12 @@ ServerChat.Init = function(self)
     MSG_INFO             = 5
     MSG_ERROR            = 6
 
+    ----------
     self.TM_START = 0
     self.TM_END   = 7
 
+    ----------
     inc(self.TM_END, 1)
-
     local nID1, nID2, nID3, nID4, hEntity
     for _, aInfo in pairs(self.ChatEntities) do
 
@@ -64,24 +67,24 @@ ServerChat.Init = function(self)
         _G[("CHAT_" .. aInfo.ID .. "_LOCALE")] = nID3
         _G[("CHAT_" .. aInfo.ID .. "_TEAMLOCALE")] = nID4
 
-        ServerLog("New Chat Entity %s (ID: %s, %s)", aInfo.Name, aInfo.ID, ("CHAT_" .. aInfo.ID))
+        ---ServerLog("New Chat Entity %s (ID: %s, %s)", aInfo.Name, aInfo.ID, ("CHAT_" .. aInfo.ID))
     end
+    incEnd()
 
-    ServerLog("test: %s", CHAT_TEST)
+    ----------
     ServerLog("Registered %d Chat Entities", table.count(self.ChatEntities))
-
     SendMsg = function(...)
         ServerChat:Send(...)
     end
 
-    incEnd()
-
+    ----------
     for _, sCfg in pairs({
         "Enabled", "PopCount", "PopDelay"
     }) do
         self.ConsoleQueue[sCfg] = ConfigGet(("Messages.Console.Queue." .. sCfg), self.ConsoleQueue[sCfg], eConfigGet_Any)
     end
 
+    ----------
     -- FIXME:
     TEAM_NEUTRAL = 0
     TEAM_US = 1
@@ -129,7 +132,11 @@ ServerChat.UpdateQueue = function(self)
             g_pGame:SendTextMessage(TextMessageConsole, aPop.Message, TextMessageToAll)
         else
             for __, hClient in pairs(aPop.SendTo) do
-                g_pGame:SendTextMessage(TextMessageConsole, aPop.Message, TextMessageToClient, hClient.id)
+                if (hClient.IsServer) then
+                    ServerLog(aPop.Message)
+                else
+                    g_pGame:SendTextMessage(TextMessageConsole, aPop.Message, TextMessageToClient, hClient.id)
+                end
             end
         end
         table.remove(aQueue, aPop.QueueID)
@@ -185,7 +192,7 @@ ServerChat.CreateChatEntity = function(self, aInfo)
     })
 
     if (not hNew) then
-        error("failed to spawn chat entity %s", sName)
+        throw_error("failed to spawn chat entity %s", sName)
     end
 
     hNew.IsChatEntity = true
@@ -337,7 +344,7 @@ ServerChat.SendTextMessage = function(self, iType, aTargetList, sMessage, sMessa
         end
 
         -- FIXME: Proper logging!
-        ServerLog("To All: %s", sFinalMsg)
+        --ServerLog("To All: %s", sFinalMsg)
     elseif (aTargetList == nil) then
         throw_error("no receipients")
     else

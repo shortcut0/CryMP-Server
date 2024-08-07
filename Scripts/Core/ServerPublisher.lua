@@ -39,17 +39,17 @@ ServerPublisher = (ServerPublisher or {
 })
 
 ----------------
+
+eServerReport_Expose = 0
+eServerReport_Status = 1
+
+--------------------------------
+--- Init
 ServerPublisher.Init = function(self)
 
     -----
-    eServerReport_Expose = 0
-    eServerReport_Status = 1
-
-    -----
     Logger.CreateAbstract(self, { Base = ServerLog, LogClass = "ServerPublisher", LogTemplate = "{class} " })
-
-    -----
-    ServerLog("ServerPublisher.Init()")
+    self:Log("ServerPublisher.Init()")
 
     -----
     self.MapLinks = table.merge(ConfigGet("Server.MapLinks", {}, eConfigGet_Array), self:LoadMapLinks())
@@ -61,10 +61,11 @@ ServerPublisher.Init = function(self)
     self.Initialized = true
 
     local sName = ConfigGet("Server.Report.Name", GetCVar("sv_servername)"), eConfigGet_String)
-    System.SetCVar("sv_servername", sName)
+    System.SetCVar("sv_servername", Logger.Format(sName))
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPublisher.LoadMapLinks = function(self)
 
     local aLinks = {}
@@ -130,7 +131,8 @@ ServerPublisher.LoadMapLinks = function(self)
     return aLinks
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPublisher.OnTick = function(self)
 
     if (not self.Initialized) then
@@ -151,7 +153,8 @@ ServerPublisher.OnTick = function(self)
     end
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPublisher.UpdateServer = function(self)
 
     self.UpdateFail = nil
@@ -175,7 +178,8 @@ ServerPublisher.UpdateServer = function(self)
     self:Log("Updating Server")
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPublisher.OnUpdated = function(self, sError, sResponse, iCode)
 
     self.UpdateFail = timernew(self.ErrorRecovery)
@@ -191,7 +195,8 @@ ServerPublisher.OnUpdated = function(self, sError, sResponse, iCode)
     self:Log("Server Status Updated")
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPublisher.OnExposed = function(self, sError, sResponse, iCode)
 
     self.Exposed = false
@@ -217,12 +222,14 @@ ServerPublisher.OnExposed = function(self, sError, sResponse, iCode)
     self.Exposed = true
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPublisher.ExtractCookie = function(self, sInput)
     return (string.match(sInput, "^<<Cookie>>(.*)<<$"))
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPublisher.BodyToString = function(self, aBody)
     local aTemp = {}
     for i, v in pairs(aBody) do
@@ -231,7 +238,8 @@ ServerPublisher.BodyToString = function(self, aBody)
     return (table.concat(aTemp, "&"))
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPublisher.ExposeServer = function(self)
 
     if (self.Exposed == true and self.ExposedSuccess == false) then
@@ -265,7 +273,8 @@ ServerPublisher.ExposeServer = function(self)
     self:Log("Exposing Server at %s...", (self.MasterAPI .. self.RegisterEP))
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPublisher.GetServerReport = function(self, iType)
 
 
@@ -350,7 +359,8 @@ ServerPublisher.GetServerReport = function(self, iType)
     return self:BodyToString(aBody)
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPublisher.GetPlayers = function(self, iPopulate)
 
     local sName, sRank, sKills, sDeaths, sProfile, sTeam
@@ -411,7 +421,8 @@ ServerPublisher.GetPlayers = function(self, iPopulate)
     return (sPlayers .. sPopulation)
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPublisher.GetMapTitle = function(self, sMap)
 
     local sForced = GetCVar("server_maptitle")
@@ -422,22 +433,26 @@ ServerPublisher.GetMapTitle = function(self, sMap)
     return sForced
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPublisher.GetMapDownloadLink = function(self)
     return (self.MapLinks[string.lower(ServerDLL.GetMapName())] or "")
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPublisher.GetServerPakLink = function(self)
     return ConfigGet("Server.PAKUrl", "", eConfigGet_String)
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPublisher.GetServerPassword = function(self)
     return GetCVar("sv_password")
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPublisher.GetServerDescription = function(self)
     return (self.Description or "No Description Available!")
 end

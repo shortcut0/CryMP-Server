@@ -40,7 +40,7 @@ Date.ToDate = function(sDate)
     if (isNull(sDate)) then
         ServerLog(table.tostring(ToDate("1970/0/1 00:00:00")))
         ServerLog(DateEpoch())
-        error("null")
+        throw_error("null")
     end
 
     if (IsDate(sDate)) then

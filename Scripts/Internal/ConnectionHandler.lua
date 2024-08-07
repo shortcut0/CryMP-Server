@@ -15,13 +15,15 @@ ServerPCH = {
     WelcomeChatMessage = nil
 }
 
-----------------
+--------------------------------
+--- Init
 ServerPCH.Init = function(self)
     ServerConnections = self
     self.WelcomeChatMessage = ConfigGet("Server.Welcome.ChatMessage", "@l_ui_welcomechat", eConfigGet_String)
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPCH.ValidateClient = function(self, hClient, sProfile, sHash)
 
     ServerLog("Validating Client %s At %s", hClient:GetName(), self.ValidationAPI)
@@ -40,7 +42,8 @@ ServerPCH.ValidateClient = function(self, hClient, sProfile, sHash)
 
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPCH.OnValidation = function(self, hClient, sError, sResponse, iCode)
 
     if (not ChannelExists(hClient:GetChannel())) then
@@ -78,7 +81,8 @@ ServerPCH.OnValidation = function(self, hClient, sError, sResponse, iCode)
 
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPCH.OnConnection = function(self, iChannel, sIP)
 
     local sNick = (ServerDLL.GetChannelNick(iChannel) or "Nomad")
@@ -99,7 +103,8 @@ ServerPCH.OnConnection = function(self, iChannel, sIP)
     Logger:LogEvent(eLogEvent_Connection, "@l_console_on_connection", sNick, iChannel, sIP)
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPCH.OnConnectionClosed = function(self, iChannel, sReason)
 
     local sReasonShort = (self:GetShortReason(sReason))
@@ -109,13 +114,15 @@ ServerPCH.OnConnectionClosed = function(self, iChannel, sReason)
     Logger:LogEvent(eLogEvent_Connection, "@l_console_on_chandisconnect", (sNick or "Nomad"), iChannel, sReasonShort)
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPCH.OnEnteredGame = function(self, hClient)
 
     ServerLog("!!!!!!!!!!!!! ENTERED GAME !!!!!!!!!!!!!!!!!!")
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPCH.OnConnected = function(self, hClient)
 
     local iChannel = (hClient.actor:GetChannel())
@@ -140,7 +147,8 @@ ServerPCH.OnConnected = function(self, hClient)
     Logger:LogEvent(eLogEvent_Connection, "@l_console_on_connected", sName, iChannel, hClient:GetProfileID())
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPCH.OnDisconnected = function(self, hClient, sReason)
 
     local sReasonShort = (self:GetShortReason(sReason))
@@ -164,7 +172,8 @@ ServerPCH.OnDisconnected = function(self, hClient, sReason)
     Logger:LogEvent(eLogEvent_Connection, "@l_console_on_disconnected", sName, iChannel, sReasonShort)
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPCH.GetShortReason = function(self, sMessage)
 
     local iTimeout = string.match(sMessage, "no packet for (%d+) seconds")
@@ -190,7 +199,8 @@ ServerPCH.GetShortReason = function(self, sMessage)
     })
 end
 
-----------------
+--------------------------------
+--- Init
 ServerPCH.SendBanner = function(self, hClient, sForcedLang)
 
     local sMidSpace = "                "
@@ -205,6 +215,8 @@ ServerPCH.SendBanner = function(self, hClient, sForcedLang)
     local sAccess   = hClient:GetRankName()
     local sName     = hClient:GetName()
     local sLastSeen = hClient:GetLastVisit()
+
+    local sUsageInfo = string.format("CPU: %d%%, %s", ServerDLL.GetCPUUsage(), ServerUtils.ByteSuffix(ServerDLL.GetMemUsage()))
 
     if (sLastSeen == "Never") then
         sLastSeen = TryLocalize("@l_ui_never", sLang)
@@ -280,14 +292,14 @@ ServerPCH.SendBanner = function(self, hClient, sForcedLang)
 
     local aBoxes = {}
     CreateLine(aBoxes,{ ID = "ID",       Data = "${red}${cl_id}${gray}"      },{ ID = "@l_ui_uptime", Data = "${red}" .. math.calctime(timerinit(), 1), }, { Data = "" })
-    CreateLine(aBoxes,{ ID = "IP",       Data = "${white}${cl_ip}${gray}"      },{ ID = "-", Data = "-", Width = 1000}, { Data = "${white}${cl_welcome}${gray}" })
+    CreateLine(aBoxes,{ ID = "IP",       Data = "${white}${cl_ip}${gray}"      },{ ID = "@l_ui_rssusage", Data = "${red}" .. sUsageInfo }, { Data = "${white}${cl_welcome}${gray}" })
     CreateLine(aBoxes,{ ID = "@l_ui_playtime",   Data = "${cl_playtime}"  },{ ID = "-", Data = "-", }, { Data = "${cl_visit}" })
     CreateLine(aBoxes,{ ID = "@l_ui_country",  Data = "${cl_country}" },{ ID = "-", Data = "-", }, { Data = "" })
     CreateLine(aBoxes,{ ID = "@l_ui_language", Data = "${cl_lang}"    },{ ID = "-", Data = "-", }, { Data = "" })
 
 
     -- !!FIXME
-    local sCPU = "AMD Ryzen 5 4600H - 12 Cores"
+    local sCPU = checkString(ServerDLL.GetCPUName(), "Unknown")
     local sModInfo = Logger.Format("${red}${mod_version}${gray}, ${red}x${mod_bits}", {})
 
     SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. sMidSpace .. "**********************************************************************"))
@@ -306,48 +318,4 @@ ServerPCH.SendBanner = function(self, hClient, sForcedLang)
 
     -- Chat
     SendMsg(CHAT_SERVER, hClient, string.gsub(Logger.Format(TryLocalize(self.WelcomeChatMessage, sLang, { sAccess, sName }), aFormat), string.COLOR_CODE, ""))
-
-    do return end
-    local sID_01 = "ID" -- 1 L
-    local sID_02 = "Restored"
-    local sID_03 = "IP"
-    local sID_05 = "Country"
-    local sID_04 = "ID"
-    local sID_06 = "ID"
-    local sID_07 = "Language"
-    local sID_08 = "ID"
-
-    -- fixme: add: restored, system up time etc
-
-    local sData_01 = hClient:GetProfile()
-    local sData_02 = "Yes" -- FIXME
-    local sData_03 = hClient:GetIP()
-    local sData_04 = "1008858"
-    local sData_05 = hClient:GetCountry()
-    local sData_06 = "1008858"
-    local sData_07 = hClient:GetPreferredLanguage()
-    local sData_08 = "1008858"
-
-    local sCenter_01 = string.mspace("Welcome, " .. hClient:GetRankName() .. " " .. hClient:GetName() .. "!", 45, nil, string.COLOR_CODE)
-    local sCenter_02 = string.mspace("Your Last Visit: " .. CRY_COLOR_RED .. "Never" .. CRY_COLOR_GRAY, 45, nil, string.COLOR_CODE)
-    local sCenter_03 = string.mspace(" ", 45, nil, string.COLOR_CODE)
-    local sCenter_04 = string.mspace(" ", 45, nil, string.COLOR_CODE)
-    local sCenter_05 = string.mspace("System Runtime " .. math.calctime(timerinit(), 1), 45, nil, string.COLOR_CODE)
-
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. sMidSpace .. "**********************************************************************"))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. sMidSpace .. "**********************************************************************"))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. sMidSpace .. "   ______           __  _______       _____                           "))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. sMidSpace .. "  / ____/______  __/  |/  / __ \\     / ___/___  ______   _____  _____ "))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. sMidSpace .. " / /   / ___/ / / / /|_/ / /_/ /_____\\__ \\/ _ \\/ ___/ | / / _ \\/ ___/ "))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. sMidSpace .. "/ /___/ /  / /_/ / /  / / ____/_____/__/ /  __/ /   | |/ /  __/ /     "))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. sMidSpace .. "\\____/_/   \\__, /_/  /_/_/         /____/\\___/_/    |___/\\___/_/      "))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${gray}" .. sMidSpace .. string.format("${grey}          /____/ %s %s                           ", string.rspace(sModInfo, 17, string.COLOR_CODE, "."), sCPU)))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. "  -------------------------------------------------------------------------------------------------------------"))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey} "))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. string.format("   [ %-8s : $4%-15s$9 ] %s [ %-8s : $3%-15s$9 ]", sID_01, sData_01, sCenter_01, sID_02, sData_02)))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. string.format("   [ %-8s : $8%-15s$9 ] %s [ %-8s : %-15s ]", sID_03, sData_03, sCenter_02, sID_04, sData_04)))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. string.format("   [ %-8s : $1%-15s$9 ] %s [ %-8s : %-15s ]", sID_05, sData_05, sCenter_03, sID_06, sData_06)))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. string.format("   [ %-8s : $1%-15s$9 ] %s [ %-8s : %-15s ]", sID_07, sData_07, sCenter_04, sID_08, sData_08)))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. string.format("                                 %s ", sCenter_05)))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. "  -------------------------------------------------------------------------------------------------------------"))
 end

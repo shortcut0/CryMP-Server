@@ -62,6 +62,10 @@ CreateLocalization("l_ui_uptime", {
     spanish = "Tiempo"
 })
 
+CreateLocalization("l_ui_rssusage", {
+    english = "Usage",
+})
+
 CreateLocalization("l_ui_never", {
     english = "Never",
     german = "Niemals",

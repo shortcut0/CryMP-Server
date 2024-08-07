@@ -1,17 +1,43 @@
 -------------------
 ServerCommands = {
 
-    DataDir = (SERVER_DIR_SCRIPTS .. "Commands\\"),
-    Commands = {},
-
+    DataDir       = (SERVER_DIR_SCRIPTS .. "Commands\\"),
+    Commands      = {},
     DeveloperRank = nil,
 
+    -- Config
+    CCommands       = 0,
+    CreateCCommand  = true,
     CommandPrefixes = {
         "!", "\\", "/"
     }
 }
 
 -------------------
+
+eCmdRet_NoFeedback = 0
+eCmdRet_Failed     = 1
+eCmdRet_Success    = 2
+eCmdRet_Ok         = 2
+
+-------------------------
+
+eCommandEvent_Disabled = 0
+
+-------------------------
+
+eCommandResponse_NoFeedback         = 0 -- Command executed without returning feedback
+eCommandResponse_Failed             = 1 -- Command failed to execute
+eCommandResponse_Success            = 2 -- Command successfully executed
+eCommandResponse_NotFound           = 3 -- No Results
+eCommandResponse_ManyFound          = 4 -- More than one result
+eCommandResponse_ScriptError        = 5 -- Script Error
+eCommandResponse_ConditionNotMet    = 6 -- Unfulfilled conditions
+eCommandResponse_Premium            = 7 -- It's for premium members
+eCommandResponse_NoAccess           = 3 -- User doesn't have access (uses not found response!)
+
+-------------------------
+--- Init
 ServerCommands.Init = function(self)
 
     Logger.CreateAbstract(self, { LogClass = "Commands", Base = ServerLog })
@@ -24,41 +50,28 @@ ServerCommands.Init = function(self)
 
     ------------------------
 
-    eCmdRet_NoFeedback = 0
-    eCmdRet_Failed     = 1
-    eCmdRet_Success    = 2
-    eCmdRet_Ok         = 2
-
-    -------------------------
-
-    eCommandEvent_Disabled = 0
-
-    -------------------------
-
-    eCommandResponse_NoFeedback = 0 -- Command executed without returning feedback
-    eCommandResponse_Failed     = 1 -- Command failed to execute
-    eCommandResponse_Success    = 2 -- Command successfully executed
-
-    eCommandResponse_NotFound   = 3 -- No Results
-    eCommandResponse_ManyFound  = 4 -- More than one result
-
-    eCommandResponse_ScriptError        = 5 -- Script Error
-    eCommandResponse_ConditionNotMet    = 6 -- Script Error
-
 
     self.CommandPrefixes = ConfigGet("Commands.Prefixes", self.CommandPrefixes, eConfigGet_Array)
+    self.CreateCCommand  = ConfigGet("Commands.CreateServerCommand", self.CreateCCommand, eConfigGet_Boolean)
 
     self:LoadCommands()
-    self:Log("Loaded %d Commands", table.count(self.Commands))
-    Logger:LogEvent(eLogEvent_Commands, string.format("Loaded ${red}%d${gray} Commands", table.count(self.Commands)))
-
-
-    -- FIXME (test)
-    --self:SendResponse(GetPlayers()[1], eCommandResponse_Failed, "TESTCOMMAND:o", "@l_commanderr_test")
 end
 
 -------------------
+--- Init
+ServerCommands.PostInit = function(self)
+
+    ServerLog("Created (%d) Server-Console Commands", self.CCommands)
+    Logger:LogEvent(eLogEvent_Commands, string.format("Loaded ${red}%d${gray} Commands", table.count(self.Commands)))
+end
+
+-------------------
+--- Init
 ServerCommands.OnChatMessage = function(self, iType, hSender, hTarget, sMessage)
+
+    if (not (hSender.IsPlayer or hSender.IsServer)) then
+        return
+    end
 
     local sPrefix = self:HasCommandPrefix(sMessage)
     if (sPrefix) then
@@ -70,21 +83,25 @@ ServerCommands.OnChatMessage = function(self, iType, hSender, hTarget, sMessage)
 end
 
 -------------------
+--- Init
 ServerCommands.OnCommand = function(self, hClient, sMessage)
 
     local aArgs = string.split(string.gsuba(sMessage, {
         { "%s+", " " },
-        { "%s$", "" },
-        { "^%s", "" }
     }), " ")
+
+    Debug(table.tostring(aArgs))
 
     if (table.empty(aArgs)) then
         return
     end
 
     local iUserRank = hClient:GetAccess()
-
     local sCommand = aArgs[1]
+    if (sCommand == nil) then
+        return true
+    end
+
     local aCommands = self:FindCommand(99, string.lower(sCommand))
     local iCommands = table.count(aCommands)
     if (iCommands == 0) then
@@ -92,7 +109,7 @@ ServerCommands.OnCommand = function(self, hClient, sMessage)
         return self:SendResponse(hClient, eCommandResponse_NotFound, sCommand)
     elseif (iCommands > 1) then
 
-        local aShow
+        local aShow = {}
         local iFound = 0
         for _, aFound in pairs(aCommands) do
             if (iUserRank >= aFound.Access) then
@@ -102,32 +119,244 @@ ServerCommands.OnCommand = function(self, hClient, sMessage)
             end
         end
 
+        if (iFound == 0) then
+            return self:SendResponse(hClient, eCommandResponse_NotFound, sCommand)
+        end
+
         self:ListCommands(hClient, aShow)
         return self:SendResponse(hClient, eCommandResponse_ManyFound, sCommand, iFound)
     end
 
     local aCommand = aCommands[1]
+    local sArg2 = aArgs[2]
+    if (sArg2 and (IsAny(sArg2, "-help", "help", "?", "-?", "-ayuda", "-hilfe"))) then
+        return self:SendHelp(hClient, aCommand)
+    end
+
     self:ProcessCommand(hClient, aCommand, { unpack(aArgs, 2) })
 end
 
 -------------------
-ServerCommands.ListCommands = function(self, hClient, aList)
+--- Init
+ServerCommands.SendHelp = function(self, hClient, aCommand)
 
-    aList = (aList or table.copy(self.Commands))
-    ServerLog("listing............................")
+    -- Misc
+    local sAllPrefixes = CRY_COLOR_WHITE .. table.concat(self.CommandPrefixes, "$9, $1")
+    local sSpace = "      "
+
+    -- Cmd
+    local aCopied   = table.copy(aCommand)
+    local hArgs     = aCopied.Arguments
+    local iAccess   = aCopied.Access
+    local sDesc     = (aCopied.Description or "@l_ui_nodescription")
+    local sName     = aCopied.Name
+
+    -- Client
+    local sLang = hClient:GetPreferredLanguage()
+
+    -- Print
+    local iBoxWidth = 100
+    local iMaxArgLen = 0
+    local sArgsLine = ""
+    local sBracketColor = CRY_COLOR_GRAY
+    local hArgsLocalized = table.it(hArgs, function(x, i, v)
+        v[1] = TryLocalize(v[1], sLang) -- Name
+        v[2] = TryLocalize((v[2] or "@l_ui_nodescription"), sLang) -- Desc
+
+        sBracketColor = CRY_COLOR_GRAY
+        if (v.Required) then
+            sBracketColor = CRY_COLOR_RED
+        elseif (v.Optional) then
+            sBracketColor = CRY_COLOR_BLUE
+        end
+
+        iMaxArgLen = math.max(iMaxArgLen, string.len(v[1]))
+        if (sArgsLine == "") then
+            sArgsLine = string.format("%s<%s%s%s>%s", sBracketColor, CRY_COLOR_YELLOW, v[1], sBracketColor, CRY_COLOR_GRAY)
+        else
+            sArgsLine = string.format("%s, %s<%s%s%s>", sArgsLine, sBracketColor, CRY_COLOR_YELLOW, v[1], sBracketColor, CRY_COLOR_GRAY)
+        end
+    end)
+    local sCmdBanner    = string.format("== [ %s ] ", sName)
+    local sDescBanner   = string.format("%s", TryLocalize(sDesc, sLang))
+
+    local sLPrefix = TryLocalize("@l_ui_prefixes", sLang)
+    local sLAccess = TryLocalize("@l_ui_access", sLang)
+    local sLUsage  = TryLocalize("@l_ui_usage", sLang)
+
+    local iMaxInfoLen   = math.max(string.len(sLPrefix), string.len(sLAccess), string.len(sLUsage))
+
+    local sCommandLine  =  string.capitalN(sName)
+    if (sArgsLine ~= "") then
+        sCommandLine = sCommandLine .. ","
+    end
+
+    local sPrefixLine   = string.format("%s: %s", string.rspace(sLPrefix, iMaxInfoLen, string.COLOR_CODE), sAllPrefixes)
+    local sAccessLine   = string.format("%s: %s", string.rspace(sLAccess, iMaxInfoLen, string.COLOR_CODE), GetRankName(iAccess))
+    local sUsageLine    = string.format("%s: %s %s", string.rspace((sLUsage), iMaxInfoLen, string.COLOR_CODE),  sCommandLine, sArgsLine)
+
+    -- Send All
+    SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. string.rspace(sCmdBanner, iBoxWidth, string.COLOR_CODE, "="))
+    SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. string.format("[ %s ]", string.mspace((TryLocalize("@l_ui_description", sLang) .. ":"), iBoxWidth - 4, 1, string.COLOR_CODE)))
+    SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. string.format("[ %s ]", string.mspace(sDescBanner, iBoxWidth - 4, 1, string.COLOR_CODE)))
+    SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. string.format("[ %s ]", string.mspace("", iBoxWidth - 4)))
+    SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. "[ " .. string.rspace(sPrefixLine, iBoxWidth - 4, string.COLOR_CODE) .. CRY_COLOR_GRAY .. " ]")
+    SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. "[ " .. string.rspace(sAccessLine, iBoxWidth - 4, string.COLOR_CODE) .. CRY_COLOR_GRAY .. " ]")
+    SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. "[ " .. string.rspace(sUsageLine,  iBoxWidth - 4, string.COLOR_CODE) .. CRY_COLOR_GRAY .. " ]")
+
+    local iArgsStart = (iMaxArgLen + 3 + string.len(sCommandLine))
+    local iArgMaxName = iMaxArgLen--table.it(hArgs, function(x, i, v) return math.max((x or 0), v.Name)  end)
+
+    local sArgType = ""
+    local sArgLine
+    for _, aArg in pairs(hArgs) do
+
+        sArgType = "@l_ui_string"
+        if (aArg.IsPlayer) then
+            sArgType = "@l_ui_player"
+        elseif (aArg.IsNumber) then
+            sArgType = "@l_ui_number"
+        end
+
+        sBracketColor = CRY_COLOR_GRAY
+        if (aArg.Required) then
+            sBracketColor = CRY_COLOR_RED
+        elseif (aArg.Optional) then
+            sBracketColor = CRY_COLOR_BLUE
+        end
+
+        sArgType = string.format("%s(%s%s%s)", CRY_COLOR_GRAY, CRY_COLOR_WHITE, TryLocalize(sArgType, sLang), CRY_COLOR_GRAY)
+        sArgLine = string.rep(" ", iArgsStart) .. string.rspace(string.format("%s<%s%s %s%s>%s", sBracketColor, CRY_COLOR_YELLOW, string.rspace(TryLocalize(aArg[1], sLang), iArgMaxName, string.COLOR_CODE), sArgType, sBracketColor, CRY_COLOR_GRAY), 30, string.COLOR_CODE) .. " - " .. CRY_COLOR_WHITE .. TryLocalize((aArg[2] or "@l_ui_nodescription"), sLang)
+
+
+        SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. string.format("[ %s ]", string.rspace(sArgLine .. CRY_COLOR_GRAY, iBoxWidth - 4, string.COLOR_CODE)))
+
+    end
+    SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. "[ " .. string.rspace("",  iBoxWidth - 4, string.COLOR_CODE) .. CRY_COLOR_GRAY .. " ]")
+
+    local sInfoHelp = TryLocalize("@l_ui_arg_color_info", sLang)
+    sInfoHelp = string.format("%s", Logger.Format(sInfoHelp))
+
+    SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. "[ " .. string.mspace(sInfoHelp .. CRY_COLOR_GRAY, iBoxWidth - 4, nil, string.COLOR_CODE) .. " ]")
+    SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. string.rspace("", iBoxWidth, string.COLOR_CODE, "="))
+
+    -- todo
+    local x = {
+        "== [ Commands ] ===================================================================================",
+        "[                                         Description:                                            ]",
+        "[                         Displays all available commands to your Console!                        ]",
+        "[                                                                                                 ]",
+        "[ Prefixes: !, /, \\                                                                               ]",
+        "[ Access:   Developer                                                                             ]",
+        "[ Usage :   !Commands, <Rank>, <Count>                                                            ]",
+        "[                      <Rank  (String)>     - The Target Rank                                     ]",
+        "[                      <Count (Number)>     - The Number                                          ]",
+        "[                                                                                                 ]",
+        "[                          RED Arguments are Required, Blue are Optional                          ]",
+        "===================================================================================================",
+    }
 
 end
 
 -------------------
+--- Init
+ServerCommands.SortCommands = function(self, aList)
+
+    local aSorted = {}
+    local iAccess
+    for _, aCommand in pairs(aList) do
+
+        iAccess = aCommand.Access
+        if (aSorted[iAccess] == nil) then
+            aSorted[iAccess] = {}
+        end
+
+        table.insert(aSorted[iAccess], aCommand)
+    end
+
+    for _ in pairs(aSorted) do
+        table.sort(aSorted[_], function(a, b) return (a.Name > b.Name)  end)
+    end
+    return aSorted
+
+end
+
+-------------------
+--- Init
+ServerCommands.ListCommands = function(self, hClient, aList, sWantList)
+
+    local aCommandList   = self:SortCommands(table.copy(aList or self.Commands))
+    local iItemsPerLine  = 5   -- Its per line
+    local iCommandWidth  = 20     -- Fixed column width for command names
+    local iCommandCount  = table.count(aCommandList)
+    local iLineWidth     = CLIENT_CONSOLE_LEN - 2
+
+    local iClientRank    = hClient:GetAccess()
+
+    local sRank, sRankColor
+    local sHeader, sAccessLine
+    local sCmdColor
+
+    local iCmdCount = 0
+    local sCmdLine  = ""
+
+    for _, aCommands in pairs(aCommandList) do
+
+        sRank      = GetRankName(_)
+        sRankColor = GetRankColor(_)
+
+        if (iClientRank >= _ and table.count(aCommands) > 0) then
+            SendMsg(MSG_CONSOLE_FIXED, hClient, " ")
+            SendMsg(MSG_CONSOLE_FIXED, hClient, "$9" .. string.mspace((" [ " .. sRankColor .. sRank .. " $9($4" .. table.count(aCommands) .. "$9)" .. " $9] "), iLineWidth, 1, string.COLOR_CODE, "="))
+            SendMsg(MSG_CONSOLE_FIXED, hClient, " ")
+
+            sCmdLine = "    "
+            iCmdCount = 0
+            for __, aCmd in pairs(aCommands) do
+
+                if (not aCmd:IsHidden()) then
+                    sCmdColor = CRY_COLOR_GRAY
+                    if (aCmd:IsBroken() or aCmd:IsDisabled()) then
+                        sCmdColor = CRY_COLOR_RED
+                    end
+
+                    sCmdLine = (sCmdLine .. string.rspace("($1!$9" .. sCmdColor .. aCmd.Name .. ")", iCommandWidth, string.COLOR_CODE))
+                    iCmdCount = (iCmdCount + 1)
+                    if (iCmdCount % iItemsPerLine == 0) then
+                        SendMsg(MSG_CONSOLE_FIXED, hClient, CRY_COLOR_GRAY .. sCmdLine)--string.mspace(sCmdLine, iLineWidth, 1, string.COLOR_CODE))
+                        sCmdLine = ""
+                    end
+                end
+            end
+
+            if (not string.empty(sCmdLine)) then
+                SendMsg(MSG_CONSOLE_FIXED, hClient, CRY_COLOR_GRAY .. sCmdLine)--string.mspace(sCmdLine, iLineWidth, 1, string.COLOR_CODE))
+            end
+        end
+    end
+
+    local sInfoHelp = TryLocalize("@l_ui_commands_help", hClient:GetPreferredLanguage())
+
+    SendMsg(MSG_CONSOLE_FIXED, hClient, " ")
+    SendMsg(MSG_CONSOLE_FIXED, hClient, CRY_COLOR_GRAY .. string.rep("-", iLineWidth))
+    SendMsg(MSG_CONSOLE_FIXED, hClient, " " .. sInfoHelp)
+end
+
+-------------------
+--- Init
 ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
 
     local sName     = aCommand.Name
     local sDesc     = aCommand.Description
     local fCmdFunc  = aCommand.Function
+    local iAccess   = aCommand.Access
     local aCmdArgs  = (aCommand.Arguments or {})
     local aCmdProps = (aCommand.Properties or {})
-
     local sLang     = hClient:GetPreferredLanguage()
+
+    if (not isFunc(fCmdFunc)) then
+        throw_error(string.format("No function found for Command %s", sName))
+    end
 
     local aHost
     local aHostCondition = (aCmdProps.HostCondition)
@@ -135,6 +364,13 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
 
 
     local iUserRank = hClient:GetAccess()
+    if (iUserRank < iAccess) then
+        if (IsPremiumRank(iAccess)) then
+            return self:SendResponse(hClient, eCommandResponse_Premium, sName)
+        end
+        return self:SendResponse(hClient, eCommandResponse_NotFound, sName)
+    end
+
     local iUserArgs = table.count(aUserArgs)
     local aPushArgs = {}
     local bOk
@@ -319,10 +555,8 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
         if (not bSuccess) then
 
             HandleError("Executing Command %s (%s)", sName, (hCmdResponse or "<Unknown>"))
-            return self:SendResponse(hClient, eCommandResponse_ScriptError, sName, (hCmdResponse or "<Unknown>"))
+            return self:SendResponse(hClient, eCommandResponse_ScriptError, sName, (TryLocalize("@l_ui_checkerrorlog", sLang) or hCmdResponse or "<Unknown>"))
         end
-
-        ServerLog("1 = %s, 2 = %s, 3 = %s", g_ts(bSuccess), g_ts(hCmdResponse), g_ts(sCmdError))
     end
 
     if (hCmdResponse == nil or IsAny(hCmdResponse, eCmdRet_NoFeedback)) then
@@ -342,6 +576,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
 end
 
 -------------------
+--- Init
 ServerCommands.LocalizeMessage = function(self, hClient, sMsg, aFormat)
 
     local sLang = hClient:GetPreferredLanguage()
@@ -356,6 +591,7 @@ ServerCommands.LocalizeMessage = function(self, hClient, sMsg, aFormat)
 end
 
 -------------------
+--- Init
 ServerCommands.SendResponse = function(self, hClient, iResponse, sCmd, sMsg, ...)
 
     local aCommand = self.Commands[string.lower(sCmd)]
@@ -378,7 +614,7 @@ ServerCommands.SendResponse = function(self, hClient, iResponse, sCmd, sMsg, ...
             end
         end
 
-        if (table.getnested(aCommand, "Properties.NoLogging") == true) then
+        if (table.getnested(aCommand, "Properties.NoLogging") == true and iResponse ~= eCommandResponse_NotFound) then
             return
         end
 
@@ -450,8 +686,16 @@ ServerCommands.SendResponse = function(self, hClient, iResponse, sCmd, sMsg, ...
         aMsg1 = { "@l_commandresp_con_condition", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
         aMsg2 = { "@l_commandresp_chat_condition", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
 
+    elseif (iResponse == eCommandResponse_Premium) then
+        aMsg1 = { "@l_commandresp_con_premium", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
+        aMsg2 = { "@l_commandresp_chat_premium", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
+
+    elseif (iResponse == eCommandResponse_NoAccess) then
+        aMsg1 = { "@l_commandresp_con_noaccess", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
+        aMsg2 = { "@l_commandresp_chat_noaccess", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
+
     else
-        error("response not implemented " .. g_ts(iResponse))
+        throw_error("response not implemented " .. g_ts(iResponse))
     end
 
     if (aMsg1 and bConsoleMsg) then
@@ -464,6 +708,7 @@ ServerCommands.SendResponse = function(self, hClient, iResponse, sCmd, sMsg, ...
 end
 
 -------------------
+--- Init
 ServerCommands.FindCommand = function(self, iUserRank, sMessage, bGreedy)
 
     local aFound = {}
@@ -506,25 +751,30 @@ ServerCommands.FindCommand = function(self, iUserRank, sMessage, bGreedy)
 end
 
 -------------------
+--- Init
 ServerCommands.HasCommandPrefix = function(self, sMessage)
 
     for _, sPrefix in pairs(self.CommandPrefixes) do
 
         -- Don't trigger if only a prefix has been sent!
-        if (string.match(sMessage, ("^" .. string.escape(sPrefix))) and string.len(sMessage) > string.len(sPrefix)) then
+        if (string.match(sMessage, ("^(" .. string.escape(sPrefix) .. "[^%s].-)%s?")) and string.len(sMessage) > string.len(sPrefix)) then
             return sPrefix
         end
     end
+
+    Debug("none!")
     return false
 
 end
 
 -------------------
+--- Init
 ServerCommands.RemovePrefix = function(self, sMessage, sPrefix)
     return string.sub(sMessage, (string.len(sPrefix) + 1))
 end
 
 -------------------
+--- Init
 ServerCommands.LoadCommands = function(self, sPath)
 
     -- Files/Folders beginning with '!' are NOT loaded!
@@ -555,11 +805,13 @@ ServerCommands.LoadCommands = function(self, sPath)
 end
 
 -------------------
+--- Init
 ServerCommands.GetCommand = function(self, sName)
     return (self.Commands[string.lower(sName)])
 end
 
 -------------------
+--- Init
 ServerCommands.LogCommandEvent = function(self, aCommand, iEvent, P1, P2, P3)
 
     if (iEvent == eCommandEvent_Disabled) then
@@ -572,13 +824,23 @@ ServerCommands.LogCommandEvent = function(self, aCommand, iEvent, P1, P2, P3)
 end
 
 -------------------
+--- Init
+ServerCommands.OnServerCommand = function(self, sName, ...)
+    self:ProcessCommand(Server.ServerEntity, self.Commands[string.lower(sName)], { ... })
+end
+
+-------------------
+--- Init
 ServerCommands.CreateCommand = function(self, aInfo)
 
     local sName   = aInfo.Name
     local fFunc   = aInfo.Function
+    local hArgs   = aInfo.Arguments
     local iAccess = aInfo.Access
     local sDesc   = aInfo.Description
-    if (sDesc) then end
+    if (not sDesc) then
+        sDesc     = "@l_ui_no_description"
+    end
 
     if (not sName) then
         error("no name specified")
@@ -612,4 +874,13 @@ ServerCommands.CreateCommand = function(self, aInfo)
     aCommand.SetDescription = function(this, text) this.Description = text end
 
     self.Commands[sName] = aCommand
+
+    if (self.CreateCCommand) then
+        local sConsoleArgs = string.repeats("%%1{%a:,}", table.count(hArgs))
+        local sConsoleFunc = string.format("ServerCommands:OnServerCommand(\"%s\"%s)", sName, (sConsoleArgs ~= "" and ("," .. sConsoleArgs) or sConsoleArgs))
+        local sConsoleName = string.format("server_cmd_" .. sName)
+
+        self.CCommands = (self.CCommands or 0) + 1
+        System.AddCCommand(sConsoleName, sConsoleFunc, (sDesc))
+    end
 end

@@ -10,22 +10,27 @@ ServerRPC = {
 }
 
 ----------------
-ServerRPC.Init = function(self)
 
-    eUpdateTimer_Tick   = 1
-    eUpdateTimer_Minute = 2
-    eUpdateTimer_Hour   = 3
+eUpdateTimer_Tick   = 1
+eUpdateTimer_Minute = 2
+eUpdateTimer_Hour   = 3
+
+--------------------------------
+--- Init
+ServerRPC.Init = function(self)
 
     ServerLog("ServerRPC.Init()")
 end
 
-------------------------------------------------
---- CALLBACKS
+--------------------------------
+--------------------------------
+--- Init
 ServerRPC.Callbacks.OnUpdate = function()
     Server:OnUpdate()
 end
 
-----------------
+--------------------------------
+--- Init
 ServerRPC.Callbacks.OnTimer = function(self, iTimer)
 
     if (iTimer == eUpdateTimer_Tick) then
@@ -40,7 +45,8 @@ ServerRPC.Callbacks.OnTimer = function(self, iTimer)
     end
 end
 
-----------------
+--------------------------------
+--- Init
 ServerRPC.Callbacks.OnConnection = function(self, iChannel, sIP)
 
     if (ServerConnections) then
@@ -49,21 +55,24 @@ ServerRPC.Callbacks.OnConnection = function(self, iChannel, sIP)
 
 end
 
-----------------
+--------------------------------
+--- Init
 ServerRPC.Callbacks.OnChannelDisconnect = function(self, iChannel, sIP)
     if (ServerConnections) then
         ServerConnections:OnConnectionClosed(iChannel, sIP)
     end
 end
 
-----------------
+--------------------------------
+--- Init
 ServerRPC.Callbacks.OnClientDisconnect = function(self, iChannel, hClient, sReason)
     if (ServerConnections) then
         ServerConnections:OnDisconnected(hClient, sReason)
     end
 end
 
-----------------
+--------------------------------
+--- Init
 ServerRPC.Callbacks.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage)
 
     -- FIXME: Check mutes here!
@@ -71,4 +80,11 @@ ServerRPC.Callbacks.OnChatMessage = function(self, iType, iSenderID, iTargetID, 
     -- if (not_muted) then
     return ServerChat:OnChatMessage(iType, iSenderID, iTargetID, sMessage)
     -- end
+end
+
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnShoot = function(self, ...)
+
+    return (ServerItemHandler:OnShoot(...) == true)
 end

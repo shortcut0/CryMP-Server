@@ -20,6 +20,7 @@ Server.Init = function(self)
 
     --------
     self.CONFIG_FILES = {
+        "ErrorHandler",
         "FileLoader",
         "ServerConfig"
     }
@@ -58,25 +59,77 @@ Server.Init = function(self)
         return ServerLogError("Failed to load Server Internal files")
     end
 
+
+    ---
+
+    ---
     self:InitCore()
     self:InitInternals()
 
-    local aLoaded = self.Initializer.LOADED_FILES
-    self:Log(LOG_STARS)
-    self:Log("[%02d] Files Loaded:", table.countRec(aLoaded))
-    for sType, aFiles in pairs(aLoaded) do
-        for _, sFile in pairs(aFiles) do
-            self:Log(" > [%-8s] %s", sType, sFile)
+    ---
+    self:CreateServerEntity()
+    self:InitServerEntity()
+
+    if (SERVER_DEBUG_MODE) then
+        local aLoaded = self.Initializer.LOADED_FILES
+        self:Log(LOG_STARS)
+        self:Log("[%02d] Files Loaded:", table.countRec(aLoaded))
+        for sType, aFiles in pairs(aLoaded) do
+            for _, sFile in pairs(aFiles) do
+                self:Log(" > [%-8s] %s", sType, sFile)
+            end
         end
     end
 
     --------
-    self:Log("Server Initialized in %fs", self.INIT_TIMER.diff())
-
+    self:PostInit()
     SCRIPT_ERROR = false
     SERVER_INITIALIZED = true
 
-    self:PostInit()
+    --------
+    self.INIT_TIME = self.INIT_TIMER.diff()
+    self:Log("Server Initialized in %fs", self.INIT_TIME)
+end
+
+----------------
+Server.SetServerEntity = function(self, hEnt)
+    self.ServerEntity = hEnt
+end
+
+----------------
+Server.InitServerEntity = function(self)
+    PlayerHandler:InitServer(self.ServerEntity)
+end
+
+----------------
+Server.CreateServerEntity = function(self)
+
+    local hEnt = GetEntity(SERVERENT_ID)
+    if (hEnt) then
+        if (hEnt.IsServerEntity and hEnt.IsServer) then
+            return self:SetServerEntity(hEnt)
+        else
+            SERVERENT_ID = nil
+            SERVERENT    = nil
+        end
+    end
+
+    hEnt = SpawnEntity({
+        name        = MOD_RAW_NAME,
+        class       = "OffHand",
+        position    = vector.make(0, 0, 1000),
+        orientation = vector.make(0, 0, 1)
+    })
+
+    if (not hEnt) then
+        error("failed to spawn server entity")
+    end
+
+    SERVERENT_CHANNEL = -69
+    SERVERENT_ID = hEnt.id
+    SERVERENT = hEnt
+
+    self.ServerEntity = hEnt
 end
 
 ----------------
@@ -85,7 +138,9 @@ Server.PostInit = function(self)
     -- we must re-initialize these!!
     Logger:InitLogEvents()
     ServerEvents:PostInit()
-    EventCall(eServerEvent_OnScriptInit, true)
+    ServerCommands:PostInit()
+
+    EventCall(eServerEvent_OnPostInit)
 end
 
 ----------------
@@ -96,6 +151,9 @@ end
 
 ----------------
 Server.InitConfigs = function(self)
+
+    ServerLog("Initializing Error Handler...")
+    ErrorHandler:Init()
 
     ServerLog("Initializing Configurations...")
     ServerConfig:Init()
@@ -187,6 +245,7 @@ Server.InitInternals = function(self)
     ServerInjector:Init()
     ServerNames:Init()
     ServerChannels:Init()
+    ServerItemHandler:Init()
 end
 
 ----------------
@@ -212,15 +271,16 @@ end
 ----------------
 Server.OnTick = function(self)
 
-    self:CoreTick()
+    -- New Timer
+    g_gameRules:OnTickTimer()
 
+    self:CoreTick()
     for _, hClient in pairs(GetPlayers()) do
         if (hClient.InfoInitialized) then
             hClient:Tick()
             EventCall(eServerEvent_OnClientTick, hClient)
         end
     end
-
     EventCall(eServerEvent_ScriptTick)
 end
 

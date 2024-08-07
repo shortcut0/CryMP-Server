@@ -24,6 +24,7 @@ AddCommand({
     },
 
     Properties = {
+        Hidden = true,
         NoChatResponse = true,
         NoConsoleResponse = true
     },

@@ -47,6 +47,7 @@ ServerAccess.Init = function(self)
     GetRankColor     = self.GetRankColor
     GetRankAuthority = self.GetRankAuthority
     IsDevRank        = self.IsDevRank
+    IsPremiumRank    = self.IsPremiumRank
     GetDevRanks      = self.GetDevRanks
     GetDevs          = function() return GetPlayers({ Access = GetDevRanks(1) }) end
 
@@ -55,11 +56,11 @@ ServerAccess.Init = function(self)
 
     self:LoadFile()
     self:RegisterRanks()
+    Logger:InitLogEvents()
 
     ServerLog("Registered %d Server Ranks", table.count(self.RegisteredRanks))
 
     local sUserLog = string.format("Loaded ${red}%d${gray} Registered Users", table.count(self.RegisteredUsers))
-    ServerLog(sUserLog)
     Logger:LogEventTo(GetDevs(), eLogEvent_DataLog, sUserLog)
 
     LinkEvent(eServerEvent_OnScriptReload, "ServerAccess", "SaveFile")
@@ -270,6 +271,11 @@ ServerAccess.IsDevRank = function(iRank)
     --    end
     --end
     return (ServerAccess.RegisteredDevs[iRank] == true)
+end
+
+-------------------
+ServerAccess.IsPremiumRank = function(iRank)
+    return (GetRankInfo(iRank, "Premium") == true)
 end
 
 -------------------
