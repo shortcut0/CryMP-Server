@@ -64,8 +64,88 @@ CreateLocalization("l_ui_string", {
     english = "String",
 })
 
+CreateLocalization("l_ui_spawnpoint", {
+    english = "SpawnPoint",
+})
+
+CreateLocalization("l_ui_spawnpoint_d", {
+    english = "The Spawn Point to use",
+})
+
+CreateLocalization("l_ui_spawnpoint_revive_d", {
+    english = "If the target should be Revived at their Spawn Point",
+})
+
+CreateLocalization("l_ui_accessoryforbidden", {
+    english = "(${1}: This Accessory is currently Forbidden)",
+})
+
+CreateLocalization("l_ui_accessorysaved", {
+    english = "(${1}: Accessory Configuration Saved)",
+})
+
+CreateLocalization("l_ui_accessoryloaded", {
+    english = "(${1}: Accessory Configuration Loaded)",
+})
+
+CreateLocalization("l_ui_alienEnergyRequired", {
+    english = "Insufficient Alien Energy to buy this Item",
+})
+
+CreateLocalization("l_ui_admindecision", {
+    english = "Admin Decision",
+})
+
+CreateLocalization("l_ui_prestigeAwarded", {
+    english = "${1}: Awarded with ${2} Prestige",
+})
+
+CreateLocalization("l_ui_itemSold", {
+    english = "Item ${magenta}${1}${gray} Sold for ${red}${2} Prestige",
+})
+
+CreateLocalization("l_ui_cannotSellItem", {
+    english = "Item ${magenta}${1}${gray} Cannot be Sold",
+})
+
+CreateLocalization("l_ui_noSellableFound", {
+    english = "No Item to Sell Found",
+})
+
+CreateLocalization("l_ui_ammoNotFound", {
+    english = "Ammo ${magenta}${1}${gray} does not Exist",
+})
+
+CreateLocalization("l_ui_itemNotFound", {
+    english = "Item ${magenta}${1}${gray} does not Exist",
+})
+
+CreateLocalization("l_ui_buyItemForbidden", {
+    english = "Item ${magenta}${1}${gray} Is Currently Blocked",
+})
+
+CreateLocalization("l_ui_buyVehicleMissingPrestige", {
+    english = "You need ${red}${2}${gray} more Prestige to the Vehicle ${magenta}${1}",
+})
+
+CreateLocalization("l_ui_buyItemMissingPrestige", {
+    english = "You need ${red}${2}${gray} more Prestige to the Item ${magenta}${1}",
+})
+
 CreateLocalization("l_ui_player", {
     english = "Player",
+})
+
+CreateLocalization("l_ui_revived", {
+    english = "Revived",
+})
+
+CreateLocalization("l_ui_revived_all", {
+    english = "All Players Revived",
+})
+
+CreateLocalization("l_ui_player_d", {
+    english = "The Target Player",
 })
 
 CreateLocalization("l_ui_number", {

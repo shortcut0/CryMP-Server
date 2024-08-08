@@ -2,6 +2,16 @@
 ServerUtils = {}
 
 ----------------
+
+ePE_Light		= "explosions.light.portable_light"
+ePE_Flare		= "explosions.flare.a"
+ePE_FlareNight	= "explosions.flare.night_time"
+ePE_Firework	= "misc.extremly_important_fx.celebrate"
+ePE_C4Explosive = "explosions.C4_explosion.ship_door"
+ePE_Claymore	= "explosions.mine.claymore"
+ePE_AlienBeam	= "alien_weapons.singularity.Tank_Singularity_Spinup"
+
+----------------
 ServerUtils.Init = function(self)
 
 
@@ -11,6 +21,9 @@ ServerUtils.Init = function(self)
     --- Players
     GetPlayers   = self.GetPlayers
     GetPlayer    = self.GetPlayer
+
+    --- Effects
+    SpawnEffect  = self.SpawnEffect
 
     --- Entities
     GetEntities  = self.GetEntities
@@ -45,6 +58,11 @@ ServerUtils.ByteSuffix = function(iBytes)
     end
 
     return string.format("%.2f%s", iBytes, aSuffixes[iCurr])
+end
+
+----------------
+ServerUtils.SpawnEffect = function(sEffect, vPos, vDir, iScale)
+    g_pGame:ServerExplosion(NULL_ENTITY, NULL_ENTITY, 0, (vPos), (vDir or vectors.up), 0, 0, 0, 0, sEffect, (iScale or 1), nil, 0, 0, 0)
 end
 
 ----------------

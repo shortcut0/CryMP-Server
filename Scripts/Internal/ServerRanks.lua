@@ -48,6 +48,7 @@ ServerAccess.Init = function(self)
     GetRankAuthority = self.GetRankAuthority
     IsDevRank        = self.IsDevRank
     IsPremiumRank    = self.IsPremiumRank
+    IsAdminRank      = self.IsAdminRank
     GetDevRanks      = self.GetDevRanks
     GetDevs          = function() return GetPlayers({ Access = GetDevRanks(1) }) end
 
@@ -152,6 +153,7 @@ ServerAccess.RegisterRanks = function(self)
     local aList = ConfigGet("Ranks.RankList", self.RankList, eConfigGet_Array)
 
     local iAuthority
+    local iFirstAdminRank = 0
     for _, aRank in pairs(aList) do
 
         iAuthority = aRank.Authority
@@ -172,6 +174,11 @@ ServerAccess.RegisterRanks = function(self)
 
         if (aRank.Developer) then
             self.RegisteredDevs[iAuthority] = true
+        end
+
+        if (aRank.Admin or aRank.Authority >= iFirstAdminRank) then
+            iFirstAdminRank = (iFirstAdminRank or aRank.Authority)
+            aRank.Admin = true
         end
     end
 
@@ -276,6 +283,11 @@ end
 -------------------
 ServerAccess.IsPremiumRank = function(iRank)
     return (GetRankInfo(iRank, "Premium") == true)
+end
+
+-------------------
+ServerAccess.IsAdminRank = function(iRank)
+    return (GetRankInfo(iRank, "Admin") == true)
 end
 
 -------------------

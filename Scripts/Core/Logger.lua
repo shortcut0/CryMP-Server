@@ -32,6 +32,7 @@ eLogEvent_ServerScripts     = 10
 eLogEvent_ServerLocale      = 11
 eLogEvent_Plugins           = 12
 eLogEvent_Debug             = 13
+eLogEvent_BuyMessage        = 14
 
 --------------------------------
 --- Init
@@ -145,6 +146,17 @@ Logger.InitLogEvents = function(self, iEvent, sMessage, ...)
             Tag             = "Debug",
             Color           = self.DefaultColor,
             Access          = { Regular = GetDevRanks(1) }
+        },
+
+        -- Debug
+        [eLogEvent_BuyMessage] = {
+            ConsoleType     = nil,
+            Locale          = false,
+            NoLocale        = false,
+            PlayerMessages  = true,
+            Tag             = "Buying",
+            Color           = self.DefaultColor,
+            Access          = { Regular = GetLowestRank() }
         },
 
         -- Commands

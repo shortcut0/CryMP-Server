@@ -36,6 +36,566 @@ local ServerGameRulesBuying = {
     },
 
     ---------------------------------------------
+    --- SvBuyAmmo
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "Server.SvBuyAmmo" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hPlayerID, sItem)
+
+            local hPlayer = System.GetEntity(hPlayerID)
+            if (not hPlayer) then
+                return
+            end
+
+            -- FIXME: AntiCheat()
+            -- CheckFlood()
+
+            local iChannel = hPlayer:GetChannel()
+            local bFrozen  = hPlayer:IsFrozen()
+            local bAlive   = hPlayer:IsAlive(true)
+            local bOk      = false
+
+            if (not bFrozen) then
+                bOk = self:DoBuyAmmo(hPlayerID, sItem)
+            end
+
+            if (bOk) then
+                self.onClient:ClBuyOk(iChannel, sItem)
+            else
+                self.onClient:ClBuyError(iChannel, sItem)
+            end
+        end
+
+    },
+
+    ---------------------------------------------
+    --- SvBuy
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "Server.BuyVehicle" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hPlayerID, sItem)
+
+            local hPlayer = System.GetEntity(hPlayerID)
+            if (not hPlayer) then
+                return false
+            end
+
+            if (ServerItemHandler:CanBuyVehicle(hPlayer, sItem) ~= true) then
+                return false
+            end
+
+            local hFactory = self:GetProductionFactory(hPlayerID, sItem, true)
+            if (hFactory) then
+
+                local bLimitOk, bTeamCheck = self:CheckBuyLimit(sItem, hPlayer:GetTeam())
+                if (not bLimitOk) then
+                    if (bTeamCheck) then
+                        self.game:SendTextMessage(TextMessageError, "@mp_TeamItemLimit", TextMessageToClient, hPlayerID, self:GetItemName(sItem))
+                    else
+                        self.game:SendTextMessage(TextMessageError, "@mp_GlobalItemLimit", TextMessageToClient, hPlayerID, self:GetItemName(sItem))
+                    end
+
+                    return false
+                end
+
+                for _, pFactory in pairs(self.factories) do
+                    pFactory:CancelJobForPlayer(hPlayerID)
+                end
+
+                local aDef              = self.buyList[sItem]
+                local aServerProperties = (aDef.ServerProperties or {})
+
+                local iPrice, iEnergy = self:GetPrice(sItem)
+                if (hFactory:Buy(hPlayerID, sItem, aServerProperties)) then
+
+                    -- FIXME: ClientMod()
+                    -- ClientMod()
+
+                    self:AwardPPCount(hPlayerID, -iPrice, nil, hPlayer:HasClientMod())
+                    self:AwardCPCount(hPlayerID, self.cpList.BUYVEHICLE)
+
+                    if (iEnergy and iEnergy > 0) then
+                        local iTeam = self.game:GetTeam(hPlayerID)
+                        if (iTeam and iTeam ~= 0) then
+                            self:SetTeamPower(iTeam, self:GetTeamPower(iTeam) - iEnergy)
+                        end
+                    end
+
+                    self:AbandonPlayerVehicle(hPlayerID)
+                    return true
+                end
+            end
+
+            return false
+        end
+
+    },
+
+    ---------------------------------------------
+    --- SvBuy
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "Server.SvBuy" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hPlayerID, sItem)
+
+            local hPlayer = System.GetEntity(hPlayerID)
+            if (not hPlayer) then
+                return
+            end
+
+            -- FIXME: AntiCheat()
+            -- CheckFlood()
+
+            local bOk = false
+            local iChannel = hPlayer:GetChannel()
+
+            if (hPlayer:GetTeam() ~= 0) then
+                local bFrozen = hPlayer:IsFrozen()
+                local bAlive  = hPlayer:IsAlive(true)
+
+                if ((not bFrozen)) then
+                    if (self:ItemExists(hPlayerID, sItem)) then
+                        local aDef     = self.buyList[sItem]
+                        local iPrice   = aDef.price
+                        local iMissing = (iPrice - hPlayer:GetPrestige())
+
+                        if (self:IsVehicle(sItem) and bAlive) then
+                            if (self:EnoughPP(hPlayerID, sItem)) then
+                                bOk = self:BuyVehicle(hPlayerID, sItem)
+                            else
+                                ServerItemHandler:HandleMessage(hPlayer, "@l_ui_buyVehicleMissingPrestige", { aDef.class, iMissing }, MSG_ERROR)
+                            end
+                        elseif (((not bFrozen) and self:IsInBuyZone(hPlayerID)) or (not bAlive)) then
+                            if (self:EnoughPP(hPlayerID, sItem)) then
+                                bOk = self:BuyItem(hPlayerID, sItem)
+                            else
+                                ServerItemHandler:HandleMessage(hPlayer, "@l_ui_buyItemMissingPrestige", { aDef.class, iMissing }, MSG_ERROR)
+                            end
+                        end
+                    else
+                        ServerItemHandler:HandleMessage(hPlayer, "@l_ui_itemNotFound", { sItem }, MSG_ERROR)
+                    end
+                end
+            end
+
+            if (bOk) then
+                self.onClient:ClBuyOk(iChannel, sItem)
+            else
+                self.onClient:ClBuyError(iChannel, sItem)
+            end
+        end
+
+    },
+
+    ---------------------------------------------
+    --- OnPurchaseCancelled
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "DoBuyAmmo" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hPlayerID, sItem)
+
+            local hPlayer = System.GetEntity(hPlayerID)
+            if (not hPlayer) then
+                return
+            end
+
+
+            local hCurrent = hPlayer:GetCurrentItem()
+            local iPrice
+            local aDef
+
+            if (sItem == "sell") then
+                return ServerItemHandler:SellItem(hPlayerID, sItem)
+            end
+
+            aDef = self:GetItemDef(sItem)
+            if (not aDef) then
+                ServerItemHandler:HandleMessage(hPlayer, "@l_ui_ammoNotFound", { sItem }, MSG_ERROR)
+                return false
+            end
+
+            local aReviveQueue
+            local bAlive = hPlayer:IsAlive()
+            if (not bAlive) then
+                aReviveQueue = self.reviveQueue[hPlayerID]
+            end
+
+            -- Server
+            local aServerProperties = (aDef.ServerProperties or {})
+
+            local iLevel    = 0
+            local aZones    = self.inBuyZone[hPlayerID]
+            local teamId    = self.game:GetTeam(hPlayerID)
+
+            local hVehicle = GetEntity(hPlayer:GetVehicleId())
+            if (hVehicle and (not hVehicle.buyFlags or hVehicle.buyFlags == 0)) then
+                aZones = self.inServiceZone[hPlayerID]
+            end
+
+            local aZone, iZoneLevel
+            for zoneId in pairs(aZones or {}) do
+                if (teamId == self.game:GetTeam(zoneId)) then
+                    aZone = System.GetEntity(zoneId)
+                    if (aZone and aZone.GetPowerLevel) then
+                        iZoneLevel = aZone:GetPowerLevel()
+                        if (iZoneLevel > iLevel) then
+                            iLevel = iZoneLevel
+                        end
+                    end
+                end
+            end
+
+            if (aDef.level and aDef.level > 0 and aDef.level > iLevel) then
+
+                ServerItemHandler:HandleMessage(hPlayer, "@l_ui_alienEnergyRequired")
+                self.game:SendTextMessage(TextMessageError, "@mp_AlienEnergyRequired", TextMessageToClient, hPlayerID, aDef.name)
+                return false
+            end
+            ---------------------------------------
+
+            local aAmmo = self.buyList[sItem]
+            local iAmmoCurr, iAmmoMax, iNeed
+
+            if (aAmmo and aAmmo.ammo) then
+
+                iPrice = self:GetPrice(sItem)
+
+                -- ignore vehicles with buyzones here (we want to buy ammo for the player not the vehicle in this case)
+                if (hVehicle and not hVehicle.buyFlags and not hVehicle.NoBuyAmmo) then
+                    if (bAlive) then
+
+                        --is in vehiclebuyzone
+                        if (self:IsInServiceZone(hPlayerID) and (iPrice == 0 or self:EnoughPP(hPlayerID, nil, iPrice)) and self:VehicleCanUseAmmo(hVehicle, sItem)) then
+                            iAmmoCurr = (hVehicle.inventory:GetAmmoCount(sItem) or 0)
+                            iAmmoMax  = (hVehicle.inventory:GetAmmoCapacity(sItem) or 0)
+
+                            if (iAmmoCurr < iAmmoMax or iAmmoMax == 0) then
+                                iNeed = aAmmo.amount
+                                if (iAmmoMax>0) then
+                                    iNeed = math.min(iAmmoMax - iAmmoCurr, aAmmo.amount)
+                                end
+
+                                -- this function takes care of synchronizing it to clients
+                                hVehicle.vehicle:SetAmmoCount(sItem, iAmmoCurr + iNeed)
+
+                                if (iPrice > 0) then
+                                    if (iNeed < aAmmo.amount) then
+                                        iPrice = math.ceil((iNeed * iPrice) / aAmmo.amount)
+                                    end
+
+                                    -- TODO: ClientMod()
+                                    -- ClientMod()
+                                    self:AwardPPCount(hPlayerID, -iPrice, nil, hPlayer:HasClientMod())
+                                end
+
+                                return true
+                            end
+                        end
+                    end
+                elseif ((self:IsInBuyZone(hPlayerID) or (not bAlive)) and (iPrice == 0 or self:EnoughPP(hPlayerID, nil, iPrice))) then
+                    iAmmoCurr = (hPlayer.inventory:GetAmmoCount(sItem) or 0)
+                    iAmmoMax  = (hPlayer.inventory:GetAmmoCapacity(sItem) or 0)
+
+                    if (not bAlive) then
+                        iAmmoCurr = (aReviveQueue.ammo[sItem] or 0)
+                    end
+
+                    if (iAmmoCurr < iAmmoMax or iAmmoMax == 0) then
+                        iNeed = aAmmo.amount;
+                        if (iAmmoMax > 0) then
+                            iNeed = math.min(iAmmoMax - iAmmoCurr, aAmmo.amount)
+                        end
+
+                        if (bAlive) then
+                            -- this function takes care of synchronizing it to clients
+                            hPlayer.actor:SetInventoryAmmo(sItem, iAmmoCurr + iNeed)
+                        else
+                            aReviveQueue.ammo[sItem] = (iAmmoCurr + iNeed)
+                        end
+
+                        if (iPrice > 0) then
+                            if (iNeed < aAmmo.amount) then
+                                iPrice = math.ceil((iNeed * iPrice) / aAmmo.amount)
+                            end
+
+                            if (bAlive) then
+
+                                -- FIXME: ClientMod()
+                                -- ClientMod()
+                                self:AwardPPCount(hPlayerID, -iPrice, nil, hPlayer:HasClientMod())
+                            else
+                                aReviveQueue.ammo_price = (aReviveQueue.ammo_price + iPrice)
+                            end
+                        end
+
+                        return true
+                    end
+                end
+            end
+            return false
+        end
+    },
+
+    ---------------------------------------------
+    --- OnPurchaseCancelled
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "BuyItem" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hPlayerID, sItem)
+
+            -- !!hook
+            local hPlayer = GetEntity(hPlayerID)
+            if (not hPlayer) then
+                return false
+            end
+
+            local iEnergy
+            local iPrice = self:GetPrice(sItem)
+            local aDef   = self:GetItemDef(sItem)
+
+            if (not aDef) then
+                ServerItemHandler:HandleMessage(hPlayer, "@l_ui_itemNotFound", { sItem }, MSG_ERROR)
+                return false
+            end
+
+            if (not ServerItemHandler:CanBuyItem(hPlayer, sItem, aDef)) then
+                return false
+            end
+
+            if (aDef.buy) then
+                local aBuyDef = self:GetItemDef(aDef.buy)
+                if (aBuyDef and (not self:HasItem(hPlayerID, aBuyDef.class))) then
+                    local result = self:BuyItem(hPlayerID, aBuyDef.id)
+                    if (not result) then
+                        return false
+                    end
+                end
+
+            end
+
+            if (aDef.buyammo and self:HasItem(hPlayerID, aDef.class)) then
+                local ret = self:DoBuyAmmo(hPlayerID, aDef.buyammo)
+                if (aDef.selectOnBuyAmmo and ret and hPlayer) then
+                    hPlayer.actor:SelectItemByNameRemote(aDef.class)
+                end
+                return ret
+            end
+
+            local aReviveQueue
+            local bAlive = hPlayer:IsAlive()
+            if (not bAlive) then
+                aReviveQueue = self.reviveQueue[hPlayerID]
+            end
+
+            -- Server
+            local aServerProperties = (aDef.ServerProperties or {})
+
+            local iKitLimit = ConfigGet("General.GameRules.Buying.KitLimit", 1, eConfigGet_Number)
+            local iKitCount = table.count({
+                hPlayer:GetItem("RadarKit"),
+                hPlayer:GetItem("RepairKit"),
+                hPlayer:GetItem("LockpickKit")
+            })
+
+            local uniqueOld
+            if (aDef.uniqueId) then
+                local hasUnique, currentUnique = self:HasUniqueItem(hPlayerID, aDef.uniqueId)
+                if (hasUnique) then
+                    if (bAlive and aServerProperties.NoItemLimit ~= true) then
+                        if (aDef.category == "@mp_catEquipment") then
+                            if (iKitCount > iKitLimit) then
+                                ServerItemHandler:HandleMessage(hPlayer, "@l_ui_cannotCarryMoreKits", iKitLimit)
+                                g_pGame:SendTextMessage(TextMessageError, "@mp_CannotCarryMoreKit", TextMessageToClient, hPlayerID)
+                            end
+                        else
+                            if (aDef.class) then
+                                if (aDef.category == "@mp_catWeapons") then
+                                    hPlayer:SelectItem(aDef.class)
+                                end
+                                ServerItemHandler:HandleMessage(hPlayer, "@l_ui_cannotCarryMore")
+                            end
+                            self.game:SendTextMessage(TextMessageError, "@mp_CannotCarryMore", TextMessageToClient, hPlayerID)
+                        end
+                        Debug("no!")
+                        return false
+                    end
+                    uniqueOld = currentUnique
+                end
+            end
+
+            local flags     = 0
+            local level     = 0
+            local aZones    = self.inBuyZone[hPlayerID]
+            local iTeam     = g_pGame:GetTeam(hPlayerID)
+            local aFactory
+
+            for zoneId in pairs(aZones) do
+                if (iTeam == self.game:GetTeam(zoneId)) then
+                    local zone = System.GetEntity(zoneId)
+                    if (zone and zone.GetPowerLevel) then
+                        local zonelevel = zone:GetPowerLevel()
+                        if (zonelevel > level) then
+                            level = zonelevel
+                        end
+                    end
+                    if (zone and zone.GetBuyFlags) then
+                        flags = bor(flags, zone:GetBuyFlags())
+                    end
+                    aFactory = zone
+                end
+            end
+
+            -- dead players can't buy anything else
+            if (not bAlive) then
+                flags = bor(bor(self.BUY_WEAPON, self.BUY_AMMO), self.BUY_EQUIPMENT)
+            end
+
+            -- FIXME: Bypass xyz mode
+            if (aDef.level and aDef.level > 0 and aDef.level > level) then
+                self.game:SendTextMessage(TextMessageError, "@mp_AlienEnergyRequired", TextMessageToClient, hPlayerID, aDef.name)
+                ServerItemHandler:HandleMessage(hPlayer, "@l_ui_alienEnergyRequired", (aDef.level - level))
+                return false
+            end
+
+            local itemflags = self:GetItemFlag(sItem)
+            if (band(itemflags, flags) == 0) then
+                return false
+            end
+
+            -- FIXME: Bypass xyz mode
+            local limitOk, teamCheck = self:CheckBuyLimit(sItem, self.game:GetTeam(hPlayerID))
+            if (not limitOk) then
+                if (teamCheck) then
+                    ServerItemHandler:HandleMessage(hPlayer, "@l_ui_itemteamLimit")
+                    self.game:SendTextMessage(TextMessageError, "@mp_TeamItemLimit", TextMessageToClient, playerId, aDef.name)
+                else
+
+                    ServerItemHandler:HandleMessage(hPlayer, "@l_ui_itemglobalLimit")
+                    self.game:SendTextMessage(TextMessageError, "@mp_GlobalItemLimit", TextMessageToClient, playerId, aDef.name)
+                end
+
+                return false;
+            end
+
+            -- check inventory
+            local hItemID
+            local bOk
+
+            if (bAlive) then
+                if (aServerProperties.NoItemLimit ~= true) then
+                    bOk = hPlayer.actor:CheckInventoryRestrictions(aDef.class)
+                else
+                    bOk = true
+                end
+            else
+
+                if (aReviveQueue.items and table.count(aReviveQueue.items) > 0) then
+                    local aInventory = {}
+                    for _, v in ipairs(aReviveQueue.items) do
+                        local aItem = self:GetItemDef(v)
+                        if (aItem) then
+                            table.insert(aInventory, aItem.class)
+                        end
+                    end
+                    bOk = hPlayer.actor:CheckVirtualInventoryRestrictions(aInventory, aDef.class)
+                else
+                    bOk = true
+                end
+            end
+
+            -- FIXME: Bypass for xy mode
+            if (bOk) then
+                if ((not bAlive) and (uniqueOld)) then
+                    for i, old in pairs(aReviveQueue.items) do
+                        if (old == uniqueOld) then
+                            aReviveQueue.items_price = aReviveQueue.items_price - self:GetPrice(old)
+                            table.remove(aReviveQueue.items, i)
+                            break
+                        end
+                    end
+                end
+
+                iPrice, iEnergy = self:GetPrice(aDef.id);
+                if (bAlive) then
+
+                    local iCooldown = aServerProperties.BuyCooldown
+                    if (iCooldown) then
+                        if (hPlayer:OnBuyCooldown(aDef.class, iCooldown)) then
+                            ServerItemHandler:HandleMessage(hPlayer, "@l_ui_itemBuyCooldown", aDef.class)
+                            return false
+                        end
+                    end
+
+                    hPlayer:SetBuyCooldown(aDef.id)
+
+                    local hItem
+                    if (not aServerProperties.DontGiveItem) then
+                        hItemID = hPlayer:GiveItem(aDef.class, true)
+                        hItem   = GetEntity(hItemID)
+                    end
+
+                    ServerItemHandler:OnItemBought(hPlayer, hItem, aDef, iPrice, aFactory)
+
+                    self:AwardPPCount(hPlayerID, -iPrice, nil, hPlayer:HasClientMod())
+                    if (iEnergy and iEnergy > 0) then
+                        self:SetTeamPower(iTeam, self:GetTeamPower(iTeam) - iEnergy)
+                    end
+                    if (hItem) then
+                        hItem.builtas = aDef.id
+                    end
+
+                elseif ((not iEnergy) or (iEnergy == 0)) then
+                    table.insert(aReviveQueue.items, aDef.id)
+                    aReviveQueue.items_price = aReviveQueue.items_price + iPrice
+                else
+                    return false
+                end
+            else
+                if (aDef.class) then
+                    ServerItemHandler:HandleMessage(hPlayer, "@l_ui_cannotCarryMoreType", string.capitalN(self:GetItemCategory(aDef.class)))
+                else
+                    ServerItemHandler:HandleMessage(hPlayer, "@l_ui_cannotCarryMore")
+                end
+
+                self.game:SendTextMessage(TextMessageError, "@mp_CannotCarryMore", TextMessageToClient, hPlayerID)
+                return false
+            end
+
+            if (hItemID) then
+                self.Server.OnItemBought(self, hItemID, sItem, hPlayerID)
+            end
+
+            return true
+
+        end
+    },
+
+    ---------------------------------------------
     --- CheckSpawnPP
     ---------------------------------------------
     {
@@ -74,6 +634,22 @@ local ServerGameRulesBuying = {
                 end
             end
         end
+    },
+
+    ---------------------------------------------
+    --- Reset
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "SetPlayerPP" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hPlayerID, iPP)
+            g_pGame:SetSynchedEntityValue(hPlayerID, self.PP_AMOUNT_KEY, math.min(MAXIMUM_PRESTIGE, math.max(-MAXIMUM_PRESTIGE, iPP)))
+        end
+
     },
 
     ---------------------------------------------

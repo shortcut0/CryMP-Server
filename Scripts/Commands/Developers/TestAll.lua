@@ -70,3 +70,19 @@ AddCommand({
         self.CollectedHits={}
     end
 })
+------------
+AddCommand({
+    Name = "testaccsoorssdfjlsdkf:3",
+    Access = RANK_DEVELOPER, -- Must be accessible to all!
+
+    Arguments = {
+    },
+
+    Properties = {
+    },
+
+    Function = function(self)
+
+        ServerItemHandler:AttachOnWeapon(self,self:GetCurrentItem(),{"LAMRifle"})
+    end
+})

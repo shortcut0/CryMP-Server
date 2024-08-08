@@ -62,7 +62,7 @@ ConfigCreate({
                 { Authority   = 1, ID = "PLAYER",     Name = "Player",      Color = CRY_COLOR_WHITE                    },
                 { Authority   = 2, ID = "PREMIUM",    Name = "Premium",     Color = CRY_COLOR_BLUE,     Premium = true },
                 { Authority   = 3, ID = "MODERATOR",  Name = "Moderator",   Color = CRY_COLOR_ORANGE                   },
-                { Authority   = 4, ID = "ADMIN",      Name = "Admin",       Color = CRY_COLOR_RED                      },
+                { Authority   = 4, ID = "ADMIN",      Name = "Admin",       Color = CRY_COLOR_RED,      Admin = true   },
                 { Authority   = 5, ID = "HEADADMIN",  Name = "HeadAdmin",   Color = CRY_COLOR_RED                      },
                 { Authority   = 6, ID = "SUPERADMIN", Name = "SuperAdmin",  Color = CRY_COLOR_WHITE }, -- indicating that this class is a developer class
                 { Authority   = 7, ID = "DEVELOPER",  Name = "Developer",   Color = CRY_COLOR_MAGENTA,  Developer = true },
@@ -231,14 +231,104 @@ ConfigCreate({
                     BunkerSpawnAward = 100,
 
                     -- For Vehicles
-                    VehicleSpawnAward = 100
+                    VehicleSpawnAward = 100,
+
+                    -- if a player should receive a share when another player buys an item
+                    -- in a building that they have captured
+                    AwardInvestPrestige = true,
+
+                    -- The amount of prestige of the share the player gets (in percentage)
+                    ItemInvestAward = 25,
+
+                    -- The amount of prestige of the share the player gets (in percentage)
+                    VehicleInvestAward = 15,
 
                 }, ---< Prestige
+
+
+                -----------------------
+                -- Buying Configuration
+                Buying = {
+
+                    -- If players are allowed to sell their items
+                    AllowSellItems = true,
+
+                    -- the amount of prestige you get when selling an item (in percentage)
+                    SellItemReward = 75,
+
+                    -- A list of items the player cannot buy
+                    -- check ItemList.txt for the correct names
+                    ForbiddenItems = {
+                        "pistol"
+                    },
+
+                    -- A list of items the player cannot buy
+                    -- check ItemList.txt for the correct names
+                    ForbiddenVehicles = {
+                    },
+
+                    -- The maximum amount of kits a player can buy
+                    KitLimit = 2,
+
+                }, ---< Buying
 
                 -- Skip Pre Game?
                 SkipPreGame = true,
 
-            } ---< GameRules
+            }, ---< GameRules
+
+            ---------------------------
+            --- Equipment Configuration
+            Equipment = {
+
+                -- Save Players Accessory configuration
+                SavePlayerAccessories = true,
+
+                -------------------
+                --- Spawn Equipment
+                SpawnEquip = {
+
+                    -- Use saved accessory configuration
+                    LoadPlayerAccessories = true,
+
+                    -- PowerStruggle Config
+                    ["PowerStruggle"] = {
+                        Active  = true,
+                        Regular = {
+                            Regular = { { "FY71", { "LAMRifle", "Silencer" }} },
+                            Premium = {
+                                { "FY71", { "LAMRifle", "Silencer" }},
+                                { "SCAR", { "LAMRifle", "Silencer", "Reflex" }}
+                            },
+                            Admin = {
+                                { "FY71", { "LAMRifle", "Silencer", "SniperScope" }},
+                                { "SCAR", { "LAMRifle", "Silencer", "Reflex" }},
+                                { "RadarKit" }
+                            },
+                            AdditionalEquip = { 'Binoculars' },
+                            MustHave        = { "LAMRifle", "Silencer" }
+                        }
+                    }, ---< PowerStruggle
+
+                    -- InstantAction Config
+                    ["InstantAction"] = {
+                        Active  = true,
+                        Regular = {
+                            Regular = {
+                                { "FY71", { "LAMRifle", "Silencer" }}
+                            },
+                            Premium = {
+                                { "SMG",  { "LAMRifle", "Silencer", "Reflex" }},
+                                { "FY71", { "LAMRifle", "Silencer", "Reflex" }}
+                            },
+                            AdditionalEquip = { 'Binoculars' },
+                            MustHave        = { "LAMRifle", "Silencer" }
+                        }
+                    } ---< InstantAction
+
+                } ---< SpawnEquip
+
+            } ---< Equipment
 
         }, ---< General
 

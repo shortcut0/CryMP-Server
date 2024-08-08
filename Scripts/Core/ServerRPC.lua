@@ -85,6 +85,17 @@ end
 --------------------------------
 --- Init
 ServerRPC.Callbacks.OnShoot = function(self, ...)
-
     return (ServerItemHandler:OnShoot(...) == true)
+end
+
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnLeaveWeaponModify = function(self, ...)
+    return (ServerItemHandler:OnLeaveWeaponModify(...) == true)
+end
+
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnSwitchAccessory = function(self, ...)
+    return (ServerItemHandler:OnSwitchAccessory(...) == true)
 end

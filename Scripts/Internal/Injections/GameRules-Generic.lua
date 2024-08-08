@@ -7,6 +7,8 @@ local ServerGameRules = {
     -----------------
     PostInit = function(self)
 
+        MAXIMUM_PRESTIGE = (10000000 - 1)
+
         self.ServerData = (self.ServerData or {})
 
         self.IS_PS = (g_sGameRules == "PowerStruggle")
@@ -477,7 +479,7 @@ local ServerGameRules = {
                     iPing = (iPing * iPingMultiplier)
                     iPingTotal = (iPingTotal + iPing)
 
-                    if (hClient:GetPing(iPing)) then
+                    if (hClient:GetPing(iPing, true)) then
                         hClient:SetRealPing(iPing)
                     end
 
@@ -509,6 +511,7 @@ local ServerGameRules = {
 
                 local hPlayer = GetEntity(hPlayerID)
                 if (hPlayer) then
+
                     if (hPlayer.last_team_change and (oldTeamId == 0 or iTeam ~= 0)) then
                         if (self:GetState() == "InGame") then
 
@@ -541,6 +544,7 @@ local ServerGameRules = {
                         self.game:SetTeam(iTeam, hPlayerID);
                         self.Server.RequestSpawnGroup(self, hPlayer.id, self.game:GetTeamDefaultSpawnGroup(iTeam) or NULL_ENTITY, true)
 
+                        hPlayer.TeamChangeTimer = timernew()
                         hPlayer.last_team_change = _time
                     end
                 end
@@ -562,18 +566,33 @@ local ServerGameRules = {
         Type = eInjection_Replace,
 
         ------------------------
-        Function = function(self, iChannel, hPlayer)
+        Function = function(self, iChannel, hPlayer, bForce, bKeepEquip)
 
+            local iTeamForce
             if (self.IS_PS) then
                 if (hPlayer:IsSpectating()) then
                     g_pGame:ChangeSpectatorMode(hPlayer.id, 0, NULL_ENTITY)
                 end
+                if (not bForce) then
+                end
             end
 
+            if (bForce or (hPlayer:GetTeam() == 0 and self.IS_PS)) then
+                g_pGame:RevivePlayer(hPlayer.id, hPlayer.RevivePosition, (hPlayer.ReviveAngles or hPlayer:GetAngles()), hPlayer:GetTeam(), not bKeepEquip)
+                if (hPlayer:IsSpectating()) then
+                    hPlayer.actor:SetSpectatorMode(0, NULL_ENTITY)
+                end
+                if (not bKeepEquip or (hPlayer:IsInventoryEmpty())) then
+                    self:EquipPlayer(hPlayer)
+                end
 
-            local bKeepEquip = false
-            local bResult 	= false
+                if (self.IS_PS) then
+                    self:ResetRevive(hPlayer.id, true)
+                end
+                return true
+            end
 
+            local bResult 	 = false
             local iGroup 	= (hPlayer.ForcedSpawnID or hPlayer.spawnGroupId)
             local iTeam 	= hPlayer:GetTeam()
 
@@ -720,6 +739,38 @@ local ServerGameRules = {
 
             return bResult
         end
+    },
+
+    ---------------------------------------------
+    --- OnPlayerKilled
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "EquipPlayer" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hPlayer, aAdditionalEquip)
+
+            hPlayer.inventory:Destroy()
+            if (hPlayer:IsPunished(ePlayerPunish_NoEquipment)) then
+                return
+            end
+
+            hPlayer:GiveItem("AlienCloak")
+            hPlayer:GiveItem("OffHand")
+            hPlayer:GiveItem("Fists")
+
+            local bEquipped = ServerItemHandler:EquipPlayer(hPlayer)
+            if (not bEquipped) then
+                if (aAdditionalEquip and aAdditionalEquip ~= "") then
+                    hPlayer:GiveItemPack(aAdditionalEquip)
+                end
+                hPlayer:GiveItem("SOCOM")
+            end
+        end
+
     },
 
     ---------------------------------------------

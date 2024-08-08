@@ -9,6 +9,26 @@ return {
   ["play_time"] = 6580.982000,
   ["last_visit"] = 1722835714.000000,
  },
+ ["1063784"] = {
+  ["equipment"] = {
+   ["SMG"] = {
+    [1] = "LAMRifle",
+    [2] = "Silencer",
+   },
+   ["FY71"] = {
+    [1] = "LAMRifle",
+    [2] = "Silencer",
+    [3] = "FY71NormalAmmo",
+   },
+   ["Shotgun"] = {
+    [1] = "LAMRifle",
+    [2] = "SniperScope",
+   },
+  },
+  ["last_name"] = "meowrisa",
+  ["play_time"] = 26301.030000,
+  ["last_visit"] = 1723087125.000000,
+ },
  ["1063733"] = {
   ["play_time"] = 1388.722000,
   ["last_visit"] = 1722825646.000000,

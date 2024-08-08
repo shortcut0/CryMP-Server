@@ -1,7 +1,8 @@
-GetDevs     = GetDummyFunc()
-GetDevRanks = GetDummyFunc()
-Localize    = GetDummyFunc()
-Debug       = GetDummyFunc()
+GetDevs         = GetDummyFunc()
+GetDevRanks     = GetDummyFunc()
+GetLowestRank   = GetDummyFunc()
+Localize        = GetDummyFunc()
+Debug           = GetDummyFunc()
 
 
 DLL_ERROR = nil

@@ -17,10 +17,19 @@ arrayutils = {
 table.__NO__RECURSION__ = {}
 
 ---------------------------
+-- table.checkM (finish this)
+
+table.checkM = function(t, m, d)
+	if (not t[m]) then
+		t[m] = d
+	end
+	return t
+end
+
+---------------------------
 -- table.getnested (finish this)
 
 table.getnested = function(t, val, pattern)
-
 	local h = t
 	for sMember in string.gmatch(val, "([^%.]+)") do
 		h = h[sMember]
@@ -29,7 +38,6 @@ table.getnested = function(t, val, pattern)
 		end
 	end
 	return h
-
 end
 
 ---------------------------

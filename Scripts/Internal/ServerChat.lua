@@ -4,11 +4,7 @@ ServerChat = (ServerChat or {
     ConsoleTotalLength = CLIENT_CONSOLE_LEN,
 
     RegisteredEntities = {},
-    ChatEntities = {
-        { ID = "SERVER",    Name = "CryMP-Server" },
-        { ID = "TEST",      Name = "Test" },
-        { ID = "DEBUG",     Name = "Server-Debug" },
-    },
+    ChatEntities = {},
 
     TM_START = 0,
     TM_END   = 0,
@@ -28,6 +24,14 @@ ServerChat = (ServerChat or {
 
 ----------------
 ServerChat.Init = function(self)
+
+    ----------
+    self.ChatEntities = {
+        { ID = "SERVER",    Name = "CryMP-Server" },
+        { ID = "TEST",      Name = "Test" },
+        { ID = "DEBUG",     Name = "Server-Debug" },
+        { ID = "EQUIP",     Name = "Server-Equip" },
+    }
 
     ----------
     ALL = 0
@@ -67,7 +71,7 @@ ServerChat.Init = function(self)
         _G[("CHAT_" .. aInfo.ID .. "_LOCALE")] = nID3
         _G[("CHAT_" .. aInfo.ID .. "_TEAMLOCALE")] = nID4
 
-        ---ServerLog("New Chat Entity %s (ID: %s, %s)", aInfo.Name, aInfo.ID, ("CHAT_" .. aInfo.ID))
+        ServerLog("New Chat Entity %s (ID: %s, %s)", aInfo.Name, aInfo.ID, ("CHAT_" .. aInfo.ID))
     end
     incEnd()
 
