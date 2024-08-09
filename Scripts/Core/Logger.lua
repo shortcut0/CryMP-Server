@@ -33,6 +33,8 @@ eLogEvent_ServerLocale      = 11
 eLogEvent_Plugins           = 12
 eLogEvent_Debug             = 13
 eLogEvent_BuyMessage        = 14
+eLogEvent_Rename            = 15
+eLogEvent_Punish            = 16
 
 --------------------------------
 --- Init
@@ -138,14 +140,37 @@ Logger.InitLogEvents = function(self, iEvent, sMessage, ...)
         },
 
         -- Debug
+        [eLogEvent_Punish] = {
+            ConsoleType     = MSG_DEBUG,
+            Locale          = false,
+            NoLocale        = false,
+            PlayerMessages  = true,
+            Tag             = "Punish",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_GUEST }
+        },
+
+        -- Debug
         [eLogEvent_Debug] = {
             ConsoleType     = MSG_DEBUG,
+            ChatTypes       = { CHAT_DEBUG },
             Locale          = false,
             NoLocale        = false,
             PlayerMessages  = true,
             Tag             = "Debug",
             Color           = self.DefaultColor,
             Access          = { Regular = GetDevRanks(1) }
+        },
+
+        -- Debug
+        [eLogEvent_Rename] = {
+            ConsoleType     = nil,
+            Locale          = false,
+            NoLocale        = false,
+            PlayerMessages  = true,
+            Tag             = "Rename",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_GUEST }
         },
 
         -- Debug
@@ -280,6 +305,9 @@ Logger.LogEventTo = function(self, aClients, iEvent, sMessage, ...)
     -----------
     -- Log to Players
     if (aInfo.PlayerMessages) then
+        if (isNumber(aClients) and GetRankInfo(aClients)) then
+            aClients = GetPlayers({ Access = aClients })
+        end
         self:LogToPlayers(aInfo, sMessage, { ... }, aClients)
     end
 
@@ -335,7 +363,8 @@ Logger.LogChatEvent = function(self, iLogType, iChatType, sMessage, hSender, aCl
 
     -----------
     -- Always log to console
-    self:LogToServer(aInfo, sMessage, sSenderName, sChatMsg)
+    ServerLog("%s To %s (%s)", sSenderName, g_ts(iChatType), sChatMsg)
+    --self:LogToServer(aInfo, sMessage, sSenderName, sChatMsg)
 end
 
 --------------------------------
@@ -362,6 +391,8 @@ end
 --- Init
 Logger.LogToPlayers = function(self, aInfo, sMessage, aFormat, aClients, sLogTag)
 
+    local bClientList = (aClients ~= nil)
+
     sMessage = self:ReplaceColors(sMessage)
     aClients = (aClients or GetPlayers())
     if (table.empty(aClients)) then
@@ -372,7 +403,7 @@ Logger.LogToPlayers = function(self, aInfo, sMessage, aFormat, aClients, sLogTag
     local sAppendTag = aInfo.AppendTag
 
     local iRankExtended = (aInfo.Access.Extended) -- Rank required to view a the extended message
-    local iRankNormal = (aInfo.Access.Regular)-- or GetLowestRank())    -- Rank required to view a the regular message
+    local iRankNormal   = (aInfo.Access.Regular)-- or GetLowestRank())    -- Rank required to view a the regular message
     if (not iRankNormal) then
         throw_error("no rank ?")
     end
@@ -401,7 +432,7 @@ Logger.LogToPlayers = function(self, aInfo, sMessage, aFormat, aClients, sLogTag
             bExtended = (iRankExtended == nil or (iRank >= iRankExtended))
 
             -- can the user view the message?
-            if (iRank >= iRankNormal) then
+            if (iRank >= iRankNormal or bClientList) then
                 sLocalized = sMessage
                 sExtended = sMessage
                 if (not aInfo.NoLocale) then
@@ -425,6 +456,9 @@ Logger.LogToPlayers = function(self, aInfo, sMessage, aFormat, aClients, sLogTag
                 end
 
                 SendMsg((aInfo.ConsoleType or MSG_CONSOLE), hClient, ((aInfo.MsgColor or "") .. sLocalized), sEntity)
+                if (aInfo.ChatTypes) then
+                    SendMsg(aInfo.ChatTypes, hClient, string.gsub(sLocalized, string.COLOR_CODE, ""))
+                end
                 --ServerLog("Final message for client %s: %s", hClient:GetName(), sLocalized)
             else
                 -- ServerLog("no access %d<%d<%d",iRank,iRankNormal,iRankExtended or-1)
@@ -451,10 +485,19 @@ Logger.FormatLocalized = function(self, sMessage, aFormat)
 
     local sFormatted = sMessage
     for _, sFmt in pairs((aFormat or {})) do
+        if (sFmt == nil) then
+            throw_error("format not found " .. g_ts(_))
+        end
         sFormatted = string.gsub(sFormatted, "${" .. _ .. "}", sFmt)
     end
 
     return self:ReplaceColors(sFormatted)
+end
+
+--------------------------------
+--- Init
+Logger.RemoveColors = function(self, sMessage)
+    return string.gsub(self:ReplaceColors(sMessage), string.COLOR_CODE, "")
 end
 
 --------------------------------

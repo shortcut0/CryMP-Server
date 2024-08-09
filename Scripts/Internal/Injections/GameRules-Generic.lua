@@ -218,11 +218,14 @@ local ServerGameRules = {
                 vAng = hInterestingSpot:GetWorldAngles()
             end
 
-            local sSpawnClass = ConfigGet("General.PlayerSpawnClass", ENTITY_CLASS_PLAYER, eConfigGet_String)
-            sName = ServerNames:ValidateName(sName, { Country = ServerChannels:GetCountryCode(iChannel), Profile = iChannel })
+            if (not sName) then
+                sName = ServerNames:GetDefaultName({ Country = ServerChannels:GetCountryCode(iChannel), Channel = iChannel, Profile = iChannel })
+            end
+            sName = ServerNames:ValidateName(sName, { Country = ServerChannels:GetCountryCode(iChannel), Channel = iChannel, Profile = iChannel })
 
             ServerLog("Spawning new Client with Name %s", sName)
 
+            local sSpawnClass = ConfigGet("General.PlayerSpawnClass", ENTITY_CLASS_PLAYER, eConfigGet_String)
             local hClient = g_pGame:SpawnPlayer(iChannel, (sName or "Nomad"), sSpawnClass, vPos, vAng)
             if (hClient) then
                 PlayerHandler:InitClient(hClient, iChannel)
@@ -961,7 +964,7 @@ local ServerGameRules = {
             if (hTarget.id ~= hShooter.id) then
                 local aCollectedHits = hTarget.CollectedHits
                 if (table.empty(aCollectedHits)) then
-                    return throw_error("no hits")
+                    return
                 end
 
                 local iTotalHits   = 0
@@ -1078,7 +1081,7 @@ local ServerGameRules = {
 
                 end
 
-                if (hTarget.IsPlayer) then
+                if (hShooter.IsPlayer) then
                     if (not aHitInfo.explosion and not aHitInfo.melee) then
                         if (not hShooter:HitAccuracyExpired()) then
                             hShooter:UpdateHitAccuracy(eHitAccuracy_OnHit)

@@ -5,17 +5,20 @@ ServerLocale = {
     LocaleFiles = "\.(txt|json|lua)$",
 
     Localization = {},
-    DefaultLanguage = "english"
+    DefaultLanguage = "english",
+    AvailableLanguages = { "english", "german", "spanish", "russian", "turkish", "czech" }
 }
 
 ----------------
 ServerLocale.Init = function(self)
+
 
     LocalizeForClient  = function(...) return self:LocalizeForClient(...) end
     Localize           = function(...) return self:LocalizeText(...) end
     TryLocalize        = function(...) return self:TryLocalize(...) end
     CreateLocalization = function(...) return self:CreateLocalization(...) end
 
+    AVAILABLE_LANGUAGES = ConfigGet("Server.AvailableLanguages", self.AvailableLanguages, eConfigGet_Array)
     SERVER_LANGUAGE = string.lower(ConfigGet("Server.Language", self.DefaultLanguage, eConfigGet_String))
 
     self:LoadLanguages()
@@ -53,7 +56,7 @@ end
 ServerLocale.LocalizeText = function(self, sId, sLang, bForceExt)
 
     local sDefault = self.DefaultLanguage
-    local aLocale = self.Localization[sId]
+    local aLocale = self.Localization[string.lower(sId)]
 
     if (not sId) then
         throw_error("no id")
@@ -91,6 +94,8 @@ end
 
 ----------------
 ServerLocale.CreateLocalization = function(self, sId, aLanguages)
+
+    sId = string.lower(sId)
 
     if (not string.fc(sId, "@")) then
         sId = ("@" .. sId)

@@ -34,7 +34,8 @@ eCommandResponse_ManyFound          = 4 -- More than one result
 eCommandResponse_ScriptError        = 5 -- Script Error
 eCommandResponse_ConditionNotMet    = 6 -- Unfulfilled conditions
 eCommandResponse_Premium            = 7 -- It's for premium members
-eCommandResponse_NoAccess           = 3 -- User doesn't have access (uses not found response!)
+eCommandResponse_NoAccess           = 8 -- User doesn't have access (uses not found response!)
+eCommandResponse_BadGameRules       = 9 -- User doesn't have access (uses not found response!)
 
 -------------------------
 --- Init
@@ -89,8 +90,6 @@ ServerCommands.OnCommand = function(self, hClient, sMessage)
     local aArgs = string.split(string.gsuba(sMessage, {
         { "%s+", " " },
     }), " ")
-
-    Debug(table.tostring(aArgs))
 
     if (table.empty(aArgs)) then
         return
@@ -160,8 +159,8 @@ ServerCommands.SendHelp = function(self, hClient, aCommand)
     local sArgsLine = ""
     local sBracketColor = CRY_COLOR_GRAY
     local hArgsLocalized = table.it(hArgs, function(x, i, v)
-        v[1] = TryLocalize(v[1], sLang) -- Name
-        v[2] = TryLocalize((v[2] or "@l_ui_nodescription"), sLang) -- Desc
+        v.Name = TryLocalize(v.Name, sLang) -- Name
+        v.Desc = TryLocalize((v.Desc or "@l_ui_nodescription"), sLang) -- Desc
 
         sBracketColor = CRY_COLOR_GRAY
         if (v.Required) then
@@ -170,11 +169,11 @@ ServerCommands.SendHelp = function(self, hClient, aCommand)
             sBracketColor = CRY_COLOR_BLUE
         end
 
-        iMaxArgLen = math.max(iMaxArgLen, string.len(v[1]))
+        iMaxArgLen = math.max(iMaxArgLen, string.len(v.Name))
         if (sArgsLine == "") then
-            sArgsLine = string.format("%s<%s%s%s>%s", sBracketColor, CRY_COLOR_YELLOW, v[1], sBracketColor, CRY_COLOR_GRAY)
+            sArgsLine = string.format("%s<%s%s%s>%s", sBracketColor, CRY_COLOR_YELLOW, v.Name, sBracketColor, CRY_COLOR_GRAY)
         else
-            sArgsLine = string.format("%s, %s<%s%s%s>", sArgsLine, sBracketColor, CRY_COLOR_YELLOW, v[1], sBracketColor, CRY_COLOR_GRAY)
+            sArgsLine = string.format("%s, %s<%s%s%s>", sArgsLine, sBracketColor, CRY_COLOR_YELLOW, v.Name, sBracketColor, CRY_COLOR_GRAY)
         end
     end)
     local sCmdBanner    = string.format("== [ %s ] ", sName)
@@ -190,6 +189,7 @@ ServerCommands.SendHelp = function(self, hClient, aCommand)
     if (sArgsLine ~= "") then
         sCommandLine = sCommandLine .. ","
     end
+    local iCommandLineLen = iMaxInfoLen + string.len(sCommandLine)
 
     local sPrefixLine   = string.format("%s: %s", string.rspace(sLPrefix, iMaxInfoLen, string.COLOR_CODE), sAllPrefixes)
     local sAccessLine   = string.format("%s: %s", string.rspace(sLAccess, iMaxInfoLen, string.COLOR_CODE), GetRankName(iAccess))
@@ -226,7 +226,7 @@ ServerCommands.SendHelp = function(self, hClient, aCommand)
         end
 
         sArgType = string.format("%s(%s%s%s)", CRY_COLOR_GRAY, CRY_COLOR_WHITE, TryLocalize(sArgType, sLang), CRY_COLOR_GRAY)
-        sArgLine = string.rep(" ", iArgsStart) .. string.rspace(string.format("%s<%s%s %s%s>%s", sBracketColor, CRY_COLOR_YELLOW, string.rspace(TryLocalize(aArg[1], sLang), iArgMaxName, string.COLOR_CODE), sArgType, sBracketColor, CRY_COLOR_GRAY), 30, string.COLOR_CODE) .. " - " .. CRY_COLOR_WHITE .. TryLocalize((aArg[2] or "@l_ui_nodescription"), sLang)
+        sArgLine = string.rep(" ", (iMaxInfoLen + 2 + string.len(sName) + 2)) .. string.rspace(string.format("%s<%s%s %s%s>%s", sBracketColor, CRY_COLOR_YELLOW, string.rspace(TryLocalize(aArg.Name, sLang), iArgMaxName, string.COLOR_CODE), sArgType, sBracketColor, CRY_COLOR_GRAY), 30, string.COLOR_CODE) .. " - " .. CRY_COLOR_WHITE .. TryLocalize((aArg.Desc or "@l_ui_nodescription"), sLang)
 
 
         SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. string.format("[ %s ]", string.rspace(sArgLine .. CRY_COLOR_GRAY, iBoxWidth - 4, string.COLOR_CODE)))
@@ -362,13 +362,16 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
     local aHostCondition = (aCmdProps.HostCondition)
     local sHost = (aCmdProps.Host or aCmdProps.Self or aCmdProps.This)
 
-
     local iUserRank = hClient:GetAccess()
     if (iUserRank < iAccess) then
         if (IsPremiumRank(iAccess)) then
             return self:SendResponse(hClient, eCommandResponse_Premium, sName)
         end
         return self:SendResponse(hClient, eCommandResponse_NotFound, sName)
+    end
+
+    if ((aCmdProps.PowerStruggle and not g_gameRules.IS_PS) or (aCmdProps.InstantAction and g_gameRules.IS_PS)) then
+        return self:SendResponse(hClient, eCommandResponse_BadGameRules, sName, g_sGameRules)
     end
 
     local iUserArgs = table.count(aUserArgs)
@@ -396,6 +399,9 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
 
         Optional = false,
         IsPlayer = false,
+        EqualAccess = true,
+        Predicate = function(arg)  end,
+
         SelfOk   = true, -- Accept "self" as the user
         AllOk    = true, -- Accept "all" for all users
 
@@ -464,6 +470,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
         end
     end
 
+    local bPred, hPred, fPred
     for _, aCmdArg in pairs(aCmdArgs) do
 
         sArg = aUserArgs[_]
@@ -476,10 +483,13 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
         bOk = true
         if (sArg == nil) then
             if (aCmdArg.Required) then
-                return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandarg_required", _)
+                return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandarg_required", hClient:Localize(aCmdArg.Name))
             end
             bOk = false
         end
+
+        fPred = aCmdArg.Predicate
+        hTemp = nil
 
         if (bOk) then
 
@@ -488,6 +498,12 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
             -- Argument expects a player
             elseif (aCmdArg.IsPlayer) then
                 hTemp = GetPlayer(sArg)
+                if (fPred) then
+                    bPred, hPred = fPred(sArg)
+                    if (bPred and hPred) then
+                        hTemp = hPred
+                    end
+                end
                 if (not hTemp) then
 
                     if ((aCmdArg.SelfOk or aCmdArg.AcceptSelf) and IsAny(sArgLower, "myself", "self")) then
@@ -499,12 +515,29 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
                     if (hTemp == nil) then
                         return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandarg_player_notfounnd", sArg)
                     end
+                elseif (isArray(hTemp)) then
+                    if (aCmdArg.EqualAccess and hTemp:GetAccess() >= hClient:GetAccess() and hTemp.id ~= hClient.id) then
+                        return self:SendResponse(hClient, eCommandResponse_NoAccess, sName)
+                    end
                 end
                 aPushArgs[_] = hTemp
 
             -- Argument expects a number
             elseif (aCmdArg.IsNumber) then
                 hTemp = g_tn(sArg)
+                if (fPred) then
+                    bPred, hPred = fPred(sArg)
+                    if (bPred and hPred) then
+                        hTemp = hPred
+                    end
+                end
+                if (hTemp == nil) then
+                    local aTransformers = aCmdArg.Transform
+                    if (aTransformers and aTransformers[string.lower(sArg)]) then
+                        hTemp = aTransformers[string.lower(sArg)]
+                    end
+                end
+
                 if (hTemp == nil) then
                     return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandarg_notnumber", _)
 
@@ -529,10 +562,10 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
             elseif (aCmdArg.Concat) then
 
                 for __ = _, iUserArgs do
-                    hTemp = hTemp .. aUserArgs[__]
+                    hTemp = ((hTemp or "") .. " ") .. aUserArgs[__]
                 end
 
-                aPushArgs[_] = hTemp
+                aPushArgs[_] = g_ts(hTemp)
                 break
             else
                 aPushArgs[_] = aUserArgs[_]
@@ -545,7 +578,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
 
     if (aHost ~= hClient) then
         aPushArgs = table.insertFirst(aPushArgs, hClient)
-        ServerLog("pushing client")
+        --ServerLog("pushing client")
     end
 
     if (SERVER_DEBUG_MODE) then
@@ -557,6 +590,8 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
             HandleError("Executing Command %s (%s)", sName, (hCmdResponse or "<Unknown>"))
             return self:SendResponse(hClient, eCommandResponse_ScriptError, sName, (TryLocalize("@l_ui_checkerrorlog", sLang) or hCmdResponse or "<Unknown>"))
         end
+
+        sError = sCmdError
     end
 
     if (hCmdResponse == nil or IsAny(hCmdResponse, eCmdRet_NoFeedback)) then
@@ -632,7 +667,7 @@ ServerCommands.SendResponse = function(self, hClient, iResponse, sCmd, sMsg, ...
 
     -- Localize the return message (if any)
     local sLocalizedMsg
-    if (sMsg) then
+    if (sMsg and IsAny(iResponse, eCommandResponse_Failed, eCommandResponse_ScriptError)) then
         sLocalizedMsg = " (".. self:LocalizeMessage(hClient, sMsg, { ... }) .. ")"
     end
 
@@ -694,6 +729,10 @@ ServerCommands.SendResponse = function(self, hClient, iResponse, sCmd, sMsg, ...
         aMsg1 = { "@l_commandresp_con_noaccess", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
         aMsg2 = { "@l_commandresp_chat_noaccess", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
 
+    elseif (iResponse == eCommandResponse_BadGameRules) then
+        aMsg1 = { "@l_commandresp_con_badgamerules", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
+        aMsg2 = { "@l_commandresp_chat_badgamerules", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
+
     else
         throw_error("response not implemented " .. g_ts(iResponse))
     end
@@ -715,15 +754,16 @@ ServerCommands.FindCommand = function(self, iUserRank, sMessage, bGreedy)
     for sName, aCommand in pairs(table.copy(self.Commands)) do
         if (string.len(sMessage) >= 1) then
 
-            ServerLog("%s match %s", sName, sMessage)
+            --ServerLog("%s match %s", sName, sMessage)
             if (sName == sMessage) then
-                table.insert(aFound, aCommand)
+                return { aCommand }
+                --table.insert(aFound, aCommand)
             elseif (string.match(sName, ("^" .. sMessage))) then
                 table.insert(aFound, aCommand)
             elseif (bGreedy) then
                 for i = string.len(sMessage), math.minex((string.len(sMessage) - 5), 3), -1 do
 
-                    ServerLog("%s match %s", sName, ("^" .. string.sub(sMessage, 1, i)))
+                    --ServerLog("%s match %s", sName, ("^" .. string.sub(sMessage, 1, i)))
                     if (string.match(sName, ("^" .. string.sub(sMessage, 1, i)))) then
                         table.insert(aFound, aCommand)
                         break
@@ -731,7 +771,8 @@ ServerCommands.FindCommand = function(self, iUserRank, sMessage, bGreedy)
                 end
             end
         elseif (sName == string.lower(sMessage)) then
-            table.insert(aFound, aCommand)
+            return { aCommand }
+            --table.insert(aFound, aCommand)
         end
     end
 
@@ -761,8 +802,6 @@ ServerCommands.HasCommandPrefix = function(self, sMessage)
             return sPrefix
         end
     end
-
-    Debug("none!")
     return false
 
 end
@@ -862,6 +901,11 @@ ServerCommands.CreateCommand = function(self, aInfo)
     end
 
     local aCommand = table.copy(aInfo)
+    for _, hArg in pairs(aCommand.Arguments) do
+        table.checkM(hArg, "Name", hArg[1])
+        table.checkM(hArg, "Desc", hArg[2])
+    end
+
     aCommand.IsHidden       = function(this) return this.Properties.Hidden end
     aCommand.Hide           = function(this, mode) this.Properties.Hidden = mode end
     aCommand.IsQuiet        = function(this) return this.Properties.Quiet end

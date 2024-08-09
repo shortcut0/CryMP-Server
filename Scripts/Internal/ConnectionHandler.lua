@@ -85,21 +85,33 @@ end
 --- Init
 ServerPCH.OnConnection = function(self, iChannel, sIP)
 
+    ServerChannels:InitChannel(iChannel, sIP)
+    PlayerHandler:CreateClientInfo(iChannel, sIP)
+
+    local sHost = ServerChannels:GetHost(iChannel)
     local sNick = (ServerDLL.GetChannelNick(iChannel) or "Nomad")
 
-    -- FIXME: Check Bans Here!
-    -- CheckBansHere(sIP)
+    -- Check Bans
+    if (ServerPunish:Ban_CheckChannel(iChannel, sIP, sHost)) then
+        return false
+    end
 
     -- FIXME: Check VPNs Here!
     -- CheckVPN(sIP)
 
     -- FIXME: Check Country Here!
     -- CheckCountry(sIP)
+end
 
-    ServerChannels:InitChannel(iChannel, sIP)
-    PlayerHandler:CreateClientInfo(iChannel, sIP)
+--------------------------------
+--- Init
+ServerPCH.LogOnConnection = function(self, iChannel, sIP)
+
+    local sHost = ServerChannels:GetHost(iChannel)
+    local sNick = (ServerDLL.GetChannelNick(iChannel) or "Nomad")
 
     -- Just log
+    SendMsg(CHAT_SERVER_LOCALE, GetPlayers(), "@l_chat_on_connection", sNick, iChannel, sIP)
     Logger:LogEvent(eLogEvent_Connection, "@l_console_on_connection", sNick, iChannel, sIP)
 end
 
@@ -111,7 +123,12 @@ ServerPCH.OnConnectionClosed = function(self, iChannel, sReason)
     local sNick = (ServerDLL.GetChannelNick(iChannel) or "Nomad")
 
     -- Just log
-    Logger:LogEvent(eLogEvent_Connection, "@l_console_on_chandisconnect", (sNick or "Nomad"), iChannel, sReasonShort)
+    if (not WasChannelBanned(iChannel)) then
+        SendMsg(CHAT_SERVER_LOCALE, GetPlayers(), "@l_chat_on_chanDisconnect", (sNick or "Nomad"), iChannel, sReasonShort)
+        Logger:LogEvent(eLogEvent_Connection, "@l_console_on_chandisconnect", (sNick or "Nomad"), iChannel, sReasonShort)
+    end
+
+    ServerChannels:OnChannelDisconnect(iChannel)
 end
 
 --------------------------------
@@ -128,8 +145,12 @@ ServerPCH.OnConnected = function(self, hClient)
     local iChannel = (hClient.actor:GetChannel())
     local sName = (hClient:GetName())
 
-    -- FIXME: Check Bans Here!
-    -- CheckBansHere(hClient)
+    ServerChannels:OnChannelDisconnect(iChannel)
+
+    -- Check Bans
+    if (ServerPunish:Ban_CheckPlayer(hClient)) then
+        return false
+    end
 
     -- FIXME: Check VPNs Here!
     -- CheckVPN(hClient)
@@ -144,6 +165,7 @@ ServerPCH.OnConnected = function(self, hClient)
     self:SendBanner(hClient)
 
     -- Just log
+    SendMsg(CHAT_SERVER_LOCALE, GetPlayers(), "@l_chat_on_Connected", sName, iChannel, hClient:GetProfileID())
     Logger:LogEvent(eLogEvent_Connection, "@l_console_on_connected", sName, iChannel, hClient:GetProfileID())
 end
 
@@ -169,7 +191,10 @@ ServerPCH.OnDisconnected = function(self, hClient, sReason)
     CallEvent(eServerEvent_OnClientDisconnect, hClient, sReason, sReasonShort)
 
     -- Just log
-    Logger:LogEvent(eLogEvent_Connection, "@l_console_on_disconnected", sName, iChannel, sReasonShort)
+    if (not hClient:WasBanned()) then
+        SendMsg(CHAT_SERVER_LOCALE, GetPlayers(), "@l_chat_on_disconnected", sName, iChannel, sReasonShort)
+        Logger:LogEvent(eLogEvent_Connection, "@l_console_on_disconnected", sName, iChannel, sReasonShort)
+    end
 end
 
 --------------------------------
@@ -216,7 +241,7 @@ ServerPCH.SendBanner = function(self, hClient, sForcedLang)
     local sName     = hClient:GetName()
     local sLastSeen = hClient:GetLastVisit()
 
-    local sUsageInfo = string.format("CPU: %d%%, %s", ServerDLL.GetCPUUsage(), ServerUtils.ByteSuffix(ServerDLL.GetMemUsage()))
+    local sUsageInfo = string.format("CPU: %d%%, %s", ServerDLL.GetCPUUsage(), ServerUtils.ByteSuffix(ServerDLL.GetMemUsage(), 0))
 
     if (sLastSeen == "Never") then
         sLastSeen = TryLocalize("@l_ui_never", sLang)
@@ -234,12 +259,13 @@ ServerPCH.SendBanner = function(self, hClient, sForcedLang)
     local aFormat = {
         ["cl_ip"]       = hClient:GetIP(),
         ["cl_id"]       = hClient:GetProfileID(),
-        ["cl_playtime"]  = math.calctime(hClient:GetPlayTime(), 1),
+        ["cl_playtime"] = math.calctime(hClient:GetPlayTime(), 1),
         ["cl_country"]  = hClient:GetCountry(),
         ["cl_lang"]     = string.capitalN(sLang),
         ["cl_access"]   = sAccess,
         ["cl_visit"]    = TryLocalize("@l_ui_last_visit", sLang, { sLastSeen }) .. ": ${red}" .. sLastSeen,
-        ["cl_welcome"]  = TryLocalize("@l_ui_welcomebanner", sLang, { sAccess, sName })
+        ["cl_welcome"]  = string.format("-- %s -- ", TryLocalize("@l_ui_welcomebanner_np", sLang, {  })),
+        ["cl_name"]     = "${white}"..sName
     }
 
     local function CreateLine(aHost, aInfoLeft, aInfoRight, aCenterInfo)
@@ -293,9 +319,9 @@ ServerPCH.SendBanner = function(self, hClient, sForcedLang)
     local aBoxes = {}
     CreateLine(aBoxes,{ ID = "ID",       Data = "${red}${cl_id}${gray}"      },{ ID = "@l_ui_uptime", Data = "${red}" .. math.calctime(timerinit(), 1), }, { Data = "" })
     CreateLine(aBoxes,{ ID = "IP",       Data = "${white}${cl_ip}${gray}"      },{ ID = "@l_ui_rssusage", Data = "${red}" .. sUsageInfo }, { Data = "${white}${cl_welcome}${gray}" })
-    CreateLine(aBoxes,{ ID = "@l_ui_playtime",   Data = "${cl_playtime}"  },{ ID = "-", Data = "-", }, { Data = "${cl_visit}" })
+    CreateLine(aBoxes,{ ID = "@l_ui_playtime",   Data = "${cl_playtime}"  },{ ID = "-", Data = "-", }, { Data = "${cl_name}" })
     CreateLine(aBoxes,{ ID = "@l_ui_country",  Data = "${cl_country}" },{ ID = "-", Data = "-", }, { Data = "" })
-    CreateLine(aBoxes,{ ID = "@l_ui_language", Data = "${cl_lang}"    },{ ID = "-", Data = "-", }, { Data = "" })
+    CreateLine(aBoxes,{ ID = "@l_ui_language", Data = "${cl_lang}"    },{ ID = "-", Data = "-", }, { Data = "${cl_visit}" })
 
 
     -- !!FIXME

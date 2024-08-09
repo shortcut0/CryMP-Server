@@ -26,9 +26,11 @@ eServerEvent_OnPostInit         = 14  -- ()           When Server Initialized
 
 eServerEvent_ResolveSpawnLocation   = 15  -- ()           When Server Initialized
 eServerEvent_OnClientRevived        = 16  -- ()           When Server Initialized
+eServerEvent_OnHardwareIDReceived   = 17  -- ()           When Server Initialized
+eServerEvent_OnHardwareIDReceived   = 17  -- ()           When Server Initialized
 
 eServerEvent_Begin          = 0
-eServerEvent_End            = 17
+eServerEvent_End            = 18
 
 ------------------------------------
 --- Init
@@ -139,14 +141,14 @@ ServerEvents.CallEvent = function(self, iEvent, ...)
 
                     HandleError("Execute Event (%d) Failed (%s)", sErr)
 
-                    ServerLogError("Execute Event %d for Host \"%s\" for function \"%s\" failed", iEvent, sHost, sFunc)
+                    ServerLogError("Execute Event %d for Host \"%s\" for function \"%s\" failed", iEvent, g_ts(sHost), g_ts(sFunc))
                     ServerLogError("%s", (sErr or "N/A"))
                     ServerLogError("%s", (debug.traceback() or "N/A"))
 
                     aInfo.Errors.Count = (aInfo.Errors.Count + 1)
                     if (aInfo.Errors.Count >= aInfo.Errors.KillCount) then
                         aInfo.Active = false
-                        ServerLogError("Event %d for Host \"%s\" for function \"%s\" disabled", iEvent, sHost, sFunc)
+                        ServerLogError("Event %d for Host \"%s\" for function \"%s\" disabled", iEvent, g_ts(sHost), g_ts(sFunc))
                     end
                     aInfo.Errors.Last  = timernew(1)
                 end

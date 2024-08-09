@@ -4,6 +4,6 @@ return {
   ["ProfileID"] = "1063698",
   ["Login"] = "password",
   ["ProtectedName"] = true,
-  ["Rank"] = 8.000000,
+  ["Rank"] = 8,
  },
 }

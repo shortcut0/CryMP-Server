@@ -75,6 +75,27 @@ ConfigCreate({
         ---> Server Configuration
         Server = {
 
+            --------------------
+            -- Punishment Config
+            Punishment = {
+
+                -- Bind bans to hardware ids of clients
+                UseHardwareBans = true,
+
+                -- The maximum amount of time anyone can be banned (in seconds)
+                MaximumBanTime = 31536000,
+
+                -- The default ban time if none was specified
+                DefaultBanTime = 86400,
+
+                -- The maximum amount of time anyone can be banned (in seconds)
+                MaximumMuteTime = 86400,
+
+                -- The default ban time if none was specified
+                DefaultMuteTime = 300,
+
+            }, ---< Punishment
+
             ------------------
             --- Welcome Config
             Welcome = {
@@ -84,12 +105,17 @@ ConfigCreate({
 
             }, ---< Welcome
 
+            -- The available languages on this server
+            AvailableLanguages = {
+                "english",
+                "german",
+                "spanish",
+                "russian",
+                "turkish",
+                "czech",
+            },
+
             --- The Default Server Language
-            --- Available:
-            ---  > english
-            ---  > spanish
-            ---  > german
-            ---  > russian
             Language = "english",
 
             ----------------------------------
@@ -259,7 +285,7 @@ ConfigCreate({
                     -- A list of items the player cannot buy
                     -- check ItemList.txt for the correct names
                     ForbiddenItems = {
-                        "pistol"
+                        --"pistol"
                     },
 
                     -- A list of items the player cannot buy

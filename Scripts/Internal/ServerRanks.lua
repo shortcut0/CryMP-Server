@@ -74,8 +74,8 @@ ServerAccess.InitClient = function(self, hClient)
     local sProfileID = hClient:GetProfileID()
     local sIP = hClient:GetIP()
 
-    ServerLog(table.tostring(self.RegisteredUsers))
-    ServerLog("PROF= %s", hClient:GetProfileID())
+    --ServerLog(table.tostring(self.RegisteredUsers))
+    --ServerLog("PROF= %s", hClient:GetProfileID())
 
     local aRegInfo = self:GetRegisteredUser(sProfileID)
     if (aRegInfo) then
@@ -133,6 +133,26 @@ ServerAccess.GetRegisteredUser = function(self, sID)
 end
 
 ----------------
+ServerAccess.IsProtectedName = function(self, sName, sExceptionID)
+
+    local bIsProtected = false
+    local sLowerName   = string.lower(sName)
+
+    for sID, aInfo in pairs(self.RegisteredUsers) do
+        if (sID ~= sExceptionID) then
+            if (aInfo.ProtectedName) then
+
+                if (sLowerName == string.lower(aInfo.Name) or string.match(sLowerName, "^" .. string.lower(aInfo.Name))) then
+                    bIsProtected = true
+                end
+            end
+        end
+    end
+
+    return bIsProtected
+end
+
+----------------
 ServerAccess.AssignAccess = function(self, hClient, iRank, bPending)
 
     if (hClient:HasAccess(iRank)) then
@@ -153,7 +173,7 @@ ServerAccess.RegisterRanks = function(self)
     local aList = ConfigGet("Ranks.RankList", self.RankList, eConfigGet_Array)
 
     local iAuthority
-    local iFirstAdminRank = 0
+    local iFirstAdminRank = -1
     for _, aRank in pairs(aList) do
 
         iAuthority = aRank.Authority
@@ -169,17 +189,19 @@ ServerAccess.RegisterRanks = function(self)
             self.DefaultRank   = iAuthority
         end
 
-        _G[("RANK_" .. aRank.ID)] = iAuthority
-        self.RegisteredRanks[iAuthority] = table.copy(aRank)
-
         if (aRank.Developer) then
             self.RegisteredDevs[iAuthority] = true
         end
 
-        if (aRank.Admin or aRank.Authority >= iFirstAdminRank) then
-            iFirstAdminRank = (iFirstAdminRank or aRank.Authority)
+        if (aRank.Admin or (iFirstAdminRank ~= -1 and aRank.Authority >= iFirstAdminRank)) then
+            if (iFirstAdminRank == -1) then
+                iFirstAdminRank = aRank.Authority
+            end
             aRank.Admin = true
         end
+
+        _G[("RANK_" .. aRank.ID)] = iAuthority
+        self.RegisteredRanks[iAuthority] = table.copy(aRank)
     end
 
     if (RANK_DEFAULT == nil) then
@@ -253,12 +275,12 @@ end
 -------------------
 ServerAccess.GetRankInfo = function(iRank, sMember)
     if (not iRank) then
-        return ServerLogWarning("Rank %s does not exist", g_ts(iRank)), error()
+        return ServerLogWarning("Rank %s does not exist", g_ts(iRank))
     end
 
     local aInfo = ServerAccess.RegisteredRanks[iRank]
     if (aInfo == nil) then
-        return ServerLogWarning("Rank %s does not exist", g_ts(iRank)), error()
+        return ServerLogWarning("Rank %s does not exist", g_ts(iRank))
     end
 
     if (sMember ~= nil) then

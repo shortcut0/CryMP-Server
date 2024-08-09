@@ -80,21 +80,25 @@ CreatePlugin({
         local iPP     = aScore.PP
         local iRank   = aScore.iRank
 
-        if (aConfig.RestoreKills)  then hClient:SetKills(iKills) end
-        if (aConfig.RestoreDeaths) then hClient:SetDeaths(iDeaths) end
+        local bAny    = false
+
+        if (aConfig.RestoreKills)  then bAny = true hClient:SetKills(iKills) end
+        if (aConfig.RestoreDeaths) then bAny = true hClient:SetDeaths(iDeaths) end
 
         if (g_gameRules.IS_PS) then
-            if (aConfig.RestoreCP)   then hClient:SetCP(iCP) end
-            if (aConfig.RestorePP)   then hClient:SetPrestige(iPP) end
-            if (aConfig.RestoreRank) then hClient:SetRank(iRank) end
+            if (aConfig.RestoreCP)   then bAny = true hClient:SetCP(iCP) end
+            if (aConfig.RestorePP)   then bAny = true hClient:SetPrestige(iPP) end
+            if (aConfig.RestoreRank) then bAny = true hClient:SetRank(iRank) end
         end
 
-        Logger:LogEventTo(GetPlayers(), eLogEvent_Plugins, "Score Restored for ${red}%s", hClient:GetName())
-        SendMsg(CHAT_SERVER, hClient, "(SCORE: Restored!)")
+        if (bAny) then
+            Logger:LogEventTo(GetPlayers(), eLogEvent_Plugins, "Score Restored for ${red}%s", hClient:GetName())
+            SendMsg(CHAT_SERVER, hClient, "(SCORE: Restored!)")
+        end
     end,
 
     ---------------------
-    OnClientDisconnect = function(self, hClient)
+    OnClientDisconnect = function(self, hClient, bQuiet)
 
         local sID     = hClient:GetProfileID()
         local iKills  = hClient:GetKills()
@@ -116,9 +120,9 @@ CreatePlugin({
             aInfo.Rank  = iRank
         end
 
-        Logger:LogEvent(eLogEvent_Plugins, "Score Saved for ${red}%s", hClient:GetName())
-        Debug(table.tostring(aInfo))
-        Debug("iKills",iKills)
+        if (not bQuiet) then
+            Logger:LogEvent(eLogEvent_Plugins, "Score Saved for ${red}%s", hClient:GetName())
+        end
 
         self.Score[g_sGameRules][sID] = aInfo
         self:SaveScore()

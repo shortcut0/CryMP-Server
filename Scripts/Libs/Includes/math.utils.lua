@@ -92,7 +92,7 @@ end;
 ---------------------------
 -- math.calctime
 
-math.calctime = function(seconds, style)
+math.calctime = function(seconds, style, datemax)
 
 	if (not isNumber(seconds)) then
 		-- error() :oOOO
@@ -109,13 +109,23 @@ math.calctime = function(seconds, style)
 	end
 
 	local units = {
-		{ name = "c", value = 86400 * 365 * 100 }, -- Centuries
-		{ name = "y", value = 86400 * 365 },       -- Years
-		{ name = "d", value = 86400 },             -- Days
-		{ name = "h", value = 3600 },              -- Hours
-		{ name = "m", value = 60 },                -- Minutes
-		{ name = "s", value = 1 }                  -- Seconds
+		{ name = "mille", 	value = 86400 * 365 * 100 * 100 * 100 }, -- Decades
+		{ name = "c", 		value = 86400 * 365 * 100 * 100 }, 		 -- Decades
+		{ name = "dec", 	value = 86400 * 365 * 100 },			 -- Decades
+		{ name = "y", 		value = 86400 * 365 },      			 -- Years
+		{ name = "d", 		value = 86400 },           			 	 -- Days
+		{ name = "h", 		value = 3600 },            				 -- Hours
+		{ name = "m", 		value = 60 },               			 -- Minutes
+		{ name = "s", 		value = 1 }                			     -- Seconds
 	}
+
+	local count = table.count(units)
+	if (datemax) then
+		while (count > 1 and count > datemax) do
+			table.popFirst(units)
+			count = table.count(units)
+		end
+	end
 
 	local result = {}
 	local s = seconds

@@ -237,6 +237,7 @@ Server.InitInternals = function(self)
 
     ServerLocale:Init()
     ServerCommands:Init()
+    ServerPunish:Init()
 
     ServerPlugins:Init()
 

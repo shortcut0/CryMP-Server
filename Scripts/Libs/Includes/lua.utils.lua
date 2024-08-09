@@ -100,6 +100,14 @@ luautils.isNumber = function(hParam)
 end
 
 ---------------------------
+-- luautils.isFloat
+
+luautils.isFloat = function(hParam)
+	--return (isNumber(hParam) and string.match(string.format("%f", hParam), "%.0+$") == nil)
+	return (isNumber(hParam) and string.match(g_ts(hParam), "(%.%d+)") ~= nil)
+end
+
+---------------------------
 -- luautils.isBoolean
 
 luautils.isBoolean = function(hParam)
@@ -711,6 +719,7 @@ isArray = luautils.isArray
 isBoolean = luautils.isBoolean
 isBool = luautils.isBoolean
 isString = luautils.isString
+isFloat = luautils.isFloat
 isNumber = luautils.isNumber
 isNumberAll = makeAll(isNumber)
 isNumberAny = makeAny(isNumber)

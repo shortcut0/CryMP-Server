@@ -88,12 +88,6 @@ ServerChat.Init = function(self)
         self.ConsoleQueue[sCfg] = ConfigGet(("Messages.Console.Queue." .. sCfg), self.ConsoleQueue[sCfg], eConfigGet_Any)
     end
 
-    ----------
-    -- FIXME:
-    TEAM_NEUTRAL = 0
-    TEAM_US = 1
-    TEAM_NK = 2
-
     --------------
     LinkEvent(eServerEvent_ScriptUpdate, "ServerChat", "OnUpdate")
 end
@@ -225,6 +219,13 @@ ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage,
         return false
     end
 
+    local bMuted, sMutedMsg = ServerPunish:Mute_CheckPlayer(hSender)
+    if (bMuted) then
+        Logger:LogEvent(eLogEvent_MutedMessage, hSender:GetName(), sMessage)
+        SendMsg(CHAT_PUNISH, hSender, sMutedMsg)
+        return false
+    end
+
     if (iType == ChatToAll) then
 
         iLogType = eLogEvent_ChatMessageAll
@@ -257,7 +258,7 @@ ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage,
             bLog = false
         end
 
-        ServerLog("to target")
+        --ServerLog("to target")
     end
 
     if (iLogType and bLog) then
@@ -277,7 +278,7 @@ ServerChat.Send = function(self, iType, aTargetList, sMessage, sMessage2, ...)
         error("no message type")
     end
 
-    if (isNumber(aTargetList) and GetRankInfo(aTargetList)) then
+    if (isNumber(aTargetList) and aTargetList ~= ALL_PLAYERS  and GetRankInfo(aTargetList)) then
         return self:Send(iType, GetPlayers({ Access = aTargetList }), sMessage, sMessage2, ...)
     end
 
@@ -289,14 +290,14 @@ ServerChat.Send = function(self, iType, aTargetList, sMessage, sMessage2, ...)
     end
 
     if (iType >= self.TM_START and iType <= self.TM_END) then
-        return self:SendTextMessage(iType, aTargetList, sMessage, sMessage2)
+        return self:SendTextMessage(iType, aTargetList, sMessage, sMessage2, ...)
     end
 
     return self:SendChatMessage(iType, aTargetList, sMessage, sMessage2, ...)
 end
 
 ----------------
-ServerChat.SendTextMessage = function(self, iType, aTargetList, sMessage, sMessage2)
+ServerChat.SendTextMessage = function(self, iType, aTargetList, sMessage, sMessage2, ...)
 
     if (not iType) then
         error("no message type")
@@ -344,7 +345,10 @@ ServerChat.SendTextMessage = function(self, iType, aTargetList, sMessage, sMessa
         if (iRealType == TextMessageConsole and bUseQueue) then
             self:QueuePush(sFinalMsg, TextMessageToAll)
         else
-            g_pGame:SendTextMessage(iRealType, sFinalMsg, TextMessageToAll)
+            for _, hClient in pairs(GetPlayers()) do
+                --g_pGame:SendTextMessage(iRealType, sFinalMsg, TextMessageToAll)
+                g_pGame:SendTextMessage(iRealType, Logger:RemoveColors(hClient:Localize(sFinalMsg, { sMessage2, ... })), TextMessageToClient, hClient.id)
+            end
         end
 
         -- FIXME: Proper logging!
@@ -358,14 +362,14 @@ ServerChat.SendTextMessage = function(self, iType, aTargetList, sMessage, sMessa
                 self:QueuePush(sFinalMsg, aTargetList)
             else
                 for _, hClient in pairs(aTargetList) do
-                    g_pGame:SendTextMessage(iRealType, sFinalMsg, TextMessageToClient, hClient.id)
+                    g_pGame:SendTextMessage(iRealType, Logger:RemoveColors(hClient:Localize(sFinalMsg, { sMessage2, ... })), TextMessageToClient, hClient.id)
                 end
             end
         else
             if (iRealType == TextMessageConsole and bUseQueue) then
                 self:QueuePush(sFinalMsg, { aTargetList })
             else
-                g_pGame:SendTextMessage(iRealType, sFinalMsg, TextMessageToClient, aTargetList.id)
+                g_pGame:SendTextMessage(iRealType, Logger:RemoveColors(aTargetList:Localize(sFinalMsg, { sMessage2, ... })), TextMessageToClient, aTargetList.id)
             end
         end
     end
@@ -419,6 +423,8 @@ ServerChat.SendChatMessage = function(self, iType, aTargetList, sMessage, ...)
                     sLocalized = sExtended
                 end
                 sFinalMsg = Logger:FormatLocalized(sLocalized, aFormat)
+            elseif (sExtended and hClient:IsAdmin()) then
+                sFinalMsg = Logger:FormatLocalized(sExtended, aFormat)
             end
         end
 
@@ -432,8 +438,6 @@ ServerChat.SendChatMessage = function(self, iType, aTargetList, sMessage, ...)
             ServerLog("Chat (%s) To %s: %s", aInfo.Name, hClient:GetName(), sMessage)
         end
     end
-
-    ServerLog("entityid: %s", g_ts(hSenderID))
 
     if (aTargetList == ALL) then
         for _, hClient in pairs(GetPlayers()) do

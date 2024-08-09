@@ -650,10 +650,16 @@ end
 ---------------------------
 -- table.popFirst
 
+table.popV = table.removeValue
+table.popPred = table.removeWithPredicate
+
+---------------------------
+-- table.popFirst
+
 table.popFirst = function(t)
 	local v = t[1]
 	table.remove(t, 1)
-	
+
 	return v
 end
 
@@ -960,8 +966,8 @@ table.indexname = function(t, iIndex)
 end
 
 ---------------------------
--- table.append
-
+--- table.append
+--- Appends all arguments with an array
 table.append = function(t1, ...)
 
 	for _, t in pairs({ ... }) do
@@ -977,8 +983,8 @@ table.append = function(t1, ...)
 end
 
 ---------------------------
--- table.appendA
-
+--- table.appendA
+--- @Description: Appends two arrays
 table.appendA = function(t1, t2)
 
 	for _, t in pairs(t2) do
@@ -1051,7 +1057,7 @@ end
 ---------------------------
 -- table.tostring (!!MESSY!!)
 
-table.tostring = function(aArray, sTab, sName, bSubCall, bNoRecursion)
+table.tostring = function(aArray, sTab, sName, bSubCall, bNoRecursion, iUnfoldDepth, iUnfoldLevel)
 
 	if (sTab == nil) then
 		sTab = "" end
@@ -1071,6 +1077,7 @@ table.tostring = function(aArray, sTab, sName, bSubCall, bNoRecursion)
 	local sRes = sTab .. sName .. "{\n"
 	local sTabBefore = sTab
 	sTab = sTab .. " "
+	iUnfoldLevel = iUnfoldLevel or 1
 	
 	local bRec, sRec = false, ""
 	
@@ -1084,14 +1091,22 @@ table.tostring = function(aArray, sTab, sName, bSubCall, bNoRecursion)
 			vKey = "[\"" .. tostring(i) .. "\"] = " end
 				
 		if (vType == "table" and not bNoRecursion) then
-			sRec = (table.tostring(v, sTab, "[\"" .. tostring(i) .. "\"] = "))
+			sRec = (table.tostring(v, sTab, "[\"" .. tostring(i) .. "\"] = ", 1, nil, iUnfoldDepth, iUnfoldLevel + 1))
 			if (string.empty(sRec)) then
 				bRec = true
 			else
+				if (iUnfoldDepth ~= nil and iUnfoldLevel > iUnfoldDepth) then
+					sRec = string.gsub(sRec, "\n", " ")
+					sRec = string.gsub(sRec, "\t", " ")
+				end
 				sRes = sRes .. sRec
 			end
 		elseif (vType == "number") then
-			sRes = sRes .. sTab .. vKey .. string.format("%f", v)
+			if (isFloat(v)) then
+				sRes = sRes .. sTab .. vKey .. string.format("%f", v)
+			else
+				sRes = sRes .. sTab .. vKey .. string.format("%d", v)
+			end
 		elseif (vType == "string") then
 			sRes = sRes .. sTab .. vKey .. "\"" .. v .. "\""
 		else

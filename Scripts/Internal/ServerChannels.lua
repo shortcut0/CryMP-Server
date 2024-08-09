@@ -19,7 +19,9 @@ ServerChannels = (ServerChannels or {
         CountryCode = "CV",
         Continent = "Lingshan Islands",
         ContinentCode = "LI",
-    }
+    },
+
+    ActiveConnections = {}
 })
 
 -------------------
@@ -30,7 +32,8 @@ ServerChannels.Init = function(self)
     self.DataFile = "IP-Database.lua"
 
     -- Functions
-    ChannelExists = self.ChannelExists
+    ChannelExists    = self.ChannelExists
+    WasChannelBanned = self.WasChannelBanned
 
     -- Events
     ServerEvents:LinkEvent(eServerEvent_OnScriptReload, "ServerChannels", "SaveFile")
@@ -46,16 +49,41 @@ ServerChannels.ChannelExists = function(iChannel)
 end
 
 -------------------
+ServerChannels.WasChannelBanned = function(iChannel)
+    return ((ServerChannels.ChannelData[iChannel] or {}).Banned == true)
+end
+
+-------------------
+ServerChannels.OnChannelBanned = function(self, iChannel)
+    if (self.ChannelData[iChannel]) then
+        self.ChannelData[iChannel].Banned = true
+    end
+end
+
+-------------------
+ServerChannels.IsChannelConnecting = function(self, iChannel)
+    return table.findv(self.ActiveConnections, iChannel)
+end
+
+-------------------
+ServerChannels.OnChannelDisconnect = function(self, iChannel)
+    table.popV(self.ActiveConnections, iChannel)
+end
+
+-------------------
 ServerChannels.InitChannel = function(self, iChannel, sIP)
 
     if (self.ChannelData[iChannel]) then
         return
     end
 
+    table.insert(self.ActiveConnections, iChannel)
+
     self.ChannelData[iChannel] = {
-        Name = ServerDLL.GetChannelNick(iChannel),
-        IP = sIP,
-        ID = iChannel,
+        Name    = ServerDLL.GetChannelNick(iChannel),
+        IP      = sIP,
+        ID      = iChannel,
+        Banned  = false
     }
 
     self:ResolveIPData(self.ChannelData[iChannel], sIP)
@@ -76,8 +104,20 @@ ServerChannels.ResolveIPData = function(self, aChannel, sIP)
         method = "GET",
         timeout = 30
     }, function(sError, sResponse, iCode)
+        self.IPData[sIP] = self:GetDefaultData()
         ServerChannels:OnResolve(aChannel.ID, aChannel.IP, sError, sResponse, iCode)
+        ServerChannels:PostResolve(aChannel.ID)
+        -- Connect Log
     end)
+end
+
+-------------------
+ServerChannels.PostResolve = function(self, iChannel)
+
+    local aChannel = self.ChannelData[iChannel]
+
+    ServerNames:HandleChannelNick(aChannel.ID, { Country = self:GetCountryCode(iChannel), Channel = aChannel.ID, Profile = aChannel.ID })
+    ServerPCH:LogOnConnection(aChannel.ID, aChannel.IP)
 end
 
 -------------------
@@ -149,4 +189,10 @@ ServerChannels.GetCountryCode = function(self, iChannel)
 
     ServerLog(table.tostring(aInfo))
     return (aInfo.countryCode or aInfo.countrycode or aInfo.CountryCode or aInfo.country_code)
+end
+
+-------------------
+ServerChannels.GetHost = function(self, iChannel)
+    local sHost, iPort = string.match((ServerDLL.GetChannelName(iChannel) or ""), "(.-):(%d+)")
+    return sHost
 end

@@ -488,15 +488,15 @@ local ServerGameRulesBuying = {
             end
 
             -- FIXME: Bypass xyz mode
-            local limitOk, teamCheck = self:CheckBuyLimit(sItem, self.game:GetTeam(hPlayerID))
+            local limitOk, teamCheck, iLimit = self:CheckBuyLimit(sItem, self.game:GetTeam(hPlayerID))
             if (not limitOk) then
                 if (teamCheck) then
-                    ServerItemHandler:HandleMessage(hPlayer, "@l_ui_itemteamLimit")
-                    self.game:SendTextMessage(TextMessageError, "@mp_TeamItemLimit", TextMessageToClient, playerId, aDef.name)
+                    ServerItemHandler:HandleMessage(hPlayer, "@l_ui_itemteamLimit", { iLimit, aDef.class })
+                    self.game:SendTextMessage(TextMessageError, "@mp_TeamItemLimit", TextMessageToClient, hPlayerID, aDef.name)
                 else
 
-                    ServerItemHandler:HandleMessage(hPlayer, "@l_ui_itemglobalLimit")
-                    self.game:SendTextMessage(TextMessageError, "@mp_GlobalItemLimit", TextMessageToClient, playerId, aDef.name)
+                    ServerItemHandler:HandleMessage(hPlayer, "@l_ui_itemglobalLimit", { iLimit, aDef.class })
+                    self.game:SendTextMessage(TextMessageError, "@mp_GlobalItemLimit", TextMessageToClient, hPlayerID, aDef.name)
                 end
 
                 return false;
@@ -546,7 +546,7 @@ local ServerGameRulesBuying = {
                     local iCooldown = aServerProperties.BuyCooldown
                     if (iCooldown) then
                         if (hPlayer:OnBuyCooldown(aDef.class, iCooldown)) then
-                            ServerItemHandler:HandleMessage(hPlayer, "@l_ui_itemBuyCooldown", aDef.class)
+                            ServerItemHandler:HandleMessage(hPlayer, "@l_ui_itemBuyCooldown", { math.calctime(hPlayer:GetBuyCooldown(aDef.class)), aDef.class})
                             return false
                         end
                     end
@@ -577,7 +577,7 @@ local ServerGameRulesBuying = {
                 end
             else
                 if (aDef.class) then
-                    ServerItemHandler:HandleMessage(hPlayer, "@l_ui_cannotCarryMoreType", string.capitalN(self:GetItemCategory(aDef.class)))
+                    ServerItemHandler:HandleMessage(hPlayer, "@l_ui_cannotCarryMoreType", { string.capitalN(ServerDLL.GetItemCategory(aDef.class)) })
                 else
                     ServerItemHandler:HandleMessage(hPlayer, "@l_ui_cannotCarryMore")
                 end
@@ -733,6 +733,43 @@ local ServerGameRulesBuying = {
         Function = function(self, hSpawn)
             hSpawn.CapturedBy = {}
         end
+    },
+
+    ---------------------------------------------
+    --- ResetServerItems
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "CheckBuyLimit" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, sItem, iTeam, bTeamOnly)
+            local aDef = self:GetItemDef(sItem)
+            if (not aDef) then
+                return false, nil, -1
+            end
+
+            local iCurrent
+            if (aDef.limit and (not bTeamOnly)) then
+                iCurrent = self:GetActiveItemCount(sItem)
+                if (iCurrent >= aDef.limit) then
+                    -- send limit warning here
+                    return false, nil, aDef.limit
+                end
+            end
+
+            if (iTeam and aDef.teamlimit) then
+                iCurrent = self:GetActiveItemCount(sItem, iTeam)
+                if (iCurrent >= aDef.teamlimit) then
+                    -- send team limit warning here
+                    return false, true, aDef.limit
+                end
+            end
+
+            return true
+        end,
     },
 
     ---------------------------------------------

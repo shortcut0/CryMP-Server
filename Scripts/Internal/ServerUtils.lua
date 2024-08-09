@@ -12,6 +12,13 @@ ePE_Claymore	= "explosions.mine.claymore"
 ePE_AlienBeam	= "alien_weapons.singularity.Tank_Singularity_Spinup"
 
 ----------------
+
+TEAM_NEUTRAL = 0
+TEAM_US      = 2
+TEAM_NK      = 1
+TEAM_END     = 3
+
+----------------
 ServerUtils.Init = function(self)
 
 
@@ -33,9 +40,36 @@ ServerUtils.Init = function(self)
     SpawnEntity  = System.SpawnEntity
     IsEntity     = self.IsEntity
 
+    --- Game
+    GetTeamName  = self.GetTeamName
+
     --- Utils
     ByteSuffix   = self.ByteSuffix
 
+    --- Stuff.. :3
+    local iMaxInt = 1
+    while (not string.find(g_ts(iMaxInt),"e")) do
+        ServerLog(g_ts(iMaxInt))
+        iMaxInt = (iMaxInt * 10)
+    end
+    LUA_MAX_INTEGER = (iMaxInt / 10)
+
+    ServerLog("LUA_MAX_INTEGER = %s", g_ts(LUA_MAX_INTEGER))
+end
+
+----------------
+ServerUtils.GetTeamName = function(iTeam, bLocalize)
+    if (iTeam == TEAM_NK) then
+        return ("NK")
+
+    elseif (iTeam == TEAM_US) then
+        return ("US")
+
+    elseif (iTeam == TEAM_NEUTRAL) then
+        return ("Neutral")
+    end
+
+    throw_error("INVALID team. learn to code.")
 end
 
 ----------------
@@ -46,7 +80,7 @@ ServerUtils.InitEntityClasses = function(self)
 end
 
 ----------------
-ServerUtils.ByteSuffix = function(iBytes)
+ServerUtils.ByteSuffix = function(iBytes, iZeroCount)
 
     local aSuffixes = {"B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB"}
     local iSuffixes = table.count(aSuffixes)
@@ -57,7 +91,7 @@ ServerUtils.ByteSuffix = function(iBytes)
         iCurr = (iCurr + 1)
     end
 
-    return string.format("%.2f%s", iBytes, aSuffixes[iCurr])
+    return string.format("%." .. (iZeroCount or 2) .. "f%s", iBytes, aSuffixes[iCurr])
 end
 
 ----------------
@@ -66,7 +100,18 @@ ServerUtils.SpawnEffect = function(sEffect, vPos, vDir, iScale)
 end
 
 ----------------
-ServerUtils.GetPlayer = function(hId, bGreedy)
+ServerUtils.GetPlayerByName = function(sName)
+    local hPlayer
+    for _, hTarget in pairs(GetPlayers()) do
+        if (string.lower(hTarget:GetName()) == string.lower(sName)) then
+            hPlayer = hTarget
+        end
+    end
+    return hPlayer
+end
+
+----------------
+ServerUtils.GetPlayer = function(hId, bGreedy, bNoChannel)
 
     if (isString(hId)) then
         local aFound = {}
@@ -83,10 +128,12 @@ ServerUtils.GetPlayer = function(hId, bGreedy)
                 table.insert(aFound, hClient)
             end
 
-            iChan = string.match(sId, "^chan(%d+)$")
-            if (iChan) then
-                if (hClient:GetChannel() == g_tn(iChan)) then
-                    table.insert(aChanFound, hClient)
+            if (not bNoChannel) then
+                iChan = string.match(sId, "^chan(%d+)$")
+                if (iChan) then
+                    if (hClient:GetChannel() == g_tn(iChan)) then
+                        table.insert(aChanFound, hClient)
+                    end
                 end
             end
         end

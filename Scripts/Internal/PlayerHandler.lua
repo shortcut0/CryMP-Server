@@ -75,7 +75,7 @@ PlayerHandler.SaveFile = function(self)
 end
 
 ------------------
-PlayerHandler.OnClientDisconnect = function(self, hClient, bNoSave)
+PlayerHandler.OnClientDisconnect = function(self, hClient, bNoSave, bQuiet)
 
     hClient:SetData(ePlayerData_LastName, hClient:GetName())
     hClient:SetData(ePlayerData_LastVisit, GetTimestamp())
@@ -88,7 +88,7 @@ PlayerHandler.OnClientDisconnect = function(self, hClient, bNoSave)
         self:SaveFile()
     end
 
-    CallEvent(eServerEvent_SavePlayerData, hClient)
+    CallEvent(eServerEvent_SavePlayerData, hClient, bQuiet)
 
 end
 
@@ -97,7 +97,7 @@ PlayerHandler.SavePlayerData = function(self)
 
     for _, hClient in pairs(GetPlayers()) do
         ServerLog("FOR CLIENT %s",hClient:GetName())
-        self:OnClientDisconnect(hClient, true)
+        self:OnClientDisconnect(hClient, true, true)
     end
     self:SaveFile()
 end
@@ -166,6 +166,8 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
         Validated   = false,
         Validating  = false,
 
+        StaticID    = nil,
+        HWID        = nil,
         ChannelNick = sChannelName,
         ChannelID   = iChannel,
         ProfileID   = GetInvalidID(),
@@ -181,6 +183,7 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
         Buying = {
             Cooldowns = {},
             Set       = function(this, id) this.Cooldowns[id] = timerinit() end,
+            Get       = function(this, id) return timerdiff(this.Cooldowns[id]) end,
             IsOn      = function(this, id, time) if (not this.Cooldowns[id]) then return false end return (timerexpired(this.Cooldowns[id], time)) end
         },
 
@@ -248,6 +251,9 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
 
         ----------
         Punishment = {
+
+            WasBanned   = false,
+
             -- FIXME
             Punished    = false,
             Types       = {
@@ -302,7 +308,10 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.GetInfo         = function(self) return self.Info end
     hClient.GetChannel      = function(self) return self.Info.ChannelID end
     hClient.GetIP           = function(self) return self.Info.IP end
+    hClient.GetStaicID      = function(self) return self.Info.StaticID end
+    hClient.GetHWID         = function(self) return self.Info.HWID end
     hClient.GetHostName     = function(self) return self.Info.HostName end
+    hClient.GetHost         = function(self) return self.Info.HostName end
     hClient.GetPort         = function(self) return self.Info.Port end
     hClient.GetIPData       = function(self) return self.Info.IPData end
     hClient.GetCountryCode  = function(self) return self.Info.IPData.GetCountryCode(self) end
@@ -316,8 +325,8 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.HasAccess       = function(self, iRank) return self.Info.Rank.Has(self, iRank) end
     hClient.IsDevRank       = function(self, iRank) return self.Info.Rank.IsDev(self, iRank) end
     hClient.IsDeveloper     = function(self, iRank) return self.Info.Rank.IsDev(self, iRank) end
-    hClient.IsAdmin         = function(self, iRank) return self.Info.Rank.IsAdmin(self, iRank) end
-    hClient.IsPremium       = function(self, iRank) return self.Info.Rank.IsPremium(self, iRank) end
+    hClient.IsAdmin         = function(self, iRank) return IsAdminRank((iRank or self:GetAccess())) end
+    hClient.IsPremium       = function(self, iRank) return IsPremiumRank((iRank or self:GetAccess())) end
     hClient.IsAccess        = function(self, iRank) return self.Info.Rank.Is(self, iRank) end
     hClient.GetLanguage     = function(self) return self.Info.Language.Language end
     hClient.SetLanguage     = function(self, sLang) self.Info.Language.Language = sLang end
@@ -346,6 +355,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.HasClientMod    = function(self) return self.Info.ClientMod.IsInstalled  end
 
     --> Timers
+    hClient.GetBuyCooldown  = function(self, id) return self.Info.Buying:Get(id) end
     hClient.OnBuyCooldown   = function(self, id, seconds) return self.Info.Buying:IsOn(id, seconds) end
     hClient.SetBuyCooldown  = function(self, id) return self.Info.Buying:Set(id) end
     hClient.TimerExpired    = function(self, id, seconds, refresh) return self.Info.Timers:Expired(id, seconds, refresh) end
@@ -370,6 +380,8 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.SelectItem      = function(self, class) return self.actor:SelectItemByNameRemote(class) end
 
     hClient.IsPunished      = function(self, f) return (self.Info.Punishment:Is(f))  end
+    hClient.SetBanned       = function(self, mode) self.Info.Punishment.WasBanned = mode  end
+    hClient.WasBanned       = function(self) return (self.Info.Punishment.WasBanned)  end
 
     hClient.Revive          = function(self, pos, ang, noforce) if (pos) then self.RevivePosition = checkVec(pos, self:GetPos()) self.ReviveAngles = checkVec(ang, self:GetAngles()) end g_gameRules:RevivePlayer(self:GetChannel(), self, (not noforce), (not noforce)) self.RevivePosition = nil self.ReviveAngles = nil  end
     hClient.Localize        = function(self, locale, format) return TryLocalize(locale, self:GetPreferredLanguage(), format) end

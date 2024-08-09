@@ -3,7 +3,8 @@ CreateLocalization("l_ui_days", {
     russian = "Dni",
     turkish = "Gun",
     german = "Tage",
-    spanish = "Dias"
+    spanish = "Dias",
+    czech = "Dny"
 })
 
 CreateLocalization("l_ui_weeks", {
@@ -11,7 +12,8 @@ CreateLocalization("l_ui_weeks", {
     russian = "Nedeli",
     turkish = "Hafta",
     german = "Wochen",
-    spanish = "Semanas"
+    spanish = "Semanas",
+    czech = "Týdny"
 })
 
 CreateLocalization("l_ui_months", {
@@ -19,7 +21,8 @@ CreateLocalization("l_ui_months", {
     russian = "Mesiats",
     turkish = "Aylar",
     german = "Monate",
-    spanish = "Meses"
+    spanish = "Meses",
+    czech = "Měsíce"
 })
 
 CreateLocalization("l_ui_years", {
@@ -27,7 +30,8 @@ CreateLocalization("l_ui_years", {
     russian = "Gody",
     turkish = "Yillar",
     german = "Jahre",
-    spanish = "Anos"
+    spanish = "Anos",
+    czech = "Roky"
 })
 
 CreateLocalization("l_ui_hours", {
@@ -35,7 +39,8 @@ CreateLocalization("l_ui_hours", {
     russian = "Chasy",
     turkish = "Saat",
     german = "Stunden",
-    spanish = "Horas"
+    spanish = "Horas",
+    czech = "Hodiny"
 })
 
 CreateLocalization("l_ui_minutes", {
@@ -43,7 +48,8 @@ CreateLocalization("l_ui_minutes", {
     russian = "Minuty",
     turkish = "Dakika",
     german = "Minuten",
-    spanish = "Minutos"
+    spanish = "Minutos",
+    czech = "Minuty"
 })
 
 CreateLocalization("l_ui_timeago", {
@@ -51,7 +57,8 @@ CreateLocalization("l_ui_timeago", {
     russian = "${1} ${2} nazad",
     turkish = "${1} ${2} once",
     german = "Vor ${1} ${2}",
-    spanish = "Hace ${1} ${2} atras"
+    spanish = "Hace ${1} ${2} atras",
+    czech = "Před ${1} ${2}"
 })
 
 CreateLocalization("l_ui_uptime", {
@@ -59,11 +66,17 @@ CreateLocalization("l_ui_uptime", {
     russian = "Vremya",
     turkish = "Suresi",
     german = "Laufzeit",
-    spanish = "Tiempo"
+    spanish = "Tiempo",
+    czech = "Doba běhu"
 })
 
 CreateLocalization("l_ui_rssusage", {
     english = "Usage",
+    russian = "Ispolzovanie",
+    turkish = "Kullanım",
+    german = "Nutzung",
+    spanish = "Uso",
+    czech = "Použití"
 })
 
 CreateLocalization("l_ui_never", {
@@ -71,7 +84,8 @@ CreateLocalization("l_ui_never", {
     german = "Niemals",
     russian = "Nikogda",
     turkish = "Asla",
-    spanish = "Nunca"
+    spanish = "Nunca",
+    czech = "Nikdy"
 })
 
 CreateLocalization("l_ui_today", {
@@ -79,5 +93,6 @@ CreateLocalization("l_ui_today", {
     russian = "Segodnya",
     turkish = "Bugun",
     german = "Heute",
-    spanish = "Hoy"
+    spanish = "Hoy",
+    czech = "Dnes"
 })
