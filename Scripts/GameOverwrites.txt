@@ -1,0 +1,6 @@
+-- This file contains instructions for game script files that should be overwritten
+-- WARNING: overwrites MUST EXIST, else CRASH
+-- NOTE: new path is relative to [serverFolder]/
+
+scripts/gamerules/powerstruggle.lua = scripts/game/gamerules/powerstruggle.lua
+scripts/gamerules/instantaction.lua = scripts/game/gamerules/instantaction.lua

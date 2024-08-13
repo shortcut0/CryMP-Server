@@ -86,3 +86,21 @@ AddCommand({
         Debug(self:LocalizeNest("@l_ui_testNestedLocale_STACKOVERFLOW", {"1"},{"2"}))
     end
 })
+------------
+AddCommand({
+    Name = "spamrmi",
+    Access = RANK_DEVELOPER, -- Must be accessible to all!
+
+    Arguments = {
+    },
+
+    Properties = {
+    },
+
+    Function = function(self)
+
+        for i = 1, 1000 do
+            g_gameRules.onClient:ClStartWorking(self:GetChannel(), self.id,[[hello=]]..UpdateCounter())
+        end
+    end
+})

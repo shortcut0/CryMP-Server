@@ -47,7 +47,31 @@ local ServerGameRules = {
         local iTeamKillDamage = ConfigGet("General.GameRules.HitConfig.TeamKill.DamageMultiplier", 0, eConfigGet_Number)
         SetCVar("g_friendlyFireRatio", g_ts(iTeamKillDamage))
         g_pGame:InitScriptTables()
+
+        ---------
+        self:NetExpose()
     end,
+
+    ---------------------------------------------
+    --- CheckAction
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "NetExpose" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self)
+
+            ----------------------------
+            ---     POWER STRUGGLE   ---
+            if (self.IS_PS) then
+
+            end
+
+        end
+
+    },
 
     ---------------------------------------------
     --- CheckAction

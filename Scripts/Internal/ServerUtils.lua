@@ -1,5 +1,7 @@
 ----------------
-ServerUtils = {}
+ServerUtils = (ServerUtils or {
+    ActiveCounters = {}
+})
 
 ----------------
 
@@ -42,6 +44,11 @@ TEAM_END     = 3
 
 ----------------
 
+eCounter_Generic = 0
+eCounter_Spawned = 1
+
+----------------
+
 SPAWN_COUNTER = (SPAWN_COUNTER or 0)
 
 ----------------
@@ -52,6 +59,7 @@ ServerUtils.Init = function(self)
     self:InitEntityClasses()
 
     ListToConsole = self.ListToConsole
+    UpdateCounter = self.Counter
 
     --- Players
     GetPlayers   = self.GetPlayers
@@ -73,7 +81,7 @@ ServerUtils.Init = function(self)
     GetEntityN      = self.GetEntityName
     DeleteEntity    = System.RemoveEntity
     RemoveEntity    = System.RemoveEntity
-    SpawnEntity     = function(...) SPAWN_COUNTER = ((SPAWN_COUNTER or 0) + 1) return System.SpawnEntity(...) end
+    SpawnEntity     = function(...) UpdateCounter(eCounter_Spawned) return System.SpawnEntity(...) end
     SvSpawnEntity   = self.SvSpawnEntity
     IsEntity        = self.IsEntity
 
@@ -641,7 +649,7 @@ ServerUtils.SvSpawnEntity = function(aParams)
                 AwakeEntity(hEntity)
             end
 
-            aProperties.name = (sName .. SPAWN_COUNTER)
+            aProperties.name = (sName .. UpdateCounter(eCounter_Spawned, 1))
         end
     end)
 end
@@ -654,4 +662,13 @@ end
 ----------------
 ServerUtils.DeleteEntity = function(...)
     return LocalSystem.DeleteEntity(...)
+end
+
+
+----------------
+ServerUtils.Counter = function(hID, bRead)
+    hID = (hID or eCounter_Generic)
+
+    ServerUtils.ActiveCounters[hID] = (ServerUtils.ActiveCounters[hID] or 0) + (bRead and 0 or 1)
+    return ServerUtils.ActiveCounters[hID]
 end
