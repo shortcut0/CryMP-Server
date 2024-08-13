@@ -25,6 +25,10 @@ ServerChannels = (ServerChannels or {
 })
 
 -------------------
+
+LAST_CHANNEL = 0
+
+-------------------
 ServerChannels.Init = function(self)
 
     -- Config
@@ -72,6 +76,13 @@ end
 
 -------------------
 ServerChannels.InitChannel = function(self, iChannel, sIP)
+
+    if (iChannel > LAST_CHANNEL) then
+        LAST_CHANNEL = iChannel
+
+        -- Stats Update
+        IncreaseServerStat(eServerStat_PlayerRecord, LAST_CHANNEL)
+    end
 
     if (self.ChannelData[iChannel]) then
         return

@@ -1,9 +1,9 @@
 return {
  ["127.0.0.1"] = {
   ["CountryCode"] = "CV",
-  ["ContinentCode"] = "LI",
-  ["Continent"] = "Lingshan Islands",
   ["Country"] = "Crysis",
+  ["Continent"] = "Lingshan Islands",
+  ["ContinentCode"] = "LI",
  },
  ["x"] = "1",
 }

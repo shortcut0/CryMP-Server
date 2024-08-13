@@ -41,6 +41,11 @@ timer.new = function(expiry)
 		return (timer.expired(hNew.timer, checkNumber(i, hNew.expiry)))
 	end
 	--------
+	hNew.getexpiry = function()
+		local i = (timer.diff(hNew.timer))
+		return (hNew.expiry - i)
+	end
+	--------
 	hNew.diff_t = function(i) -- diff since creation
 		return (timer.diff(hNew.created))
 	end

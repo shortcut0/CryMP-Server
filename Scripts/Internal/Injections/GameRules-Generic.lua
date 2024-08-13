@@ -7,18 +7,35 @@ local ServerGameRules = {
     -----------------
     PostInit = function(self)
 
-        MAXIMUM_PRESTIGE = (10000000 - 1)
+        self.ACTIONS        = {}
+        self.TIMED_ACTIONS  = {}
 
+        eGRMessage_AutoVoteStart = 0
+        eGRMessage_MapEndsIn     = 1
+        eGRMessage_GameEndRadio  = 1
+
+        ---------
+        g_sGameRules = self.class
+
+        ---------
+        GLOBAL_SERVER_IP_KEY            = 1000
+        GLOBAL_SERVER_PUBLIC_PORT_KEY	= 1001
+        GLOBAL_SERVER_NAME_KEY          = 1002
+
+        ---------
+        MAXIMUM_PRESTIGE  = (10000000 - 1)
+        MAXIMUM_TIMELIMIT = (9999)
+
+        ---------
         self.ServerData = (self.ServerData or {})
-
         self.IS_PS = (g_sGameRules == "PowerStruggle")
         self.IS_IA = (g_sGameRules == "InstantAction")
 
+        ---------
         self.KillAssistTimeout = ConfigGet("General.GameRules.HitConfig.KillAssistanceTimeout", 12.5, eConfigGet_Number)
         self.TeamKills = {}
 
         Logger.CreateAbstract(self, { LogClass = "GameRules" })
-
         if (ConfigGet("General.GameRules.SkipPreGame", false)) then
             if (self:GetState() ~= "InGame") then
                 self:Log("Skipping PreGame.. ")
@@ -26,11 +43,61 @@ local ServerGameRules = {
             end
         end
 
+        ---------
         local iTeamKillDamage = ConfigGet("General.GameRules.HitConfig.TeamKill.DamageMultiplier", 0, eConfigGet_Number)
         SetCVar("g_friendlyFireRatio", g_ts(iTeamKillDamage))
-
         g_pGame:InitScriptTables()
     end,
+
+    ---------------------------------------------
+    --- CheckAction
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "CheckAction" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, iActionID, fTask)
+            return self:CheckTimedAction(iActionID, -1, fTask)
+        end
+
+    },
+
+    ---------------------------------------------
+    --- CheckTimedAction
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "CheckTimedAction" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, iActionID, iExpiry, fTask)
+
+            local bReset  = false
+            local hAction = self.ACTIONS[iActionID]
+
+            if (hAction == nil) then
+                fTask(self)
+                bReset = true
+
+            elseif (hAction.TimerExpire ~= -1 and hAction.LastExecute.expired(iExpiry)) then
+                fTask(self)
+                bReset = true
+            end
+
+            if (bReset) then
+                self.ACTIONS[iActionID] = {
+
+                    -- Add Members here
+                    LastExecute = timernew(),
+                    TimerExpire = iExpiry
+                }
+            end
+        end
+
+    },
 
     ---------------------------------------------
     --- .Server.OnClientConnect
@@ -88,13 +155,16 @@ local ServerGameRules = {
 
             ---------------------------------
             -- FIXME: Factory.lua (Injection)
-            local hFactory, aZoneSynch
+            local hFactory, aZoneSync
             for i, hEntity in pairs(System.GetEntities()) do
-                hFactory = hEntity.BuyZoneSynch
-                if (hFactory) then
-                    hFactory = GetEntity(aZoneSynch.ID)
+                aZoneSync = hEntity.BuyZoneSync
+                if (aZoneSync) then
+                    hFactory = GetEntity(aZoneSync.FactoryID)
                     if (hFactory) then
-                        hFactory.allClients:ClSetBuyFlags(aZoneSynch.ID, aZoneSynch.Flags)
+
+                        ServerLog("Syncing Zone Data..")
+                        hFactory.allClients:ClSetBuyFlags(hEntity.id, aZoneSync.Flags)
+                        throw_error()
                     end
                 end
             end
@@ -216,6 +286,15 @@ local ServerGameRules = {
             if (hInterestingSpot) then
                 vPos = hInterestingSpot:GetWorldPos()
                 vAng = hInterestingSpot:GetWorldAngles()
+            end
+
+            if (vPos == nil) then
+
+                -- Dirty
+                local hRandom = table.shuffle(GetEntities(GetEntityClasses()))[1]
+                vPos = hRandom:GetPos()
+                vAng = hRandom:GetAngles()
+                ServerLogWarning("No point found to spawn player!")
             end
 
             if (not sName) then
@@ -445,6 +524,13 @@ local ServerGameRules = {
         ------------------------
         Function = function(self, iFrameTime)
             self:HandlePings()
+
+            --ServerDLL.UpdateGameSpyReport(eGSUpdate_Server, "")
+
+            local iCPU      = ServerDLL.GetCPUUsage()
+            local iMem      = ServerDLL.GetMemUsage()
+            local iMemPeak  = ServerDLL.GetMemPeak()
+            g_pGame:SetSynchedGlobalValue(GLOBAL_SERVER_IP_KEY, string.format("CPU: %.2f%%, %s (%s)", iCPU, ByteSuffix(iMem), ByteSuffix(iMemPeak)))
         end
     },
 
@@ -569,7 +655,7 @@ local ServerGameRules = {
         Type = eInjection_Replace,
 
         ------------------------
-        Function = function(self, iChannel, hPlayer, bForce, bKeepEquip)
+        Function = function(self, iChannel, hPlayer, bKeepEquip, bForce, aEquip)
 
             local iTeamForce
             if (self.IS_PS) then
@@ -580,13 +666,13 @@ local ServerGameRules = {
                 end
             end
 
-            if (bForce or (hPlayer:GetTeam() == 0 and self.IS_PS)) then
-                g_pGame:RevivePlayer(hPlayer.id, hPlayer.RevivePosition, (hPlayer.ReviveAngles or hPlayer:GetAngles()), hPlayer:GetTeam(), not bKeepEquip)
+            if (bForce) then --or (hPlayer:GetTeam() == 0 and self.IS_PS)) then
                 if (hPlayer:IsSpectating()) then
                     hPlayer.actor:SetSpectatorMode(0, NULL_ENTITY)
                 end
+                g_pGame:RevivePlayer(hPlayer.id, hPlayer.RevivePosition, (hPlayer.ReviveAngles or hPlayer:GetAngles()), hPlayer:GetTeam(), not bKeepEquip)
                 if (not bKeepEquip or (hPlayer:IsInventoryEmpty())) then
-                    self:EquipPlayer(hPlayer)
+                    self:EquipPlayer(hPlayer, nil, aEquip)
                 end
 
                 if (self.IS_PS) then
@@ -711,7 +797,7 @@ local ServerGameRules = {
                         end
                     end
 
-                    self:EquipPlayer(hPlayer, additionalEquip)
+                    self:EquipPlayer(hPlayer, additionalEquip, aEquip)
                 end
                 hPlayer.death_time		= nil
                 hPlayer.frostShooterId	= nil
@@ -737,7 +823,7 @@ local ServerGameRules = {
             EventCall(eServerEvent_OnClientRevived, hPlayer, hGroup, (hGroup and hGroup.vehicle ~= nil))
 
             if (hGroup) then
-                self:CheckSpawnPP(hPlayer, hGroup.vehicle ~=nil, hGroup)
+                self:CheckSpawnPP(hPlayer, hGroup.vehicle ~= nil, hGroup)
             end
 
             return bResult
@@ -754,7 +840,7 @@ local ServerGameRules = {
         Type = eInjection_Replace,
 
         ------------------------
-        Function = function(self, hPlayer, aAdditionalEquip)
+        Function = function(self, hPlayer, aAdditionalEquip, aForced)
 
             hPlayer.inventory:Destroy()
             if (hPlayer:IsPunished(ePlayerPunish_NoEquipment)) then
@@ -765,7 +851,7 @@ local ServerGameRules = {
             hPlayer:GiveItem("OffHand")
             hPlayer:GiveItem("Fists")
 
-            local bEquipped = ServerItemHandler:EquipPlayer(hPlayer)
+            local bEquipped = ServerItemHandler:EquipPlayer(hPlayer, aForced)
             if (not bEquipped) then
                 if (aAdditionalEquip and aAdditionalEquip ~= "") then
                     hPlayer:GiveItemPack(aAdditionalEquip)
@@ -796,7 +882,7 @@ local ServerGameRules = {
             hTarget.death_pos  = hTarget:GetWorldPos(hTarget.death_pos)
 
             if (self.IS_IA) then
-                self.game:KillPlayer(hit.targetId, true, true, hit.shooterId, hit.weaponId, hit.damage, hit.materialId, hit.typeId, hit.dir or vector.make(0,0,1));
+                self.game:KillPlayer(aHitInfo.targetId, true, true, aHitInfo.shooterId, aHitInfo.weaponId, aHitInfo.damage, aHitInfo.materialId, aHitInfo.typeId, aHitInfo.dir or vector.make(0,0,1));
             else
                 if (hShooter and hShooter.actor and hShooter.actor:IsPlayer()) then
                     if (hTarget ~= hShooter) then
@@ -842,10 +928,10 @@ local ServerGameRules = {
             local bHeadshot = false
 
             local bSuicide = (not hShooter or hShooter == hTarget)
-            local iSuicideKills   = ConfigGet("General.GameRules.HitConfig.DeductSuicideKills", 0, eConfigGet_Number)
-            local iSuicideDeaths  = ConfigGet("General.GameRules.HitConfig.SuicideAddDeaths", 1, eConfigGet_Number)
-            local iTeamKillReward = ConfigGet("General.GameRules.HitConfig.DeductTeamKill", 1, eConfigGet_Number)
-            local bRemoveBotScore = ConfigGet("General.GameRules.HitConfig.DeductBotKills", false, eConfigGet_Boolean)
+            local iSuicideKills   = ConfigGet("General.GameRules.HitConfig.DeductSuicideKills", 0,  eConfigGet_Number)
+            local iSuicideDeaths  = ConfigGet("General.GameRules.HitConfig.SuicideAddDeaths", 1,    eConfigGet_Number)
+            local iTeamKillReward = ConfigGet("General.GameRules.HitConfig.DeductTeamKill", 1,      eConfigGet_Number)
+            local bRemoveBotScore = ConfigGet("General.GameRules.HitConfig.DeductBotKills", false,  eConfigGet_Boolean)
 
             if (hTarget.IsPlayer) then
 
@@ -889,6 +975,26 @@ local ServerGameRules = {
             else
                 iKillType = eKillType_BotDeath
             end
+
+            if (hShooter and hShooter.IsPlayer and (iKillType ~= eKillType_Suicide)) then
+
+                local iAccuracy = hShooter:GetHitAccuracy()
+                local aMessageList = {
+                    [ 0] = "@l_ui_accuracy_0",
+                    [ 5] = "@l_ui_accuracy_5",
+                    [10] = "@l_ui_accuracy_10",
+                    [20] = "@l_ui_accuracy_20",
+                    [35] = "@l_ui_accuracy_35",
+                    [50] = "@l_ui_accuracy_50",
+                    [60] = "@l_ui_accuracy_60",
+                    [70] = "@l_ui_accuracy_70",
+                    [80] = "@l_ui_accuracy_80",
+                    [90] = "@l_ui_accuracy_90",
+                    [99] = "@l_ui_accuracy_99",
+                }
+                local sAccuracy = table.it(aMessageList, function(x, i, v) if (iAccuracy >= i and (x == nil or x[1] < i)) then return { i, v } end return x end)[2]
+                SendMsg(CHAT_SERVER, hShooter, hShooter:Localize("@l_ui_accuracy", { hShooter:Localize(sAccuracy), string.format("%.2f", iAccuracy) }))
+            end
         end
     },
 
@@ -904,6 +1010,11 @@ local ServerGameRules = {
         ------------------------
         Function = function(self, hPlayerID)
 
+            local hPlayer = GetEntity(hPlayerID)
+            if (not hPlayer) then
+                return
+            end
+
             local bOk = ConfigGet("General.GameRules.HitConfig.TeamKill.Allowed", false, eConfigGet_Boolean)
             if (bOk) then
                 return
@@ -915,12 +1026,10 @@ local ServerGameRules = {
             self.TeamKills[hPlayerID] = ((self.TeamKills[hPlayerID] or 0) + 1)
             if (self.TeamKills[hPlayerID] > iThreshold) then
                 if (iBanTime > 0) then
+                    ServerPunish:BanPlayer(Server.ServerEntity, hPlayer, iBanTime, "Team Killing")
 
-                    -- FIXME: Ban
-                    -- Ban()
-
-                    -- FIXME: Kick
-                    -- Kick()
+                else
+                    KickPlayer(hPlayer, "Team Killing", nil, "Server")
                 end
             end
         end
@@ -983,7 +1092,8 @@ local ServerGameRules = {
 
                 local iAssistance = 0
                 for hPlayerID, aInfo in pairs(aCollectedHits) do
-                    if (hPlayerID ~= hShooter.id and hPlayerID ~= hTarget.id and GetEntity(hPlayerID)) then
+                    local hPlayer = GetEntity(hPlayerID)
+                    if (hPlayerID ~= hShooter.id and hPlayerID ~= hTarget.id and hPlayer and hPlayer.IsPlayer) then
 
                         -- only add hits from players who actually assisted in the kill
                         if (not aInfo.Timer.expired()) then
@@ -1007,7 +1117,7 @@ local ServerGameRules = {
 
                             end
                         else
-                            throw_error("timer expired")
+                        --    throw_error("timer expired")
                         end
                     end
                 end
@@ -1031,14 +1141,14 @@ local ServerGameRules = {
             local hShooter 	= aShotInfo.shooter
             local hWeapon 	= aShotInfo.weapon
 
-            if (hShooter.IsPlayer) then
+            if (hWeapon and hWeapon.weapon and hShooter.IsPlayer) then
                 if (hShooter:HitAccuracyExpired()) then
                     hShooter:RefreshHitAccuracy()
                 end
                 hShooter:UpdateHitAccuracy(eHitAccuracy_OnShot)
             end
 
-            SendMsg(MSG_CENTER, hShooter, "Accuracy: " .. hShooter:GetHitAccuracy())
+            --SendMsg(MSG_CENTER, hShooter, "Accuracy: " .. hShooter:GetHitAccuracy())
         end
 
     },
@@ -1121,6 +1231,292 @@ local ServerGameRules = {
             ---------
             local bDead = (iHealth <= 0)
             return bDead
+        end
+    },
+
+    ---------------------------------------------
+    --- CheckTimeLimit
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "CheckTimeLimit" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self)
+            local fCheck = self["CheckTimeLimit_" .. (self.class)]
+            if (fCheck == nil) then
+                throw_error("no timelimit check found")
+            end
+
+            fCheck(self)
+        end
+
+    },
+
+    ---------------------------------------------
+    --- CheckTimeLimit
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "CheckTimeLimit_PowerStruggle" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self)
+
+            ---------
+            local sGameState = self:GetState()
+            local iTimeLeft  = self.game:GetRemainingGameTime()
+            local bIsLimited = self.game:IsTimeLimited()
+
+            if (bIsLimited and iTimeLeft <= 0) then
+                if (sGameState ~= "InGame") then
+                    return
+                end
+
+                self.AddTimeHit = false
+                self.MapVote = false
+                self:EndGameWithWinner_PS()
+
+            elseif (bIsLimited) then
+
+                if (iTimeLeft <= FIVE_MINUTES) then
+                    self:CheckAction(eGRMessage_AutoVoteStart, function()
+                    --    SendMsg(CHAT_VOTING, ALL, "Map ends in 5 Minutes! Map Voting Started, cast your vote using !vote");
+                    end)
+
+                elseif (iTimeLeft <= FIFTEEN_MINUTES) then
+                    self:CheckAction(eGRMessage_MapEndsIn, function()
+                        SendMsg(CHAT_VOTING, ALL, "Map ends in 15 Minutes, vote to add more time using !vote <time>");
+                    end)
+                end
+            end
+
+        end
+    },
+
+    ---------------------------------------------
+    --- EndGameWithWinner_IA
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "EndGameWithWinner_PS" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self)
+
+            ---------
+            local bDraw      = true
+            local iMaxHP     = nil
+            local iMaxTeamID = nil
+
+            for _, iTeamID in pairs(self.teamId) do
+                local iHP = 0
+                for __, iHQId in pairs(self.hqs) do
+                    if (self.game:GetTeam(iHQId) == iTeamID) then
+                        local hHQ = System.GetEntity(iHQId)
+                        if (hHQ) then
+                            iHP = (iHP + math.max(0, hHQ:GetHealth()))
+                        end
+                    end
+                end
+
+                if (not iMaxHP) then
+                    iMaxHP = iHP
+                    iMaxTeamID = iTeamID
+                else
+                    if (iHP > iMaxHP or iHP < iMaxHP) then
+                        if (iHP > iMaxHP) then
+                            iMaxHP = iHP
+                            iMaxTeamID = iTeamID
+                        end
+                        bDraw = false
+                    end
+                end
+            end
+
+            if (not bDraw) then
+                self:OnGameEnd(iMaxTeamID, 2)
+            else
+                self:OnGameEnd(nil, 2)
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- CheckTimeLimit
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "CheckTimeLimit_InstantAction" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self)
+
+            ---------
+            local sGameState = self:GetState()
+            local iTimeLeft  = self.game:GetRemainingGameTime()
+            local bIsLimited = self.game:IsTimeLimited()
+
+            if (bIsLimited and (sGameState == "InGame")) then
+                if (iTimeLeft <= 0) then
+                    self:EndGameWithWinner_IA()
+
+                elseif (ConfigGet("General.MapConfig.IAEndGameRadio", true, eConfigGet_Boolean)) then
+                    local aRadioTimers = {
+                        [120] = "mp_american/us_commander_2_minute_warming_01",
+                        [60 ] = "mp_american/us_commander_1_minute_warming_01",
+                        [30 ] = "mp_american/us_commander_30_second_warming_01",
+                        [5  ] = "mp_american/us_commander_final_countdown_01",
+                    }
+
+                    self:CheckTimedAction(eGRMessage_GameEndRadio, 1, function(this)
+
+                        local iLeft = math.floor(iTimeLeft)
+                        if (aRadioTimers[iLeft]) then
+                            SendMsg(MSG_INFO, ALL_PLAYERS, "@l_ui_gameEndCountdownInfo", iLeft)
+
+                            -- TODO: ClientMod()
+                            -- ClientMod()
+                        end
+
+                        if (iTimeLeft <= 30) then
+                            SendMsg(MSG_CENTER, ALL_PLAYERS, "@l_ui_gameEndCountdown", iLeft)
+                        end
+                    end)
+                end
+            end
+
+        end
+    },
+
+    ---------------------------------------------
+    --- EndGameWithWinner_IA
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "EndGameWithWinner_IA" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self)
+
+            ---------
+            local iMaxScore = nil
+            local iMinDeath = nil
+            local iMaxID    = nil
+            local iMinID    = nil
+            local bDraw     = false
+
+            local aPlayers = self.game:GetPlayers(true)
+
+            if (aPlayers) then
+                for _, hPlayer in pairs(aPlayers) do
+                    local iScore = self:GetPlayerScore(hPlayer.id)
+                    if (not iMaxScore) then
+                        iMaxScore = iScore
+                    end
+
+                    if (iScore >= iMaxScore) then
+                        if ((iMaxID ~= nil) and (iMaxScore == iScore)) then
+                            bDraw = true
+                        else
+                            bDraw     = false
+                            iMaxID    = hPlayer.id
+                            iMaxScore = iScore
+                        end
+                    end
+                end
+
+                -- if there's a draw, check for lowest number of deaths
+                if (bDraw) then
+
+                    iMinID    = nil
+                    iMinDeath = nil
+
+                    for _, hPlayer in pairs(aPlayers) do
+
+                        local iScore = self:GetPlayerScore(hPlayer.id)
+                        if (iScore == iMaxScore) then
+                            local iDeaths = self:GetPlayerDeaths(hPlayer.id)
+                            if (not iMinDeath) then
+                                iMinDeath = iDeaths
+                            end
+
+                            if (iDeaths <= iMinDeath) then
+                                if ((iMinID ~= nil) and (iMinDeath == iDeaths)) then
+                                    bDraw = true
+                                else
+                                    bDraw     = false
+                                    iMinID    = hPlayer.id
+                                    iMinDeath = iDeaths
+                                end
+                            end
+                        end
+                    end
+
+                    if (not bDraw) then
+                        iMaxID = iMinID
+                    end
+                end
+            end
+
+            if (not bDraw) then
+                self:OnGameEnd(iMaxID, 2)
+            else
+                self:OnGameEnd(nil, 2)
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- OnGameEnd
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "OnGameEnd" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hWinnerID, iType, hShooterID)
+
+            ---------
+            local sWinner = GetEntityN(hWinnerID)
+            local sNextMap, sRules = ServerMaps:GetNextLevel()
+            if (self.IS_IA) then
+                if (hWinnerID) then
+                    self.game:SendTextMessage(TextMessageCenter, "@mp_GameOverWinner", TextMessageToAll, nil, sWinner)
+                    self.allClients:ClVictory(hWinnerID)
+                else
+                    self.game:SendTextMessage(TextMessageCenter, "@mp_GameOverNoWinner", TextMessageToAll)
+                    self.allClients:ClNoWinner()
+                end
+
+            elseif (self.IS_PS) then
+                if (hWinnerID and hWinnerID ~= 0) then
+                    local sTeam = self.game:GetTeamName(hWinnerID)
+                    self.game:SendTextMessage(TextMessageCenter, "@mp_GameOverWinner", TextMessageToAll, nil, "@mp_team_" .. sTeam)
+                else
+                    self.game:SendTextMessage(TextMessageCenter, "@mp_GameOverNoWinner", TextMessageToAll)
+                end
+                self.allClients:ClVictory((hWinnerID or 0), iType, (hShooterID or NULL_ENTITY))
+                self.nukePlayer = (hShooterID or NULL_ENTITY)
+            end
+
+            SendMsg(CHAT_SERVER_LOCALE, ALL_PLAYERS, "@l_ui_nextMap", sNextMap, ServerMaps:LongRules(sRules))
+
+            self.game:EndGame()
+            self:GotoState("PostGame")
+            self.GameEnded = true
         end
     },
 }

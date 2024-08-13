@@ -93,7 +93,7 @@ ServerInjector.InjectAll = function(aArray)
                 ServerInjector.LOADED_FILES[sFile].Calls = (ServerInjector.LOADED_FILES[sFile].Calls + 1)
             end
         elseif (isArray(aInject)) then
-            ServerInjector.Inject(aInject)
+            ServerInjector.Inject(aInject, aArray)
 
             -- Statistical purposes
             if (sFile) then
@@ -109,13 +109,14 @@ end
 
 
 -------------------
-ServerInjector.Inject = function(aParams)
+ServerInjector.Inject = function(aParams, aInfo)
 
     local sEntity   = aParams.Class
     local hEntity   = aParams.Entity
     local sTarget   = aParams.Target
     local fFunction = aParams.Function
     local iType     = (aParams.Type or eInjection_Replace)
+    local bPatchEntities = aInfo.PatchEntities
 
     if (hEntity) then
         ServerInjector.InjectEntity(aParams)
@@ -137,8 +138,13 @@ ServerInjector.Inject = function(aParams)
         local aNest = string.split(sT, ".")
         local iNest = table.size(aNest)
         if (iNest == 1) then
+
+            local o = (sT .. "_ORIGINAL")
+            local r = (sT .. "_REPLACED")
             if (iType == eInjection_Replace) then
                 c[sT] = f
+
+
             else
 
                 -- FIXME
@@ -159,6 +165,18 @@ ServerInjector.Inject = function(aParams)
         end
     else
         Replace(sTarget, hClass, fFunction)
+    end
+
+    if (bPatchEntities) then
+        for _, hEnt in pairs(GetEntities(sEntity) or {}) do
+            if (isArray(sTarget)) then
+                for _, s in pairs(sTarget) do
+                    Replace(s, hEnt, fFunction)
+                end
+            else
+                Replace(sTarget, hEnt, fFunction)
+            end
+        end
     end
 end
 

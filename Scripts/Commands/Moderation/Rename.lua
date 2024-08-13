@@ -1,7 +1,7 @@
 ------------
 AddCommand({
     Name = "rename",
-    Access = RANK_ADMIN, -- Must be accessible to all!
+    Access = RANK_MODERATOR, -- Must be accessible to all!
 
     Arguments = {
         {

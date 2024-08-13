@@ -29,7 +29,7 @@ end
 ---------------------------
 -- table.getnested (finish this)
 
-table.getnested = function(t, val, pattern)
+table.getnested = function(t, val, default)
 	local h = t
 	for sMember in string.gmatch(val, "([^%.]+)") do
 		h = h[sMember]
@@ -509,6 +509,29 @@ table.countdiff = function(t, t2, pred)
 end
 
 ---------------------------
+-- table.compS
+
+table.compS = function(t, t2, pred)
+	return (table.countdiff(t, t2, pred) == 0)
+end
+
+---------------------------
+-- table.sortI
+
+table.sortI = function(t)
+	local keys = {}
+	for k in pairs(t) do
+		table.insert(keys, k)
+	end
+	table.sort(keys)
+	local sortedTable = {}
+	for _, k in ipairs(keys) do
+		sortedTable[k] = t[k]
+	end
+	return sortedTable
+end
+
+---------------------------
 -- table.getsize
 
 table.getsize = table.count
@@ -570,9 +593,10 @@ end
 
 table.it = function(t, fPred)
 
-	local x
+	local x, s
 	for i, v in pairs(t) do
-		x = fPred(x, i, v)
+		x, s = fPred(x, i, v)
+		if (s) then break end
 	end
 	return x
 end

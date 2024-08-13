@@ -58,15 +58,15 @@ ConfigCreate({
             ---  > Color,    The Color used when displaying this Rank
             RankList = {
             ---   Authority        Global Identifier  Name                  Color                Will be assigned to new players
-                { Authority   = 0, ID = "GUEST",      Name = "Guest",       Color = CRY_COLOR_GREEN,    Default = true },
-                { Authority   = 1, ID = "PLAYER",     Name = "Player",      Color = CRY_COLOR_WHITE                    },
-                { Authority   = 2, ID = "PREMIUM",    Name = "Premium",     Color = CRY_COLOR_BLUE,     Premium = true },
-                { Authority   = 3, ID = "MODERATOR",  Name = "Moderator",   Color = CRY_COLOR_ORANGE                   },
-                { Authority   = 4, ID = "ADMIN",      Name = "Admin",       Color = CRY_COLOR_RED,      Admin = true   },
-                { Authority   = 5, ID = "HEADADMIN",  Name = "HeadAdmin",   Color = CRY_COLOR_RED                      },
-                { Authority   = 6, ID = "SUPERADMIN", Name = "SuperAdmin",  Color = CRY_COLOR_WHITE }, -- indicating that this class is a developer class
-                { Authority   = 7, ID = "DEVELOPER",  Name = "Developer",   Color = CRY_COLOR_MAGENTA,  Developer = true },
-                { Authority   = 8, ID = "OWNER",      Name = "Owner",       Color = CRY_COLOR_MAGENTA,  Developer = true }
+                { Authority   = 1, ID = "GUEST",      Name = "Guest",       Color = CRY_COLOR_GREEN,    Default = true },
+                { Authority   = 2, ID = "PLAYER",     Name = "Player",      Color = CRY_COLOR_WHITE                    },
+                { Authority   = 3, ID = "PREMIUM",    Name = "Premium",     Color = CRY_COLOR_BLUE,     Premium = true },
+                { Authority   = 4, ID = "MODERATOR",  Name = "Moderator",   Color = CRY_COLOR_ORANGE                   },
+                { Authority   = 5, ID = "ADMIN",      Name = "Admin",       Color = CRY_COLOR_RED,      Admin = true   },
+                { Authority   = 6, ID = "HEADADMIN",  Name = "HeadAdmin",   Color = CRY_COLOR_RED                      },
+                { Authority   = 7, ID = "SUPERADMIN", Name = "SuperAdmin",  Color = CRY_COLOR_WHITE }, -- indicating that this class is a developer class
+                { Authority   = 8, ID = "DEVELOPER",  Name = "Developer",   Color = CRY_COLOR_MAGENTA,  Developer = true },
+                { Authority   = 9, ID = "OWNER",      Name = "Owner",       Color = CRY_COLOR_MAGENTA,  Developer = true }
             }
 
         }, ---< Ranks
@@ -78,6 +78,12 @@ ConfigCreate({
             --------------------
             -- Punishment Config
             Punishment = {
+
+                -- Ban profile spoofers
+                BanInvalidProfile = true,
+
+                -- Kick profile spoofers
+                KickInvalidProfile = true,
 
                 -- Bind bans to hardware ids of clients
                 UseHardwareBans = true,
@@ -135,7 +141,7 @@ ConfigCreate({
                 -- Format Variables are
                 --- > {mod_name}        > Server Mod Name
                 --- > {mod_version}     > Server Mod Version
-                Description = "\tServer Running on ${mod_exe} ${mod_version} (x${mod_bits})\nCompiled Using ${mod_compiler}",
+                Description = "\tServer Running on *${mod_exe} ${mod_version}* (*x${mod_bits}*)\nCompiled Using *${mod_compiler}*\n\nUp-Time: *${server_uptime}*",
 
             }, ---< Report
 
@@ -152,6 +158,50 @@ ConfigCreate({
         --------------------------
         ---> General Game Settings
         General = {
+
+
+            ----------------------
+            --- Map Configuration
+            MapConfig = {
+
+                -- the default fallback value for time limits
+                DefaultTimeLimit = ONE_HOUR, -- One Hour
+
+                -- default limit for PS Games
+                DefaultTimeLimit_PS = THREE_HOURS, -- One Hour
+
+                -- default limit for IA Games
+                DefaultTimeLimit_IA = ONE_HOUR, -- One Hour
+
+                -- A list of forbidden maps
+                ForbiddenMaps = {
+                    -- "multiplayer/ps/mesa"
+                },
+
+                -- Loop through ALL available Maps (Ignores custom rotation)
+                UseAllMaps = false,
+
+                -- Ignore maps that don't have a download link
+                IgnoreNonDownloadable = true,
+
+                -- Custom Map Rotation
+                Rotation = {
+
+                    -- If Server should shuffle the map rotation
+                    ShuffleRotation = true,
+
+                    -- The map rotation
+                    Rotation = {
+                        { Map = "Multiplayer/IA/Outpost", TimeLimit = "1h" },
+                        { Map = "Multiplayer/IA/SteelMill", TimeLimit = "1h" },
+                        { Map = "Multiplayer/IA/Quarry", TimeLimit = "1h" },
+                        { Map = "Multiplayer/IA/Poolday_v2", TimeLimit = "2h" },
+                        { Map = "Multiplayer/PS/Mesa", TimeLimit = "6h" },
+                    } ---< Rotation
+
+                } ---< Rotation
+
+            }, ---< MapConfig
 
             -----------------------
             --- Ping Control Config
@@ -201,6 +251,40 @@ ConfigCreate({
                 ----------------------
                 --- Hit Configuration
                 HitConfig = {
+
+                    -----------------
+                    --- HQ Hit Config
+                    HQHits = {
+
+                        -- If true, will enable new HQ settings
+                        CustomHQSettings = true,
+
+                        -- TODO: Add this!
+                        -- Localized damage (overwrites TacHits config)
+                        LocalizedDamage = true,
+
+                        -- How many TAC Hits it requires to destroy a HQ
+                        TacHits = 5,
+
+                        -- If true, HQs will be undestroyable
+                        HQUndestroyable = false,
+
+                        -- HQ cannot be destroyed before this amount of time
+                        AttackDelay = FIFTEEN_MINUTES, -- 30 Minutes
+
+                        -- If true, will send info message if HQ was hit
+                        InfoMessage = true,
+
+                        -- Reward for hitting HQs
+                        RewardOnHit = {
+                            PP = 500,
+                            CP = 100,
+                        }, ---< RewardOnHit
+
+                    }, ---< HQHits
+
+                    -- If players get killed when standing inside a garage in PS games
+                    FactoryKills = false,
 
                     --------------
                     --- Team Kills
@@ -306,6 +390,9 @@ ConfigCreate({
             ---------------------------
             --- Equipment Configuration
             Equipment = {
+
+                -- Load saved accessories and attach them when picking up an item
+                RestoreOnPickUp = true,
 
                 -- Save Players Accessory configuration
                 SavePlayerAccessories = true,

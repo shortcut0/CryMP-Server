@@ -57,7 +57,7 @@ eKillType_BotDeath  = 5
 ServerItemHandler.Init = function(self)
 
     self.Equipment.PowerStruggle = ConfigGet("General.Equipment.SpawnEquipment.PowerStruggle", self.Equipment.PowerStruggle, eConfigGet_Array)
-    self.Equipment.InstantAction = ConfigGet("General.Equipment.SpawnEquipment.InstantAction", self.Equipment.PowerStruggle, eConfigGet_Array)
+    self.Equipment.InstantAction = ConfigGet("General.Equipment.SpawnEquipment.InstantAction", self.Equipment.InstantAction, eConfigGet_Array)
 
 end
 
@@ -150,7 +150,7 @@ ServerItemHandler.OnItemBought = function(self, hPlayer, hItem, aDef, iPrice, aF
     local aEquipConfig = hPlayer:GetData(ePlayerData_Equipment, {})[hItem.class]
     if (aEquipConfig) then
         if (self:AttachOnWeapon(hPlayer, hItem, aEquipConfig, nil, true)) then
-            if (hPlayer:TimerExpired(ePlayerTimer_EquipmentLoadedMsg, 30, true)) then
+            if (hPlayer:TimerExpired(ePlayerTimer_EquipmentLoadedMsg, 120, true)) then
                 SendMsg(CHAT_EQUIP, hPlayer, hPlayer:Localize("@l_ui_accessoryloaded", { string.upper(hItem.class) }))
             end
         end
@@ -182,12 +182,14 @@ ServerItemHandler.OnItemBought = function(self, hPlayer, hItem, aDef, iPrice, aF
 end
 
 ----------------------
-ServerItemHandler.EquipPlayer = function(self, hPlayer)
+ServerItemHandler.EquipPlayer = function(self, hPlayer, aList)
 
     local aEquipment = self.Equipment[g_sGameRules]
     if (table.empty(aEquipment) or aEquipment.Active ~= true) then
         return false
     end
+
+    --Debug(">",g_sGameRules)
 
     local aRegular = aEquipment.Regular
     local aPremium = aEquipment.Premium
@@ -205,9 +207,12 @@ ServerItemHandler.EquipPlayer = function(self, hPlayer)
 
     -- Mains
     local iAccess  = hPlayer:GetAccess()
-    if (hPlayer:IsAdmin()) then
+
+    if (aList) then
+        self:Equip(hPlayer, aList)
+    elseif (hPlayer:IsAdmin() and aAdmin ~= nil) then
         self:Equip(hPlayer, aAdmin)
-    elseif (hPlayer:IsPremium()) then
+    elseif (hPlayer:IsPremium() and aPremium ~= nil) then
         self:Equip(hPlayer, aPremium)
     else
         self:Equip(hPlayer, aRegular)
@@ -238,6 +243,11 @@ ServerItemHandler.AttachOnWeapon = function(self, hPlayer, hWeapon, aList, bPick
 
     local bOk = true
     local bAny = (table.count(aList) == 0)
+    if (bPickup) then
+        --hWeapon.weapon:SvRemoveAccessory("all")
+        --Debug("off")
+    end
+
     for _, sClass in pairs(aList) do
         if (hWeapon.weapon:SupportsAccessory(sClass)) then
 
@@ -254,6 +264,9 @@ ServerItemHandler.AttachOnWeapon = function(self, hPlayer, hWeapon, aList, bPick
                 if (bPickup) then
                     if (not hWeapon.weapon:GetAccessory(sClass)) then
                         hWeapon.weapon:SvChangeAccessory(sClass)
+                        --Debug("swap",sClass)
+                    else
+                        --Debug("Not ",sClass)
                     end
                 else
                     hWeapon.weapon:AttachAccessory(sClass, true, true)
@@ -264,6 +277,33 @@ ServerItemHandler.AttachOnWeapon = function(self, hPlayer, hWeapon, aList, bPick
     end
 
     return bAny
+end
+
+----------------------
+ServerItemHandler.RefillAmmo = function(self, hPlayer, hWeaponID)
+
+    local hWeapon = (GetEntity(hWeaponID) or hPlayer.inventory:GetCurrentItem())
+    if (hWeapon and hWeapon.weapon) then
+
+        local ammoType = hWeapon.weapon:GetAmmoType()
+        if (ammoType) then
+
+            local iCapacity = hPlayer.inventory:GetAmmoCapacity(ammoType)
+            if (iCapacity) then
+
+                local iRefilled 		= (iCapacity - hPlayer.inventory:GetAmmoCount(ammoType))
+                local iItemRefilled 	= (hWeapon.weapon:GetClipSize()+1 - hWeapon.weapon:GetAmmoCount())
+
+                hWeapon.weapon:SetAmmoCount(nil, hWeapon.weapon:GetClipSize()+1)
+                hPlayer.actor:SetInventoryAmmo(ammoType, iCapacity)
+                hPlayer.inventory:SetAmmoCount(ammoType, iCapacity)
+
+                return iRefilled, iItemRefilled
+            end
+        end
+    end
+
+    return
 end
 
 ----------------------
@@ -298,7 +338,6 @@ ServerItemHandler.GetAttachedAccessories = function(self, hWeapon)
         table.insert(aList, GetEntity(hID).class)
     end
 
-    Debug(aList,",<<<<<<<<<<<")
     return aList
 end
 
@@ -316,13 +355,70 @@ ServerItemHandler.OnLeaveWeaponModify = function(self, hWeapon, hOwner)
     hOwner:SetData(ePlayerData_Equipment, aEquipmentConfig)
     if (hOwner:TimerExpired(ePlayerTimer_EquipmentMsg, 120, true)) then
         SendMsg(CHAT_EQUIP, hOwner, string.format("%s", hOwner:Localize("@l_ui_accessorysaved", { string.upper(hWeapon.class) })))
-    else
-        Debug("no exp")
     end
 
     return true
 end
 
+----------------------
+ServerItemHandler.CanPickupWeapon = function(self, hPlayerID, hItemID)
+
+    local hPlayer = GetEntity(hPlayerID)
+    if (not hPlayer or not hPlayer.IsPlayer) then
+        return true
+    end
+
+    local hItem = GetEntity(hItemID)
+
+    return true
+end
+
+----------------------
+ServerItemHandler.CanDropWeapon = function(self, hPlayerID, hItemID)
+
+    local hPlayer = GetEntity(hPlayerID)
+    if (not hPlayer or not hPlayer.IsPlayer) then
+        return true
+    end
+
+    local hItem = GetEntity(hItemID)
+
+    return true
+end
+
+----------------------
+ServerItemHandler.CanUseWeapon = function(self, hPlayerID, hItemID)
+
+    local hPlayer = GetEntity(hPlayerID)
+    if (not hPlayer or not hPlayer.IsPlayer) then
+        return true
+    end
+
+    local hItem = GetEntity(hItemID)
+
+    return true
+end
+
+----------------------
+ServerItemHandler.OnPickedUp = function(self, hPlayerID, hItemID)
+
+    local hPlayer = GetEntity(hPlayerID)
+    if (not hPlayer or not hPlayer.IsPlayer) then
+        return true
+    end
+
+    local hWeapon = GetEntity(hItemID)
+
+    local aStored = (checkArray(hPlayer:GetData(ePlayerData_Equipment))[hWeapon.class])
+    if (ConfigGet("General.Equipment.RestoreOnPickUp", true, eConfigGet_Boolean) and aStored) then
+        hWeapon.weapon:SvRemoveAccessory("all")
+        self:AttachOnWeapon(hPlayer, hWeapon, aStored, true)
+        if (hPlayer:TimerExpired(ePlayerTimer_EquipmentMsg, 320, true)) then
+            SendMsg(CHAT_EQUIP, hPlayer, string.format("%s", hPlayer:Localize("@l_ui_accessoryLoaded", { string.upper(hWeapon.class) })))
+        end
+    end
+    return true
+end
 
 ----------------------
 ServerItemHandler.CheckHit = function(self, aHitInfo)

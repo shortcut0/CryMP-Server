@@ -30,11 +30,11 @@ AddCommand({
     Function = function(self, hPlayer, hTarget, sReason)
 
         if (isNumber(hTarget)) then
-            ServerPunish:DisconnectChannel(eKickType_Kicked, hTarget, sReason, nil, hAdmin:GetName())
+            ServerPunish:DisconnectChannel(eKickType_Kicked, hTarget, sReason, nil, hPlayer:GetName())
             return true
         end
 
-        ServerPunish:DisconnectPlayer(eKickType_Kicked, hTarget, sReason, nil, hAdmin:GetName())
+        ServerPunish:DisconnectPlayer(eKickType_Kicked, hTarget, sReason, nil, hPlayer:GetName())
         return true
     end
 })

@@ -216,6 +216,10 @@ ServerCommands.SendHelp = function(self, hClient, aCommand)
             sArgType = "@l_ui_player"
         elseif (aArg.IsNumber) then
             sArgType = "@l_ui_number"
+        elseif (aArg.IsCVar) then
+            sArgType = "@l_ui_cvar"
+        elseif (aArg.IsTime) then
+            sArgType = "@l_ui_time"
         end
 
         sBracketColor = CRY_COLOR_GRAY
@@ -262,21 +266,30 @@ end
 --- Init
 ServerCommands.SortCommands = function(self, aList)
 
+    -- Fill in User Groups
     local aSorted = {}
+    for i = GetLowestRank(), GetHighestRank() do
+        aSorted[i] = {}
+    end
+
     local iAccess
     for _, aCommand in pairs(aList) do
 
         iAccess = aCommand.Access
-        if (aSorted[iAccess] == nil) then
-            aSorted[iAccess] = {}
-        end
-
         table.insert(aSorted[iAccess], aCommand)
     end
 
     for _ in pairs(aSorted) do
-        table.sort(aSorted[_], function(a, b) return (a.Name > b.Name)  end)
+        table.sort(aSorted[_], function(a, b) return (a.Name < b.Name)  end)
     end
+
+    -- Remove Empty templates
+    for i, v in pairs(aSorted) do
+        if (table.empty(v)) then
+            aSorted[i] = nil
+        end
+    end
+
     return aSorted
 
 end
@@ -299,6 +312,8 @@ ServerCommands.ListCommands = function(self, hClient, aList, sWantList)
 
     local iCmdCount = 0
     local sCmdLine  = ""
+
+    Debug(RANK_GUEST,RANK_ADMIN)
 
     for _, aCommands in pairs(aCommandList) do
 
@@ -324,7 +339,7 @@ ServerCommands.ListCommands = function(self, hClient, aList, sWantList)
                     iCmdCount = (iCmdCount + 1)
                     if (iCmdCount % iItemsPerLine == 0) then
                         SendMsg(MSG_CONSOLE_FIXED, hClient, CRY_COLOR_GRAY .. sCmdLine)--string.mspace(sCmdLine, iLineWidth, 1, string.COLOR_CODE))
-                        sCmdLine = ""
+                        sCmdLine = "    "
                     end
                 end
             end
@@ -439,6 +454,15 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
         }
     }
 
+    local iCooldown = (aCmdProps.Timer or aCmdProps.Cooldown or 0)
+    if (iCooldown > 0 and not hClient:IsDeveloper()) then
+        local hLastUsed = hClient.CommandTimers[string.lower(sName)]
+
+        if (hLastUsed and not hLastUsed.expired()) then
+            return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_cooldown", math.calctime(hLastUsed.getexpiry(), nil, 3))
+        end
+    end
+
     local aValues, sKey, hVal, iMin, iMax, sMsg, iMsg
     if (aHost and aHostCondition) then
         sKey    = aHostCondition.Key
@@ -476,6 +500,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
         sArg = aUserArgs[_]
         if (sArg == nil and aCmdArg.Default) then
             sArg = aCmdArg.Default
+            aUserArgs[_] = sArg
         end
 
         sArgLower = string.lower(sArg or "")
@@ -493,7 +518,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
 
         if (bOk) then
 
-            if (ok) then
+            if (false) then
 
             -- Argument expects a player
             elseif (aCmdArg.IsPlayer) then
@@ -519,11 +544,18 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
                     if (aCmdArg.EqualAccess and hTemp:GetAccess() >= hClient:GetAccess() and hTemp.id ~= hClient.id) then
                         return self:SendResponse(hClient, eCommandResponse_NoAccess, sName)
                     end
+
+                    if (aCmdArg.NotSelf and hTemp.id == hClient.id) then
+                        return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandarg_not_user", _)
+                    end
                 end
                 aPushArgs[_] = hTemp
 
             -- Argument expects a number
             elseif (aCmdArg.IsNumber) then
+                if (aCmdArg.IsTime) then
+                    sArg = ParseTime(sArg)
+                end
                 hTemp = g_tn(sArg)
                 if (fPred) then
                     bPred, hPred = fPred(sArg)
@@ -558,14 +590,48 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
 
                 aPushArgs[_] = hTemp
 
+            elseif (aCmdArg.IsTime) then
+
+                hTemp = ParseTime(sArg)
+                if (hTemp == nil) then
+                    return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandarg_nottime", _)
+
+                elseif (aCmdArg.Min and hTemp < aCmdArg.Min) then
+                    if (aCmdArg.Auto) then
+                        hTemp = aCmdArg.Min
+                    else
+                        return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandarg_toolow", _, aCmdArg.Min)
+                    end
+
+                elseif (aCmdArg.Max and hTemp > aCmdArg.Max) then
+                    if (aCmdArg.Auto) then
+                        hTemp = aCmdArg.Max
+                    else
+                        return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandarg_toohigh", _, aCmdArg.Max)
+                    end
+                end
+
+
+                aPushArgs[_] = hTemp
+
+            elseif (aCmdArg.IsCVar) then
+                if (GetCVar(sArg) == nil) then
+                    return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandarg_notcvar", _)
+                end
+
+                aPushArgs[_] = aUserArgs[_]
+
             -- this breaks all other arguments!
             elseif (aCmdArg.Concat) then
 
+                hTemp = ""
                 for __ = _, iUserArgs do
-                    hTemp = ((hTemp or "") .. " ") .. aUserArgs[__]
+                    hTemp = hTemp .. (hTemp ~= "" and " " or "") .. aUserArgs[__]
                 end
 
-                aPushArgs[_] = g_ts(hTemp)
+                if (hTemp) then
+                    aPushArgs[_] = g_ts(hTemp)
+                end
                 break
             else
                 aPushArgs[_] = aUserArgs[_]
@@ -594,10 +660,12 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
         sError = sCmdError
     end
 
+    local bTimer = true
     if (hCmdResponse == nil or IsAny(hCmdResponse, eCmdRet_NoFeedback)) then
         self:SendResponse(hClient, eCommandResponse_NoFeedback, sName)
 
     elseif (IsAny(hCmdResponse, false, eCmdRet_Failed)) then
+        bTimer = false
         self:SendResponse(hClient, eCommandResponse_Failed, sName, sError)
 
     elseif (IsAny(hCmdResponse, true, eCmdRet_Ok, eCmdRet_Success)) then
@@ -605,6 +673,10 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
 
     else
         error("weird command response!")
+    end
+
+    if (bTimer) then
+        hClient.CommandTimers[string.lower(sName)] = timernew(iCooldown)
     end
 
     return true
@@ -679,10 +751,12 @@ ServerCommands.SendResponse = function(self, hClient, iResponse, sCmd, sMsg, ...
 
 
     elseif (iResponse == eCommandResponse_Success) then
-        aMsg1 = { "@l_commandresp_con_success", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
         if (sMsg) then
             aMsg2 = { "@l_commandresp_chat_success", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
         end
+        if (sLocalizedMsg) then sLocalizedMsg = string.format(" (%s)", (sLocalizedMsg)) end
+        if (sMsg) then sMsg = string.format(" (%s)", (sMsg)) end
+        aMsg1 = { "@l_commandresp_con_success", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
 
 
     elseif (iResponse == eCommandResponse_NoFeedback) then
@@ -874,7 +948,7 @@ ServerCommands.CreateCommand = function(self, aInfo)
 
     local sName   = aInfo.Name
     local fFunc   = aInfo.Function
-    local hArgs   = aInfo.Arguments
+    local hArgs   = aInfo.Arguments or {}
     local iAccess = aInfo.Access
     local sDesc   = aInfo.Description
     if (not sDesc) then
@@ -901,7 +975,7 @@ ServerCommands.CreateCommand = function(self, aInfo)
     end
 
     local aCommand = table.copy(aInfo)
-    for _, hArg in pairs(aCommand.Arguments) do
+    for _, hArg in pairs(aCommand.Arguments or {}) do
         table.checkM(hArg, "Name", hArg[1])
         table.checkM(hArg, "Desc", hArg[2])
     end

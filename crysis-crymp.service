@@ -12,7 +12,7 @@ KillSignal=SIGINT
 Restart=always
 RestartSec=5s
 SyslogIdentifier=%N
-ExecStart=%h/Crysis/CryMP-Server/CryMP-Server64.exe -dir "C:\\Crysis\\" -root "C:\\Crysis\\CryMP-Server\\"
+ExecStart=%h/Crysis/CryMP-Server/CryMP-Server64.exe -dir "C:\\Crysis\\" -root "C:\\Crysis\\CryMP-Server\\" -headless
 
 [Install]
 WantedBy=default.target

@@ -35,6 +35,9 @@ eLogEvent_Debug             = 13
 eLogEvent_BuyMessage        = 14
 eLogEvent_Rename            = 15
 eLogEvent_Punish            = 16
+eLogEvent_Maps              = 17
+eLogEvent_HQ              = 18
+eLogEvent_Game              = 19
 
 --------------------------------
 --- Init
@@ -112,6 +115,27 @@ Logger.InitLogEvents = function(self, iEvent, sMessage, ...)
             Color           = self.DefaultColor,
             MsgColor        = CRY_COLOR_RED,
             Access          = { Regular = RANK_DEVELOPER }
+        },
+
+        [eLogEvent_Maps] = {
+            PlayerMessages  = true,
+            Tag             = "Levels",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_GUEST }
+        },
+
+        [eLogEvent_HQ] = {
+            PlayerMessages  = true,
+            Tag             = "HQ-Mods",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_GUEST }
+        },
+
+        [eLogEvent_Game] = {
+            PlayerMessages  = true,
+            Tag             = "Game",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_GUEST }
         },
 
         -- Chat
@@ -422,7 +446,7 @@ Logger.LogToPlayers = function(self, aInfo, sMessage, aFormat, aClients, sLogTag
             -- the clients rank (access)
             iRank = (hClient:GetAccess() or 0)
             if (not iRank) then
-                throw_error("no rank???")
+                throw_error("no rank??? name="..hClient:GetName())
             end
 
             -- the language of the client
@@ -483,6 +507,10 @@ end
 --- Init
 Logger.FormatLocalized = function(self, sMessage, aFormat)
 
+    if (not isArray(aFormat)) then
+        throw_error("format: aFormat is not an array")
+    end
+
     local sFormatted = sMessage
     for _, sFmt in pairs((aFormat or {})) do
         if (sFmt == nil) then
@@ -532,6 +560,7 @@ end
 --- Init
 Logger.Format = function(sMessage, aFormatAppend)
 
+    ---------------
     local aFormat = table.merge({
         ["mod_rawname"]    = MOD_RAW_NAME, -- CryMP-Server
         ["mod_exe"]        = MOD_EXE_NAME, -- CryMP-Server.exe
@@ -539,8 +568,24 @@ Logger.Format = function(sMessage, aFormatAppend)
         ["mod_bits"]       = MOD_BITS,     -- 64 bit
         ["mod_version"]    = MOD_VERSION,  -- v21
         ["mod_compiler"]   = MOD_COMPILER, -- MSVC 2019
+
+        -- Stats
+        ["server_uptime"]  = math.calctime(_time),
+        ["server_highestchannel"]  = LAST_CHANNEL,
+
     }, (aFormatAppend or {}))
 
+    ---------------
+    -- Server stats
+    if (ServerStats) then
+        table.merge(aFormat, {
+            ["server_alltime"]  = math.calctime(ServerStats:Get(eServerStat_ServerTime)),
+            ["server_maxplayer"]  = (ServerStats:Get(eServerStat_PlayerRecord)),
+            ["server_totalchannel"]  = (ServerStats:Get(eServerStat_TotalChannels)),
+        })
+    end
+
+    ---------------
     local sFormatted = (sMessage or "")
     for sTag, sColor in pairs(aFormat) do
         sFormatted = (string.gsub(sFormatted, string.format("${%s}", sTag), sColor))

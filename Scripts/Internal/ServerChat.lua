@@ -31,6 +31,7 @@ ServerChat.Init = function(self)
         { ID = "TEST",      Name = "Test" },
         { ID = "DEBUG",     Name = "Server-Debug" },
         { ID = "EQUIP",     Name = "Server-Equip" },
+        { ID = "VOTING",    Name = "Voting" },
     }
 
     ----------
@@ -38,6 +39,7 @@ ServerChat.Init = function(self)
 
     ----------
     MSG_CONSOLE          = 0
+    CONSOLE              = 0
     MSG_CONSOLE_FIXED    = 1 -- Ignoring ConsoleMessageCenterPos (is this the wrong name?)
     MSG_CONSOLE_CENTERED = 7 -- Ignoring ConsoleMessageCenterPos (is this the wrong name?)
     MSG_CENTER           = 3 -- Center
@@ -219,11 +221,13 @@ ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage,
         return false
     end
 
-    local bMuted, sMutedMsg = ServerPunish:Mute_CheckPlayer(hSender)
-    if (bMuted) then
-        Logger:LogEvent(eLogEvent_MutedMessage, hSender:GetName(), sMessage)
-        SendMsg(CHAT_PUNISH, hSender, sMutedMsg)
-        return false
+    if (hSender.IsPlayer) then
+        local aMuteInfo = hSender:GetMute()
+        if (aMuteInfo) then
+            SendMsg(CHAT_SERVER_LOCALE, hSender, "@l_ui_youAreMuted", aMuteInfo:GetReason(), math.calctime(aMuteInfo:GetRemaining(), nil, 3))
+            Logger:LogEventTo(GetPlayers({ Access = hSender:GetAuthority(RANK_MODERATOR) }), eLogEvent_Punish, "@l_ui_logMutedMessage", hSender:GetName(), sMessage)
+            return false
+        end
     end
 
     if (iType == ChatToAll) then

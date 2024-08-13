@@ -16,6 +16,6 @@ AddCommand({
     -- self is the user unless specified otherwise
     Function = function(self, hPlayer, sRank)
         self:ListCommands(hPlayer, nil, sRank)
-        return true, "@l_ui_commands_openconsole"
+        return true, hPlayer:Localize("@l_ui_commands_openconsole")
     end
 })

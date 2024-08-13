@@ -64,7 +64,7 @@ CreateLocalization("l_ui_access_d", {
 CreateLocalization("l_ui_prefixes", {
     english = "Prefixes",
     czech  = "Predpony",
-    german = "Präfixe",
+    german = "Praefixe",
     spanish = "Prefijos",
     turkish = "Önekler",
     russian = "Prefiksy"
@@ -541,7 +541,7 @@ CreateLocalization("l_ui_playtime", {
     german  = "Spielzeit",
     spanish = "Tiempo de juego",
     turkish = "Oyun zamani",
-    russian = "Vremya igry",
+    russian = "Vremyaigry",
 })
 
 CreateLocalization("l_ui_checkerrorlog", {

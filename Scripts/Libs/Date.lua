@@ -2,6 +2,21 @@
 Date = {}
 
 --------------
+-- Which lazy fk made this
+ONE_YEAR         = 31536000  -- 60 * 60 * 24 * 365
+ONE_MONTH        = 2592000   -- 60 * 60 * 24 * 30
+ONE_WEEK         = 604800    -- 60 * 60 * 24 * 7
+ONE_DAY          = 86400     -- 60 * 60 * 24
+THREE_HOURS      = 10800     -- 60 * 60 * 3
+ONE_HOUR         = 3600      -- 60 * 60
+HALF_HOUR        = 1800      -- 60 * 30
+FIFTEEN_MINUTES  = 900       -- 60 * 15
+TEN_MINUTES      = 600       -- 60 * 10
+FIVE_MINUTES     = 300       -- 60 * 5
+ONE_MINUTE       = 60        -- 60
+ONE_SECOND       = 1         -- 1
+
+--------------
 Date.Init = function(self)
 
     IsDate        = self.IsDate
@@ -15,13 +30,8 @@ Date.Init = function(self)
     DateToSeconds = self.DateToSeconds
     GetTimestamp  = self.DateNow
 
-    ONE_YEAR    = 31536000  -- 60 * 60 * 24 * 365
-    ONE_MONTH   = 2592000   -- 60 * 60 * 24 * 30
-    ONE_WEEK    = 604800    -- 60 * 60 * 24 * 7
-    ONE_DAY     = 86400     -- 60 * 60 * 24
-    ONE_HOUR    = 3600      -- 60 * 60
-    ONE_MINUTE  = 60        -- 60
-    ONE_SECOND  = 1         -- 1
+    -- test
+    ParseTime("100d-600d")
 end
 
 --------------
@@ -106,7 +116,20 @@ end
 --------------
 Date.ParseTime = function(sInput)
 
+    if (not sInput) then
+        return 0
+    end
+
     local sTime = string.gsub(sInput, "%s", "")
+
+    -- for randomizing times, eg: 10m-1h (random time between 10 mins and 1 hour)
+    local sPre, sPost = string.match(sInput, "^(.*)%-(.*)$")
+    if (sPre and sPost) then
+        local iPre = ParseTime(sPre)
+        local iPost = ParseTime(sPost)
+        return math.random(iPre, iPost)
+    end
+
     local aParsed = {
         g_tn(string.match(sTime, "(%d+)y")      or 0) * ONE_YEAR,   -- Years
         g_tn(string.match(sTime, "(%d+)mo")     or 0) * ONE_MONTH,  -- Months

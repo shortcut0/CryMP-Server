@@ -72,11 +72,24 @@ ServerPCH.OnValidation = function(self, hClient, sError, sResponse, iCode)
         ServerLog("Client Validation Failed!")
         ServerLog("(%d) %s", iCode, g_ts(sResponse))
 
-        -- FIXME: Ban!
-        -- Ban()
+
+        if (ConfigGet("Server.Punishment.BanInvalidProfile", true, eConfigGet_Boolean)) then
+            ServerPunish:BanPlayer(Server.ServerEntity, hClient, "10m", "Probable Profile Spoof")
+
+        elseif (ConfigGet("Server.Punishment.KickInvalidProfile", true, eConfigGet_Boolean)) then
+            ServerPunish:DisconnectPlayer(eKickType_Kicked, hClient, "Probable Profile Spoof", nil, "Server")
+        end
 
         hClient.Info.Validated  = false
         hClient.Info.Validating = false
+    end
+
+    -- Check Mute
+    local aMuteInfo = ServerPunish:Mute_CheckPlayer(hClient)
+    if (aMuteInfo) then
+        hClient:SetMute(aMuteInfo)
+    else
+        hClient:RemoveMute()
     end
 
 end
@@ -84,6 +97,9 @@ end
 --------------------------------
 --- Init
 ServerPCH.OnConnection = function(self, iChannel, sIP)
+
+    -- Stats
+    AddServerStat(eServerStat_ConnectionCount, 1)
 
     ServerChannels:InitChannel(iChannel, sIP)
     PlayerHandler:CreateClientInfo(iChannel, sIP)
@@ -142,6 +158,9 @@ end
 --- Init
 ServerPCH.OnConnected = function(self, hClient)
 
+    -- Stats
+    AddServerStat(eServerStat_ConnectedCount, 1)
+
     local iChannel = (hClient.actor:GetChannel())
     local sName = (hClient:GetName())
 
@@ -150,6 +169,14 @@ ServerPCH.OnConnected = function(self, hClient)
     -- Check Bans
     if (ServerPunish:Ban_CheckPlayer(hClient)) then
         return false
+    end
+
+    -- Check Mute
+    local aMuteInfo = ServerPunish:Mute_CheckPlayer(hClient)
+    if (aMuteInfo) then
+        hClient:SetMute(aMuteInfo)
+    else
+        hClient:RemoveMute()
     end
 
     -- FIXME: Check VPNs Here!

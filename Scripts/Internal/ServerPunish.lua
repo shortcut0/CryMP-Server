@@ -85,7 +85,7 @@ ServerPunish.Init = function(self)
     self.DefaultBanTime = ConfigGet("Server.Punishment.DefaultBanTime", ONE_DAY, eConfigGet_Number)
     self.MaxMuteTime = ConfigGet("Server.Punishment.MaximumMuteTime", ONE_YEAR, eConfigGet_Number)
     self.DefaultMuteTime = ConfigGet("Server.Punishment.DefaultMuteTime", ONE_DAY, eConfigGet_Number)
-    self.UseHardwareBans = ConfigGet("Server.Punishment.UseHardwareBans", ONE_DAY, eConfigGet_Number)
+    self.UseHardwareBans = ConfigGet("Server.Punishment.UseHardwareBans", true, eConfigGet_Boolean)
 end
 
 -----------------
@@ -165,7 +165,7 @@ end
 ServerPunish.Mute_CheckPlayer = function(self, hPlayer, sMessage)
 
     if (not hPlayer.IsPlayer) then
-        return false
+        return nil
     end
 
     local sIP       = hPlayer:GetIP()
@@ -174,12 +174,75 @@ ServerPunish.Mute_CheckPlayer = function(self, hPlayer, sMessage)
     local sStatic   = hPlayer:GetStaicID()
     local sHWID     = hPlayer:GetHWID()
 
-    local aMuteInfo = self:GetInfoForType(ePunishType_Ban, { sIP, sHost, sID, sStatic, sHWID })
+    local aMuteInfo = self:GetInfoForType(ePunishType_Mute, { sIP, sHost, sID, sStatic, sHWID })
     if (aMuteInfo) then
-        return true, hPlayer:Localize("@l_ui_YouAreMuted", aMuteInfo:GetReason(), math.calctime(aMuteInfo:GetExpiry(), nil, 3))
+        return aMuteInfo
     end
 
-    return (false)
+    return (nil)
+end
+
+-----------------
+ServerPunish.MutePlayer = function(self, hAdmin, hPlayer, sTime, sReason)
+
+
+    sReason         = (sReason or "Server Decision")
+
+    local sIP       = hPlayer:GetIP()
+    local sHost     = hPlayer:GetHost()
+    local sID       = hPlayer:GetProfileID()
+
+    -- mutes are more forgiving..
+    local sStatic   = hPlayer:GetStaicID()
+    local sHWID     = hPlayer:GetHWID()
+
+    if (self:GetInfoForType(ePunishType_Mute, { sIP, sHost, sID })) then
+        return false, hAdmin:Localize("@l_ui_playerAlreadyMuted", { hPlayer:GetName() })
+    end
+
+    local iMax = self.MaxMuteTime
+    if (hAdmin:IsDeveloper()) then iMax = (LUA_MAX_INTEGER - GetTimestamp() - 1) end
+    local iMuteTime = math.max(0, math.min(iMax, (ParseTime(sTime) or self.DefaultMuteTime)))
+    if (not iMuteTime or iMuteTime == 0) then
+        iMuteTime = ONE_HOUR
+    end
+
+    local iTimestamp = GetTimestamp()
+    local aMuteInfo = {
+        Date   = iTimestamp,
+        Expiry = g_ts(iTimestamp + iMuteTime),
+        Reason = sReason,
+        Admin  = { hAdmin:GetProfileID(), hAdmin:GetName() },
+        Player = { hPlayer:GetProfileID(), hPlayer:GetName() },
+        IPs    = { sIP, sHost },
+        IDs    = { sID },
+    }
+    self:SetupEntry(aMuteInfo, (self:GetTypeCount(ePunishType_Mute) + 1))
+
+    -- X Has been Muted by Admin for 1d (Ruuuuuuleee Break)
+    Logger:LogEvent(eLogEvent_Punish, "@l_ui_playerMutedByShort", hPlayer:GetName(), hAdmin:GetName(), math.calctime(iMuteTime, nil, 3), sReason)
+
+    hPlayer:SetMute(aMuteInfo)
+
+    table.insert(self.Data[ePunishType_Mute], aMuteInfo)
+    self:SaveData()
+    return true
+end
+
+-----------------
+ServerPunish.TryRemoveMute = function(self, hAdmin, hPlayer)
+
+    local aMuteInfo = self:GetInfoByName(ePunishType_Mute, hPlayer)
+    if (not aMuteInfo) then
+        aMuteInfo = self:GetInfoByIDs(ePunishType_Mute, hPlayer, { "IDs", "IPs" })
+    end
+
+    if (not aMuteInfo) then
+        return false, hAdmin:Localize("@l_ui_muteNotFound", { hPlayer })
+    end
+
+    self:RemoveType(ePunishType_Mute, aMuteInfo, self.Data[ePunishType_Mute], aMuteInfo:GetIndex(), "Admin Decision")
+    return true
 end
 
 -----------------
@@ -437,13 +500,13 @@ ServerPunish.GetHardwareIDs = function(self, aInfo)
         return {}
     end
 
-    return aInfo.HWIDs
+    return (aInfo.HWIDs or {})
 end
 
 -----------------
 ServerPunish.GetTypeCount = function(self, hType)
 
-    if (IsAny(hType, ePunishType_Warn, ePunish_Mute, ePunishType_Ban)) then
+    if (IsAny(hType, ePunishType_Warn, ePunishType_Mute, ePunishType_Ban)) then
         return table.count(self.Data[hType])
 
     else
@@ -457,7 +520,7 @@ ServerPunish.RemoveType = function(self, hType, ...)
     if (hType == ePunishType_Ban) then
         return self:RemoveBan(...)
 
-    elseif (hType == ePunish_Mute) then
+    elseif (hType == ePunishType_Mute) then
         return self:RemoveMute(...)
 
     elseif (hType == ePunishType_Warn) then
@@ -472,9 +535,47 @@ end
 ServerPunish.RemoveBan = function(self, aBanInfo, aList, hID, sReason)
 
     -- FIXME: Log!
-    Debug("sReason",sReason)
-    Debug("aBanInfo.Name",aBanInfo.Name)
     Logger:LogEvent(eLogEvent_Punish, "@l_ui_ban_removed", aBanInfo:GetName(), sReason)
+
+    -- Delete
+    aList[hID] = nil
+    self:QueueSaveFile()
+end
+
+-----------------
+ServerPunish.RemoveMute = function(self, aBanInfo, aList, hID, sReason)
+
+    -- FIXME: Log!
+    Logger:LogEvent(eLogEvent_Punish, "@l_ui_mute_removed", aBanInfo:GetName(), sReason)
+
+    local bOk
+    local sIP, sHost, sProfile, sStatic, sHWID
+    for _, hPlayer in pairs(GetPlayers()) do
+
+        sIP       = hPlayer:GetIP()
+        sHost     = hPlayer:GetHost()
+        sProfile  = hPlayer:GetProfileID()
+        sStatic   = hPlayer:GetStaicID()
+        sHWID     = hPlayer:GetHWID()
+
+        bOk = false
+
+        for __, sID in pairs({
+            unpack(aBanInfo.IPs),
+            unpack(aBanInfo.IDs),
+            unpack(self:GetHardwareIDs(aBanInfo))
+        }) do
+            for ___, sCheck in pairs({
+                sIP, sHost, sID, sStatic, sHWID
+            }) do
+                SendMsg(CHAT_SERVER_LOCALE, hPlayer, "@l_ui_youHaveBeenUnMuted", sReason)
+                hPlayer:RemoveMute()
+                bOk = true
+                break
+            end
+            if (bOk) then break end
+        end
+    end
 
     -- Delete
     aList[hID] = nil
@@ -545,7 +646,7 @@ end
 ServerPunish.SetupEntry = function(self, aInfo, iID)
 
     -- Functions
-    aInfo.Expired       = function(this) Debug(GetTimestamp(),">",this.Expiry) return (GetTimestamp() >= g_tn(this.Expiry))  end
+    aInfo.Expired       = function(this) return (GetTimestamp() >= g_tn(this.Expiry))  end
     aInfo.GetExpiry     = function(this) return g_tn(this.Expiry)  end
     aInfo.GetRemaining  = function(this) return math.max(0, g_tn(this.Expiry) - GetTimestamp())  end
     aInfo.GetDate       = function(this) return (this.Date)  end

@@ -50,12 +50,12 @@ AddCommand({
 
         local sTeamName = GetTeamName(iTeam)
 
-        if (hClient == ALL_PLAYERS) then
+        if (hTarget == ALL_PLAYERS) then
             for _, hUser in pairs(GetPlayers()) do
                 hUser:SetTeam(iTeam)
             end
 
-            SendMsg(CHAT_SERVER, self, string.format("(%s)", self:Localize("@l_ui_movedToTeamAll", { sTeamName })))
+            SendMsg(CHAT_SERVER, hClient, string.format("(%s)", hClient:Localize("@l_ui_movedToTeamAll", { sTeamName })))
             return true
         end
 

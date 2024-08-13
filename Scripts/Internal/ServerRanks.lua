@@ -65,6 +65,10 @@ ServerAccess.Init = function(self)
     Logger:LogEventTo(GetDevs(), eLogEvent_DataLog, sUserLog)
 
     LinkEvent(eServerEvent_OnScriptReload, "ServerAccess", "SaveFile")
+
+
+    -------------
+    GetAdmins          = function() return GetPlayers({ Access = RANK_ADMIN }) end
 end
 
 ----------------
@@ -108,9 +112,6 @@ ServerAccess.IsIPLocalHost = function(self, sIP)
         "192%.168%.0%.1"
     )
     if (bIsLocal and Server.IS_PUBLIC) then
-        -- FIXME: ServerPunish
-        -- ServerPunish()
-
         return false
     end
 

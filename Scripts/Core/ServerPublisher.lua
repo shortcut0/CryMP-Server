@@ -284,7 +284,7 @@ ServerPublisher.GetServerReport = function(self, iType)
     local sDesc         = Logger.Format(self:GetServerDescription())
     local sLocal        = "localhost"
     local sVersion      = self.GameVersion
-    local sPass         = (self:GetServerPassword() ~= "0" and "1" or "0")
+    local sPass         = (self:GetServerPassword() == "0" and "0" or "1")
 
     -- Map Config
     local iDirectX10    = 1
@@ -416,7 +416,7 @@ ServerPublisher.GetPlayers = function(self, iPopulate)
     end
 
     if (self.UseJSONReport) then
-        return table.merge(aPlayers, aPopulation)
+        return table.append(aPlayers, aPopulation)
     end
     return (sPlayers .. sPopulation)
 end
@@ -435,8 +435,8 @@ end
 
 --------------------------------
 --- Init
-ServerPublisher.GetMapDownloadLink = function(self)
-    return (self.MapLinks[string.lower(ServerDLL.GetMapName())] or "")
+ServerPublisher.GetMapDownloadLink = function(self, sLevel)
+    return (self.MapLinks[string.lower((sLevel or ServerDLL.GetMapName()))] or "")
 end
 
 --------------------------------

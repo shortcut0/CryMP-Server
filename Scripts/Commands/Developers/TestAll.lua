@@ -56,7 +56,7 @@ AddCommand({
 
 ------------
 AddCommand({
-    Name = "aaaaaaaaahhhhh:3",
+    Name = "aaaaaaaa",
     Access = RANK_DEVELOPER, -- Must be accessible to all!
 
     Arguments = {
@@ -72,7 +72,7 @@ AddCommand({
 })
 ------------
 AddCommand({
-    Name = "testaccsoorssdfjlsdkf:3",
+    Name = "testlocale",
     Access = RANK_DEVELOPER, -- Must be accessible to all!
 
     Arguments = {
@@ -83,6 +83,6 @@ AddCommand({
 
     Function = function(self)
 
-        ServerItemHandler:AttachOnWeapon(self,self:GetCurrentItem(),{"LAMRifle"})
+        Debug(self:LocalizeNest("@l_ui_testNestedLocale_STACKOVERFLOW", {"1"},{"2"}))
     end
 })

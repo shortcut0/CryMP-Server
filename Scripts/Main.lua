@@ -88,6 +88,9 @@ ServerInit.Init = function(self)
     }
 
     -----
+    if (not g_gameRules) then
+        error("game rules does not exist")
+    end
     g_sGameRules = g_gameRules.class
     g_pGame = g_gameRules.game
 

@@ -13,10 +13,11 @@ ServerLocale = {
 ServerLocale.Init = function(self)
 
 
-    LocalizeForClient  = function(...) return self:LocalizeForClient(...) end
-    Localize           = function(...) return self:LocalizeText(...) end
-    TryLocalize        = function(...) return self:TryLocalize(...) end
-    CreateLocalization = function(...) return self:CreateLocalization(...) end
+    LocalizeForClient       = function(...) return self:LocalizeForClient(...) end
+    LocalizeNestForClient   = function(...) return self:LocalizeNestForClient(...) end
+    Localize                = function(...) return self:LocalizeText(...) end
+    TryLocalize             = function(...) return self:TryLocalize(...) end
+    CreateLocalization      = function(...) return self:CreateLocalization(...) end
 
     AVAILABLE_LANGUAGES = ConfigGet("Server.AvailableLanguages", self.AvailableLanguages, eConfigGet_Array)
     SERVER_LANGUAGE = string.lower(ConfigGet("Server.Language", self.DefaultLanguage, eConfigGet_String))
@@ -30,7 +31,7 @@ ServerLocale.Init = function(self)
 end
 
 ----------------
-ServerLocale.LocalizeForClient = function(self, hClient, sMsg, aFormat)
+ServerLocale.LocalizeForClient = function(self, hClient, sMsg, aFormat, ...)
     local sLang = hClient:GetPreferredLanguage()
     local iClientRank = hClient:GetAccess()
 
@@ -41,6 +42,51 @@ ServerLocale.LocalizeForClient = function(self, hClient, sMsg, aFormat)
 
     return sMsg
 end
+
+----------------
+ServerLocale.LocalizeNestForClient = function(self, hClient, sMsg, ...)
+
+    local sLang = hClient:GetPreferredLanguage()
+    local iClientRank = hClient:GetAccess()
+    local bExtended = hClient:IsDevRank()
+
+    local aFmt = { ... }
+    local iNextFmt = 1
+
+    local sNextLocalized
+    local sNextLocale = sMsg
+    local sFinalMsg = sMsg
+    local aIgnore = {}
+
+    local iMaxSteps = 10
+    while (true) do
+
+        if (iNextFmt >= iMaxSteps) then
+            ServerLogWarning("localization recursion too deep (%d). Input: %s, Result: %s!", iNextFmt, sMsg, sFinalMsg)
+            break
+        end
+
+        sNextLocale = string.match(sFinalMsg, "(@[%w_]+)")
+
+        if (not sNextLocale) then
+            break
+        end
+
+        sNextLocalized = Localize(sNextLocale, sLang, bExtended ,true)
+        if (not sNextLocalized) then
+            break
+        end
+
+        -- format next string
+        sFinalMsg = sFinalMsg:gsub(sNextLocale, Logger:FormatLocalized(sNextLocalized, (aFmt[iNextFmt] or {})))
+        iNextFmt = (iNextFmt + 1)
+    end
+
+    -- Return the fully localized message
+    return sFinalMsg
+end
+
+
 ----------------
 ServerLocale.TryLocalize = function(self, sMsg, sLang, aFormat, bForceExt)
 
@@ -53,7 +99,7 @@ ServerLocale.TryLocalize = function(self, sMsg, sLang, aFormat, bForceExt)
 end
 
 ----------------
-ServerLocale.LocalizeText = function(self, sId, sLang, bForceExt)
+ServerLocale.LocalizeText = function(self, sId, sLang, bForceExt, noReturn)
 
     local sDefault = self.DefaultLanguage
     local aLocale = self.Localization[string.lower(sId)]
@@ -69,6 +115,9 @@ ServerLocale.LocalizeText = function(self, sId, sLang, bForceExt)
 
     if (not aLocale) then
         ServerLogError("No Locale found for string %s", sId)
+        if (noReturn) then
+            return ("!{error:missing_" .. string.gsub(sId, "@", "AT") .. "}")
+        end
         return ("@{error:missing_" .. sId .. "}")
     end
 
@@ -90,6 +139,26 @@ ServerLocale.LocalizeText = function(self, sId, sLang, bForceExt)
     end
 
     return sLocalized, sExtra
+end
+
+----------------
+ServerLocale.GetLocalization = function(self, sId, sLang, sExtended)
+
+    if (not sId) then
+        return false
+    end
+
+    local aLocale = self.Localization[string.lower(sId)]
+
+    if (string.find(sId, " ") or not string.fc(sId, "@")) then
+        return false
+    end
+
+    if (not aLocale) then
+        return false
+    end
+
+    return true
 end
 
 ----------------

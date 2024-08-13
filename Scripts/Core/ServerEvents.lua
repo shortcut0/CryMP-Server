@@ -28,9 +28,10 @@ eServerEvent_ResolveSpawnLocation   = 15  -- ()           When Server Initialize
 eServerEvent_OnClientRevived        = 16  -- ()           When Server Initialized
 eServerEvent_OnHardwareIDReceived   = 17  -- ()           When Server Initialized
 eServerEvent_OnHardwareIDReceived   = 17  -- ()           When Server Initialized
+eServerEvent_OnExit                 = 18  -- ()           When Server Initialized
 
 eServerEvent_Begin          = 0
-eServerEvent_End            = 18
+eServerEvent_End            = 19
 
 ------------------------------------
 --- Init

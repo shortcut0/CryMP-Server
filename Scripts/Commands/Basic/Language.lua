@@ -9,7 +9,6 @@ AddCommand({
     },
 
     Properties = {
-        Host = "ServerPCH",
         NoConsoleResponse = true
     },
 
@@ -17,12 +16,14 @@ AddCommand({
     Function = function(self, sNewLang)
 
         if (not sNewLang) then
-            return true, self:Localize("@l_ui_availableLanguages", self:GetPreferredLanguage(), table.concat(AVAILABLE_LANGUAGES, ", "))
+            return true, self:Localize("@l_ui_availableLanguages", { table.concat(AVAILABLE_LANGUAGES, ", ") })
         end
 
         if (not table.findv(AVAILABLE_LANGUAGES, string.lower(sNewLang))) then
             return false, "@l_ui_languageNotFound", sNewLang
         end
-        return true, "@l_ui_languageUpdatedTo", sNewLang
+
+        self:SetPreferredLanguage(sNewLang)
+        return true, self:Localize("@l_ui_languageUpdatedTo", {sNewLang})
     end
 })

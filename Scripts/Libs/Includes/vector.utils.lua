@@ -24,6 +24,30 @@ vectors = {
 ---------------------------
 -- vector.newvec ???
 
+vector.randomize = function(x, rand, xy, inplace)
+
+
+	local v = x
+	if (inplace) then
+		v = {
+			x = x.x,
+			y = x.y,
+			z = x.z
+		}
+	end
+
+	v.x = v.x + math.frandom(-rand, rand)
+	v.y = v.y + math.frandom(-rand, rand)
+	if (not xy) then
+		v.z = v.z + math.frandom(-rand, rand)
+	end
+
+	return v
+end
+
+---------------------------
+-- vector.newvec ???
+
 vector.newvec = function(x, y, z)
 
 	local vNew = table.copy(vector)
@@ -254,6 +278,14 @@ vector.add = function(v1, v2)
 end
 
 ---------------------------
+-- vector.fastsum
+
+vector.fastsum = function(dest,a,b)
+	dest.x=a.x+b.x
+	dest.y=a.y+b.y
+	dest.z=a.z+b.z
+end
+---------------------------
 -- vector.addInPlace
 
 vector.addInPlace = function(v1, v2)
@@ -476,14 +508,14 @@ end
 ---------------------------
 -- vector.bbox_size
 
-vector.bbox_size = function(bbox)
+vector.bbox_size = function(bbox, scale)
 	local size = {}
 	local min = (bbox.min or bbox[1])
 	local max = (bbox.max or bbox[2])
 
-	size.x = (max.x - min.x)
-	size.y = (max.y - min.y)
-	size.z = (max.z - min.z)
+	size.x = (max.x - min.x) * (scale or 1)
+	size.y = (max.y - min.y) * (scale or 1)
+	size.z = (max.z - min.z) * (scale or 1)
 	return size
 end
 
