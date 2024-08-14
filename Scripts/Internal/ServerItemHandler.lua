@@ -448,6 +448,10 @@ ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, vHit, vPos, vDir)
         dir     = vDir
     }
 
+    if (hShooter and hShooter.IsPlayer) then
+        hShooter:OnShoot(aShotInfo)
+    end
+
     if (not g_gameRules:OnShoot(aShotInfo)) then
         return false
     end

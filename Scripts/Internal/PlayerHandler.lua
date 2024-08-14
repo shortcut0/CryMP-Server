@@ -41,6 +41,17 @@ ePlayerTimer_EquipmentMsg       = 0
 ePlayerTimer_EquipmentLoadedMsg = 1
 
 ------------------
+
+eGodMode_None       = 0
+eGodMode_Normal     = 1
+eGodMode_Extended   = 2 -- + testing mode
+eGodMode_Ultra      = 3 -- + special stuff
+
+------------------
+
+g_PlayerRayTable = {}
+
+------------------
 PlayerHandler.Init = function(self)
 
     --- Link Event
@@ -60,13 +71,32 @@ PlayerHandler.LoadFile = function(self)
         return
     end
 
+    local iTimestamp      = GetTimestamp()
+    local iDeletionPeriod = ConfigGet("General.PlayerData.DeleteAfter", -1, eConfigGet_Number)
+    if (iDeletionPeriod > 0) then
+        for _, aInfo in pairs(aData) do
+            if ((iTimestamp - (aInfo[ePlayerData_LastVisit] or iTimestamp)) >= iDeletionPeriod) then
+                ServerLog("Deleting Data from %s (Not connected for %s)", _, math.calctime(iDeletionPeriod))
+                aData[_] = nil
+            end
+        end
+    end
+
+    Debug("hello kitty")
+
     self.PlayerData = aData
 end
 
 -------------------
 PlayerHandler.SaveFile = function(self)
 
-    local sData = string.format("return %s", (table.tostring((self.PlayerData or {}), "", "") or "{}"))
+    -- moved to load file..
+    local aCleaned = (self.PlayerData or {})
+    if (not ConfigGet("General.PlayerData.SaveData", true, eConfigGet_Boolean)) then
+        return ServerLog("Not saving data..")
+    end
+
+    local sData = string.format("return %s", (table.tostring(aCleaned, "", "") or "{}"))
     local sFile = (self.DataDir .. self.DataFile)
 
     local bOk, sErr = FileOverwrite(sFile, sData)
@@ -189,6 +219,13 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
         RealPing    = 0,
 
         ----------
+        Commands = {
+            Timers       = {},
+            TimerExpired = function(this, id) local t = this.Timers[id] if (not t) then return true end return t.expired() end,
+            TimerRefresh = function(this, id, expiry) local t = this.Timers[id] if (not t) then self.Timers[id] = timernew(expiry) end return t.refresh(expiry) end
+        },
+
+        ----------
         Buying = {
             Cooldowns = {},
             Set       = function(this, id) this.Cooldowns[id] = timerinit() end,
@@ -199,9 +236,10 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
         ----------
         Timers = {
             Timers  = {},
-            Expired = function(this, id, seconds, refresh) if (this.Timers[id] == nil) then this.Timers[id] = timernew(id) return true end if (this.Timers[id].expired(seconds)) then if (refresh) then this.Timers[id].refresh() end return true end return false end,
-            Refresh = function(this, id, newseconds) if (not id) then return throw_error("No timer ID specified!") end if (not this.Timers[id]) then return end this.Timers[id].refresh(newseconds) end,
-            Diff    = function(this, id) if (not id) then return throw_error("No timer ID specified!") end if (not this.Timers[id]) then return 0 end this.Timers[id].diff() end
+            Expired = function(this, id, seconds, refresh) if (this.Timers[id] == nil) then this.Timers[id] = timernew(seconds) return true end if (this.Timers[id].expired(seconds)) then if (refresh) then this.Timers[id].refresh() end return true end return false end,
+            Refresh = function(this, id, newseconds, f) if (not id) then return throw_error("No timer ID specified!") end if (not this.Timers[id]) then if (not f) then return end this.Timers[id] = timernew(newseconds) end this.Timers[id].refresh(newseconds) end,
+            Diff    = function(this, id) if (not id) then return throw_error("No timer ID specified!") end if (not this.Timers[id]) then return 0 end return this.Timers[id].diff() end,
+            Expiry  = function(this, id) if (not id) then return throw_error("No timer ID specified!") end if (not this.Timers[id]) then return 0 end return this.Timers[id].getexpiry() end
         },
 
         ----------
@@ -243,6 +281,19 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
             IsDev     = function(x) return x.Info.Rank.Dev == true  end,
             IsAdmin   = function(x) return x.Info.Rank.Admin == true  end,
             IsPremium = function(x) return x.Info.Rank.Premium == true  end,
+        },
+
+        ----------
+        GodMode = {
+
+            GodStatus  = 0,
+            TestStatus = 0,
+
+            SetGod     = function(this, level) this.GodStatus = level if (level > 1) then this:SetTesting(1) end end,
+            IsGod      = function(this, level) local g = this.GodStatus if (level) then return g >= level end return (g or 0) > 0 end,
+            IsTesting  = function(this, level) local t = this.TestStatus if (level) then return t >= level end return (t or 0) > 0 end,
+            SetTesting = function(this, level) this.TestingStatus = level end,
+
         },
 
         ----------
@@ -362,7 +413,13 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.GetLanguage     = function(self) return self.Info.Language.Language end
     hClient.SetLanguage     = function(self, sLang) self.Info.Language.Language = sLang end
 
+    hClient.HasGodMode      = function(self, level) return self.Info.GodMode:IsGod(level) end
+    hClient.SetGodMode      = function(self, level) self.Info.GodMode:SetGod(level) self.actor:SetGodMode(level) self:Tick()  end
+    hClient.IsTesting       = function(self, level) return self.Info.GodMode:IsTesting(level) end
+    hClient.SetTesting      = function(self, level) self.Info.GodMode:SetTesting(level) end
+
     hClient.GetTeam         = function(self) return (g_pGame:GetTeam(self.id)) end
+    hClient.GetTeamName     = function(self, neutral) return GetTeamName(g_pGame:GetTeam(self.id), neutral) end
     hClient.SetTeam         = function(self, iTeam) g_pGame:SetTeam(iTeam, self.id) end
     hClient.GetKills        = function(self) return (g_gameRules:GetKills(self.id) or 0) end
     hClient.SetKills        = function(self, kills) g_gameRules:SetKills(self.id, kills) end
@@ -414,6 +471,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.TimerExpired    = function(self, id, seconds, refresh) return self.Info.Timers:Expired(id, seconds, refresh) end
     hClient.TimerRefresh    = function(self, id, newseconds) return self.Info.Timers:Refresh(id, newseconds) end
     hClient.TimerDiff       = function(self, id) return self.Info.Timers:Diff(id) end
+    hClient.TimerExpiry     = function(self, id) return self.Info.Timers:Expiry(id) end
 
     --> Data
     hClient.GetGameTime     = function(self) return self:GetData(ePlayerData_GameTime, 0)  end
@@ -428,7 +486,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.GetCurrentItem  = function(self) return self.inventory:GetCurrentItem() end
     hClient.HasItem         = function(self, class) return self.inventory:GetItemByClass(class) end
     hClient.GetItem         = function(self, class) return self.inventory:GetItemByClass(class) end
-    hClient.GiveItem        = function(self, class, noforce) return ItemSystem.GiveItem(class, self.id, (not noforce)) end
+    hClient.GiveItem        = function(self, class, noforce) self.actor:SetActorMode(ACTORMODE_UNLIMITEDITEMS, 1) local i = ItemSystem.GiveItem(class, self.id, (not noforce))self.actor:SetActorMode(ACTORMODE_UNLIMITEDITEMS, 0) return i end
     hClient.GiveItemPack    = function(self, pack, noforce) return ItemSystem.GiveItemPack(self.id, pack, (not noforce)) end
     hClient.SelectItem      = function(self, class) return self.actor:SelectItemByNameRemote(class) end
     hClient.GetEquipment    = function(self) local a = self.inventory:GetInventoryTable() local e for i, v in pairs(a) do local x = GetEntity(v) if (x and x.weapon) then if (e == nil) then e = {} end table.insert(e, { x.class, table.it(x.weapon:GetAttachedAccessories(), function(ret, index, val) local class = GetEntity(val) if (ret == nil) then return { class }  end table.insert(ret, class) end) }) end end return e end
@@ -451,6 +509,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.GetMute         = function(self) if (not self:IsMuted()) then return end return self.Info.MuteInfo end
 
     -- LOOOONGS
+    hClient.HasUnlimitedAmmo     = function(self) return self:HasGodMode(eGodMode_Extended) end
     hClient.IsInventoryEmpty     = function(self, count) return (table.count(self.inventory:GetInventoryTable()) <= (count or 0)) end
     hClient.SetPreferredLanguage = function(self, sLang) self.Info.Language.Preferred = sLang self:SetData(ePlayerData_PreferredLang, sLang) end
     hClient.GetPreferredLanguage = function(self) return self.Info.Language.Preferred end
@@ -461,6 +520,16 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
 
     -- TODO
     hClient.GetSpawnLocation     = function(self, id) return self.Info.SpawnLocations[(id or "default")]  end
+    hClient.GetEntitiesInFront   = function(self, ...) return ServerUtils.GetEntitiesInFront(self, ...)  end
+    hClient.IsObjectInFront      = function(self, dist) local aHit = self:RayHit(dist) if (not aHit) then return false end return true end
+    hClient.RayHit      = function(self, dist, ents, flags)
+
+        local iHits = Physics.RayWorldIntersection(self:GetHeadPos(), vector.scale(self:GetHeadDir(), (dist or 5)), 1, ents, self.id, nil,g_PlayerRayTable)
+        if (iHits > 0) then
+            return g_PlayerRayTable[1]
+        end
+        return
+    end
     ----------------------------------------------------------
     -- Server does not need the functions and statements below
     if (bServer) then
@@ -469,7 +538,23 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
 
     ------------
 
+    hClient.OnShoot = function(self, aShotInfo)
+
+        local hWeapon = aShotInfo.Weapon
+        if (self:HasUnlimitedAmmo()) then
+            Script.SetTimer(1, function()
+                ServerItemHandler:RefillAmmo(self, hWeapon)
+            end)
+        end
+    end
+
+    ------------
+
     hClient.Tick = function(self)
+
+        if (self:HasGodMode()) then
+            self:SetInvulnerability()
+        end
 
         if (self:IsValidated()) then
 

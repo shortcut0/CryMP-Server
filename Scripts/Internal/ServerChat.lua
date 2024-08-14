@@ -351,7 +351,7 @@ ServerChat.SendTextMessage = function(self, iType, aTargetList, sMessage, sMessa
         else
             for _, hClient in pairs(GetPlayers()) do
                 --g_pGame:SendTextMessage(iRealType, sFinalMsg, TextMessageToAll)
-                g_pGame:SendTextMessage(iRealType, Logger:RemoveColors(hClient:Localize(sFinalMsg, { sMessage2, ... })), TextMessageToClient, hClient.id)
+                g_pGame:SendTextMessage(iRealType, Logger:RemoveColors(hClient:LocalizeNest(sFinalMsg, { sMessage2, ... })), TextMessageToClient, hClient.id)
             end
         end
 
@@ -366,14 +366,14 @@ ServerChat.SendTextMessage = function(self, iType, aTargetList, sMessage, sMessa
                 self:QueuePush(sFinalMsg, aTargetList)
             else
                 for _, hClient in pairs(aTargetList) do
-                    g_pGame:SendTextMessage(iRealType, Logger:RemoveColors(hClient:Localize(sFinalMsg, { sMessage2, ... })), TextMessageToClient, hClient.id)
+                    g_pGame:SendTextMessage(iRealType, Logger:RemoveColors(hClient:LocalizeNest(sFinalMsg, { sMessage2, ... })), TextMessageToClient, hClient.id)
                 end
             end
         else
             if (iRealType == TextMessageConsole and bUseQueue) then
                 self:QueuePush(sFinalMsg, { aTargetList })
             else
-                g_pGame:SendTextMessage(iRealType, Logger:RemoveColors(aTargetList:Localize(sFinalMsg, { sMessage2, ... })), TextMessageToClient, aTargetList.id)
+                g_pGame:SendTextMessage(iRealType, Logger:RemoveColors(aTargetList:LocalizeNest(sFinalMsg, { sMessage2, ... })), TextMessageToClient, aTargetList.id)
             end
         end
     end

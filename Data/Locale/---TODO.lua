@@ -116,6 +116,76 @@ CreateLocalization("l_ui_current", {
 
 
 
+CreateLocalization("l_ui_SET_TO", {
+    english = "set to"
+})
+
+
+
+
+CreateLocalization("l_ui_am", {
+    english = "AM"
+})
+CreateLocalization("l_ui_pm", {
+    english = "PM"
+})
+CreateLocalization("l_ui_normal", {
+    english = "Normal"
+})
+CreateLocalization("l_ui_extended", {
+    english = "Extended"
+})
+CreateLocalization("l_ui_mega", {
+    english = "Mega"
+})
+CreateLocalization("l_ui_unknown", {
+    english = "Unknown"
+})
+
+CreateLocalization("l_ui_godMode", {
+    english = "GodMode"
+})
+
+CreateLocalization("l_ui_enabled", {
+    english = "Enabled"
+})
+CreateLocalization("l_ui_disabled", {
+    english = "Disabled"
+})
+
+
+
+
+
+
+
+
+
+CreateLocalization("l_ui_ItemClass", {
+    english = "Item"
+})
+CreateLocalization("l_ui_ItemClass_d", {
+    english = "The Class of the item to apply"
+})
+
+
+
+
+
+
+
+
+
+CreateLocalization("l_ui_mode", {
+    english = "Mode"
+})
+CreateLocalization("l_ui_mode_d", {
+    english = "The mode for your action"
+})
+
+
+
+
 CreateLocalization("l_ui_argument", {
     english = "ArgumentN"
 })
@@ -299,6 +369,28 @@ CreateLocalization("l_ui_count_d", {
 CreateLocalization("l_ui_noEntitiesFound", {
     english = "WTF, No Entities Found!"
 })
+CreateLocalization("l_ui_noItemsFound", {
+    english = "WTF, No Items Found!"
+})
+CreateLocalization("l_ui_itemList", {
+    english = "Available Items"
+})
+CreateLocalization("l_ui_itemReceived", {
+    english = "(Received: x${2} ${1})"
+})
+CreateLocalization("l_ui_itemGiven", {
+    english = "(${1}: Equipped with x${3} ${2})"
+})
+CreateLocalization("l_ui_allPlayers", {
+    english = "All Players"
+})
+
+CreateLocalization("l_ui_attachments", {
+    english = "Attachments"
+})
+CreateLocalization("l_ui_attachments_d", {
+    english = "The attachments to use"
+})
 
 
 CreateLocalization("l_ui_accuracy", {
@@ -383,6 +475,32 @@ CreateLocalization("l_ui_cvar_d", {
 
 
 
+CreateLocalization("l_ui_hereIsYour", {
+    english = "Here is your ${1}"
+})
+CreateLocalization("l_ui_taxi", {
+    english = "Taxi"
+})
+CreateLocalization("l_ui_boat", {
+    english = "Boat"
+})
+
+
+
+
+
+
+
+CreateLocalization("l_ui_timeofday", {
+    english = "Time of Day"
+})
+
+
+
+
+
+
+
 CreateLocalization("l_ui_value", {
     english = "Value"
 })
@@ -394,6 +512,15 @@ CreateLocalization("l_commandarg_nottime", {
 })
 CreateLocalization("l_commandresp_cooldown", {
     english = "Usable again in ${1}"
+})
+CreateLocalization("l_commandresp_notIndoors", {
+    english = "Not usable Indoors"
+})
+CreateLocalization("l_commandresp_notOutdoors", {
+    english = "Not usable Outdoors"
+})
+CreateLocalization("l_commandresp_insufficientPrestige", {
+    english = "Insufficient Prestige (Need ${1} More)"
 })
 
 
@@ -441,8 +568,25 @@ CreateLocalization("l_ui_yourself", {
 
 
 
+CreateLocalization("l_ui_EntitiesInFront", {
+    english = "${1} In Front"
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 CreateLocalization("l_ui_TODChanged", {
-    english = "(Time Of Day :)"
+    english = "(Time Of Day : ${1}${2})"
 })
 
 

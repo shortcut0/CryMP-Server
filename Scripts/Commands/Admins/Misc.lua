@@ -76,7 +76,7 @@ AddCommand({
 ------------
 AddCommand({
     Name = "tod",
-    Access = GetLowestRank(), -- Must be accessible to all!
+    Access = RANK_ADMIN, -- Must be accessible to all!
 
     Arguments = {
         {
@@ -95,11 +95,13 @@ AddCommand({
 
         local iCurrentTOD = GetCVar("e_time_of_day")
         if (iTOD == nil) then
-            SendMsg(CHAT_SERVER, self, "(TOD: %s", FormatTOD(iCurrentTOD))
+            SendMsg(CHAT_SERVER, self, self:LocalizeNest("(@l_ui_timeofday: " .. FormatTOD(g_tn(iCurrentTOD), "@l_ui_am", "@l_ui_pm")) .. ")", {})
             return true
         end
 
-        SendMsg(MSG_ERROR, ALL_PLAYERS, "@l_ui_TODChanged", FormatTOD(iCurrentTOD))
+        FSetCVar("e_time_of_day", g_ts(iTOD))
+        SendMsg(CHAT_SERVER, self, self:LocalizeNest("(@l_ui_timeofday: @l_ui_SET_TO " .. FormatTOD(g_tn(iTOD), "@l_ui_am", "@l_ui_pm")) .. ")", {})
+        SendMsg(MSG_ERROR, ALL_PLAYERS, "@l_ui_TODChanged", FormatTOD(iTOD, "@l_ui_am", "@l_ui_pm"), " (Admin Decision)")
         return true
     end
 })

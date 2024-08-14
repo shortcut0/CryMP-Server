@@ -664,9 +664,16 @@ end
 
 table.removeValue = function(t, val)
 	for k, v in pairs(t) do
-		if (v == val) then
-			table.remove(t, k)
-			return
+		if (isFunc(val)) then
+			if (val(k, v)) then
+				table.remove(t, k)
+				return
+			end
+		else
+			if (v == val) then
+				table.remove(t, k)
+				return
+			end
 		end
 	end
 end

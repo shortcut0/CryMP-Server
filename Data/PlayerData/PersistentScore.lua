@@ -1,9 +1,9 @@
 return {
  ["PowerStruggle"] = {
-  ["0"] = {
+  ["1063893"] = {
    ["Deaths"] = 0,
    ["Kills"] = 0,
-   ["PP"] = 0,
+   ["PP"] = 250,
    ["Rank"] = 1,
   },
  },

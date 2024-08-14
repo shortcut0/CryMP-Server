@@ -454,12 +454,40 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
         }
     }
 
-    local iCooldown = (aCmdProps.Timer or aCmdProps.Cooldown or 0)
-    if (iCooldown > 0 and not hClient:IsDeveloper()) then
-        local hLastUsed = hClient.CommandTimers[string.lower(sName)]
+    local bTestingMode = hClient:IsTesting()
 
-        if (hLastUsed and not hLastUsed.expired()) then
-            return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_cooldown", math.calctime(hLastUsed.getexpiry(), nil, 3))
+    local iPrestige = (aCmdProps.Prestige or 0)
+    local bPay = false
+    if (g_gameRules.IS_PS and iPrestige > 0 and not bTestingMode) then
+        local iBalance = hClient:GetPrestige()
+        if (iBalance < iPrestige) then
+            return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_insufficientPrestige", iPrestige - iBalance)
+        end
+        bPay = true
+    end
+
+    local bIndoors = aCmdProps.Indoors
+    local bOutdoors = aCmdProps.Outdoors
+    local bIsIndoors = System.IsPointIndoors(hClient:GetPos())
+
+    if (bIndoors == false and bIsIndoors and not bTestingMode) then
+        return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_notIndoors")
+    end
+    if (bOutdoors == false and not bIsIndoors and not bTestingMode) then
+        return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_notOutdoors")
+    end
+
+    local iCooldown = (aCmdProps.Timer or aCmdProps.Cooldown or 0)
+    local sTimerID  = string.format("cmd_%s_timer", string.lower(sName))
+    if (iCooldown > 0 and not bTestingMode) then
+        --local hLastUsed = hClient.CommandTimers[string.lower(sName)]
+
+        --if (hLastUsed and not hLastUsed.expired()) then
+        --    return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_cooldown", math.calctime(hLastUsed.getexpiry(), nil, 3))
+        --end
+
+        if (not hClient:TimerExpired(sTimerID, iCooldown)) then
+            return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_cooldown", math.calctime(hClient:TimerExpiry(sTimerID), nil, 3))
         end
     end
 
@@ -531,8 +559,11 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
                 end
                 if (not hTemp) then
 
+                    -- FIXME: what if a player with name "self" or "myself" exists? then self will never work!
                     if ((aCmdArg.SelfOk or aCmdArg.AcceptSelf) and IsAny(sArgLower, "myself", "self")) then
                         hTemp = hClient
+
+                    -- FIXME: same problem as above!!
                     elseif ((aCmdArg.AllOk or aCmdArg.AcceptAll) and IsAny(sArgLower, "all", "everyone")) then
                         hTemp = ALL_PLAYERS
                     end
@@ -551,6 +582,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
                 end
                 aPushArgs[_] = hTemp
 
+            -----------------------
             -- Argument expects a number
             elseif (aCmdArg.IsNumber) then
                 if (aCmdArg.IsTime) then
@@ -590,6 +622,8 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
 
                 aPushArgs[_] = hTemp
 
+                -----------------------
+                -- argument expects a time value
             elseif (aCmdArg.IsTime) then
 
                 hTemp = ParseTime(sArg)
@@ -614,6 +648,9 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
 
                 aPushArgs[_] = hTemp
 
+
+                -----------------------
+                --argument expects a cvar
             elseif (aCmdArg.IsCVar) then
                 if (GetCVar(sArg) == nil) then
                     return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandarg_notcvar", _)
@@ -676,7 +713,13 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
     end
 
     if (bTimer) then
-        hClient.CommandTimers[string.lower(sName)] = timernew(iCooldown)
+        --hClient.CommandTimers[string.lower(sName)] = timernew(iCooldown)
+        hClient:TimerRefresh(sTimerID, iCooldown, true)
+        if (bPay and not bTestingMode) then
+
+            g_gameRules:AwardPPCount(hClient.id, -iPrestige, nil, hClient:HasClientMod())
+            -- FIXME: clientmod()
+        end
     end
 
     return true

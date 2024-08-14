@@ -159,6 +159,18 @@ ConfigCreate({
         ---> General Game Settings
         General = {
 
+            ------------------------
+            ---> Player Data Config
+            PlayerData = {
+
+                -- Period after which a players data will be removed if they haven't connected for this long
+                DeleteAfter = (ONE_MONTH * 3),
+
+                -- If the server should save/restore player data
+                SaveData = true,
+
+            }, ---< PlayerData
+
 
             ----------------------
             --- Map Configuration

@@ -58,8 +58,18 @@ ServerUtils.Init = function(self)
     ------------
     self:InitEntityClasses()
 
+    FormatTOD   = self.FormatTOD
+
+    --for i = 0, 24 do
+    --    ServerLog(FormatTOD(i + (math.random(0, 60)/100)))
+    --end
+
     ListToConsole = self.ListToConsole
     UpdateCounter = self.Counter
+
+    IsPointIndoors = System.IsPointIndoors
+    IsPointUnderwater = self.IsPointUnderwater
+    IsPointUnderground = self.IsPointUnderground
 
     --- Players
     GetPlayers   = self.GetPlayers
@@ -70,7 +80,7 @@ ServerUtils.Init = function(self)
 
     --- Entities
     GetEntityClasses  = self.GetEntityClasses
-    GetItemClasses    = ServerDLL.GetItemClasses
+    GetItemClasses    = self.GetItemClasses
     IsEntityClass     = function(s, l) return table.it(l or GetEntityClasses(), function(x, i, v) return (x or string.lower(v) == string.lower(s))  end)  end
     IsItemClass       = function(s, l) return table.it(l or GetItemClasses(),   function(x, i, v) return (x or v == s)  end)  end
 
@@ -107,6 +117,26 @@ end
 
 ----------------
 
+ServerUtils.FormatTOD = function(iTime, sAM, sPM)
+
+    local iHours = math.floor(iTime)
+    local iMinutes = math.max(0, math.min(1, g_tn("0." ..
+            (string.match(iTime, "%.(%d+)$") or 0)
+    ))) * 60
+
+    local suffix = (sAM or "AM")
+    if (iHours == 12) then
+        suffix = (sPM or "PM")
+    elseif (iHours > 12) then
+        iHours = iHours - 12
+        suffix = (sPM or "PM")
+    end
+
+    return string.format("%02d:%02d %s", iHours, iMinutes, suffix)
+end
+
+----------------
+
 ServerUtils.AwakeEntity = function(hEntityID)
 
     local hEntity = GetEntity(hEntityID)
@@ -114,6 +144,141 @@ ServerUtils.AwakeEntity = function(hEntityID)
         hEntity:AwakePhysics(1)
         hEntity:AddImpulse(-1, hEntity:GetPos(), vectors.up, 1, 1)
     end
+end
+
+----------------
+
+ServerUtils.GetItemClasses = function(bSpawnable)
+    local aClasses = ServerDLL.GetItemClasses()
+    if (not bSpawnable) then
+        return aClasses
+    end
+
+    local aSpawn = {
+        "AACannon",
+        "AARocketLauncher",
+        "AIFlashbangs",
+        "AIGrenades",
+        "AISmokeGrenades",
+        "APCCannon",
+        "APCCannon_AscMod",
+        "APCRocketLauncher",
+        "AVMine",
+        "AlienCloak",
+        "AlienCore",
+        "AlienMount",
+        "AlienPowerCore",
+        "AlienTurret",
+        "Asian50Cal",
+        "AsianCoaxialGun",
+        "AssaultScope",
+        "AutoAA",
+        "AutoTurret",
+        "AutoTurretAA",
+        "AvengerCannon",
+        "Binoculars",
+        "BunkerBuster",
+        "C4",
+        "Claymore",
+        --"CustomAmmoPickup",
+        --"CustomAmmoPickupLarge",
+        --"CustomAmmoPickupMedium",
+        --"CustomAmmoPickupSmall",
+        "DSG1",
+        "DebugGun",
+        "Detonator",
+        "DualSOCOM",
+        "EMPGrenade",
+        "Exocet",
+        "FY71",
+        "FY71IncendiaryAmmo",
+        "FY71NormalAmmo",
+        "FastLightMOAC",
+        "FastLightMOAR",
+        "Fists",
+        "FlashbangGrenade",
+        "FragGrenade",
+        "GaussAAA",
+        "GaussCannon",
+        "GaussRifle",
+        "Golfclub",
+        "GrenadeLauncher",
+        "GrenadeShell",
+        "HeavyMOAC",
+        "Hellfire",
+        "HovercraftGun",
+        "HunterSweepMOAR",
+        "Hurricane",
+        "LAM",
+        "LAMFlashLight",
+        "LAMRifle",
+        "LAMRifleFlashLight",
+        "LAW",
+        "LAWScope",
+        "LightMOAC",
+        "LockpickKit",
+        "MOAC",
+        "MOACAttach",
+        "MOAR",
+        "MOARAttach",
+        "MissilePlatform",
+        "NanoSuit",
+        "NightVision",
+        "OffHand",
+        "OffhandFlashbang",
+        "OffhandGrenade",
+        "OffhandNanoDisruptor",
+        "OffhandSmoke",
+        "Parachute",
+        "RadarKit",
+        "RefWeapon",
+        "Reflex",
+        "RepairKit",
+        "SCAR",
+        "SCARIncendiaryAmmo",
+        "SCARNormalAmmo",
+        "SCARTagAmmo",
+        "SCARTutorial",
+        "SMG",
+        "SOCOM",
+        "SOCOMSilencer",
+        "ScoutMOAC",
+        "ScoutSearchBeam",
+        "ScoutSingularity",
+        "Scout_MOAR",
+        "ShiTen",
+        "Shotgun",
+        "SideWinder",
+        "SideWinder_AscMod",
+        "Silencer",
+        "SingularityCannon",
+        "SingularityCannonWarrior",
+        "SmokeGrenade",
+        "SniperScope",
+        "TACCannon",
+        "TACGun",
+        "TACGun_Fleet",
+        "TacticalAttachment",
+        "TankCannon",
+        "USCoaxialGun",
+        "USCoaxialGun_VTOL",
+        "USTankCannon",
+        "VehicleGaussMounted",
+        "VehicleMOAC",
+        "VehicleMOACAttach",
+        "VehicleMOACMounted",
+        "VehicleMOAR",
+        "VehicleMOARAttach",
+        "VehicleMOARMounted",
+        "VehicleRocketLauncher",
+        "VehicleShiTenV2",
+        "VehicleSingularity",
+        "VehicleUSMachinegun",
+        "WarriorMOARTurret"
+    }
+
+
+    return aSpawn
 end
 
 ----------------
@@ -290,36 +455,41 @@ ServerUtils.GetFacingPos = function(hEntityID, iFace, iDistance, iFollowType, iF
 
     end
 
+    local iFollowed
+
     local iGround = System.GetTerrainElevation(vPos)
     local iWater  = CryAction.GetWaterInfo(vPos)
     local iDiff
     if (iFollowType == eFollow_Terrain) then
         if (iGround) then
-            iDiff = math.positive(vPos.z - iGround)
+            iDiff = (vPos.z - iGround)
             if (iFollowThreshold == nil or iDiff < iFollowThreshold) then
                 vPos.z = iGround
+                iFollowed = eFollow_Terrain
             end
         end
 
     elseif (iFollowType == eFollow_Water) then
         if (iWater) then
-            iDiff = math.positive(vPos.z - iWater)
+            iDiff = (vPos.z - iWater)
             if (iFollowThreshold == nil or iDiff < iFollowThreshold) then
                 vPos.z = iWater
+                iFollowed = eFollow_Water
             end
         end
 
     elseif (iFollowType == eFollow_Auto) then
         local iFollow = math.max(iGround, iWater)
         if (iFollow) then
-            iDiff = math.positive(vPos.z - iFollow)
+            iDiff = (vPos.z - iFollow)
             if (iFollowThreshold == nil or iDiff < iFollowThreshold) then
                 vPos.z = iFollow
+                iFollowed = ((iGround > iWater) and eFollow_Terrain or eFollow_Water)
             end
         end
 
     end
-    return vPos
+    return vPos, iFollowed
 end
 
 ----------------
@@ -617,6 +787,9 @@ ServerUtils.SvSpawnEntity = function(aParams)
         }
     end
 
+    local aEquip = aParams.Equipment
+    local hItem
+
     -- Vehicles
     Script.SetTimer(1, function()
         local iZAdd = 0
@@ -630,6 +803,15 @@ ServerUtils.SvSpawnEntity = function(aParams)
                 iZAdd = math.positive(vector.length(hEntity:GetLocalBBox()))
                 if (aTagList) then
                     table.it(aTagList, function(x, i, v) hEntity[i] = v  end)
+                end
+
+                if (hEntity.actor) then
+                    for _, sItem in pairs(aEquip or{}) do
+                        hItem = ItemSystem.GiveItem(hEntity, sItem, true)
+                        if (hItem) then
+                            hItem.weapon:AttachAccessory("LAMRifle", true, true)
+                        end
+                    end
                 end
 
                 if (not bPermanent) then
@@ -647,11 +829,83 @@ ServerUtils.SvSpawnEntity = function(aParams)
                 end
 
                 AwakeEntity(hEntity)
+            else
+                HandleError("Failed to Spawn Entity of Class " .. sClass)
             end
 
             aProperties.name = (sName .. UpdateCounter(eCounter_Spawned, 1))
         end
     end)
+end
+
+----------------
+ServerUtils.IsPointUnderwater = function(vPoint)
+
+    local iWaterInfo = CryAction.GetWaterInfo(vPoint)
+    if (iWaterInfo) then
+        return iWaterInfo > vPoint.z
+    end
+
+    return false
+end
+
+----------------
+ServerUtils.IsPointUnderground = function(vPoint)
+
+    local iTerrain = System.GetTerrainElevation(vPoint)
+    if (iTerrain) then
+        return iTerrain > vPoint.z
+    end
+
+    return false
+end
+
+----------------
+ServerUtils.GetEntitiesInFront = function(hEntityID, iType, iDistance, iRadius)
+
+    local hEntity = GetEntity(hEntityID)
+    if (not hEntity) then
+        Debug("no input entity.")
+        return
+    end
+
+    iDistance     = iDistance or 5
+    iRadius       = iRadius or 3
+
+    local vDir   = hEntity:GetDirectionVector(1)
+    local vStart = hEntity:GetPos()
+
+    vector.add(vStart, vector.scaleInPlace(vDir, iDistance))
+
+    local aCollected = {}
+    if (iType == eGet_Physicalized) then
+        aCollected = System.GetPhysicalEntitiesInBox(vStart, iRadius)
+    else
+        aCollected = System.GetEntitiesInSphere(vStart, iRadius)
+    end
+
+    table.removeValue((aCollected or {}), function(k,v) Debug(v.id,hEntity.id)return (v.id == hEntity.id)  end)
+
+    local sFirstClass
+    local iCount = table.count(aCollected)
+    if (iCount >= 1) then
+        sFirstClass = aCollected[1].class
+    end
+
+    local aInfo = {
+        Indoors     = System.IsPointIndoors(vStart),
+        Underwater  = IsPointUnderwater(vStart),
+        Underground = IsPointUnderground(vStart),
+
+        Count       = iCount,
+        Entities    = aCollected,
+        First       = sFirstClass,
+
+        None        = function() return (iCount == 0)  end,
+        Any         = function() return (iCount >= 1)  end,
+    }
+
+    return aInfo
 end
 
 ----------------

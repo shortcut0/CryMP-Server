@@ -100,6 +100,7 @@ ServerInit.Init = function(self)
     FSetCVar = ServerDLL.FSetCVar -- FIXME: Add this
 
     -----
+    --- Not optimal, need to reload scripts twice for these functions to recognize changes.. move to Server.Init?
     if (FIRST_RELOAD_FINISHED) then
         if (Server ~= nil) then
             local bOk, sErr = pcall(Server.OnReload, Server)
