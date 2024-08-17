@@ -513,6 +513,14 @@ vector.bbox_size = function(bbox, scale)
 	local min = (bbox.min or bbox[1])
 	local max = (bbox.max or bbox[2])
 
+	if (not max) then
+		return {
+			x = min.x * (scale or 1),
+			y = min.y * (scale or 1),
+			z = min.z * (scale or 1)
+		}
+	end
+
 	size.x = (max.x - min.x) * (scale or 1)
 	size.y = (max.y - min.y) * (scale or 1)
 	size.z = (max.z - min.z) * (scale or 1)

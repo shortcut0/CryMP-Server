@@ -15,13 +15,99 @@ local ServerFactory = {
     {
 
         Class = "Factory",
+        Target = { "BuildVehicle" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hSlot)
+
+            local def=g_gameRules:GetItemDef(hSlot.buildVehicle);
+            if ((not def) or (not def.vehicle)) then
+                return;
+            end
+
+            local pos,dir=self:GetParkingLocation(hSlot);
+
+            if (def.modification) then
+                self.spawnparams.properties.Modification=def.modification;
+            else
+                self.spawnparams.properties.Modification=nil;
+            end
+
+            if (def.abandon) then
+                if (def.abandon>0) then
+                    self.spawnparams.properties.Respawn.bAbandon=1;
+                    self.spawnparams.properties.Respawn.nAbandonTimer=def.abandon;
+                else
+                    self.spawnparams.properties.Respawn.bAbandon=0;
+                end
+            else
+                self.spawnparams.properties.Respawn.bAbandon=1;
+                self.spawnparams.properties.Respawn.nAbandonTimer=300;
+            end
+
+            self.spawnparams.position=pos;
+            self.spawnparams.orientation=dir;
+
+            -- make names unique!
+            self.spawnparams.name=hSlot.buildVehicle.."_built_" .. UpdateCounter(eCounter_Generic);
+            self.spawnparams.class=def.class;
+            self.spawnparams.position.z=pos.z;
+
+            if (self:GetTeamId()~=0 and g_gameRules.VehiclePaint) then
+                self.spawnparams.properties.Paint = g_gameRules.VehiclePaint[g_gameRules.game:GetTeamName(self:GetTeamId())] or "";
+            end
+
+            local vehicle=System.SpawnEntity(self.spawnparams);
+
+            if (vehicle) then
+                Log("Vehicle Factory %s - Built %s at door %s...", self:GetName(), hSlot.buildVehicle, hSlot.id);
+
+                vehicle.builtas=hSlot.buildVehicle;
+
+                vehicle.vehicle:SetOwnerId(hSlot.buildOwnerId);
+                g_gameRules.game:SetTeam(hSlot.buildTeamId, vehicle.id);
+
+                self:AdjustVehicleLocation(vehicle); -- adjust the position of the vehicle so that the vehicle is centered in the spawn helper,
+                -- using the center of the bounding box
+
+                vehicle:AwakePhysics(1);
+            end
+
+            if (def.buyzoneradius) then
+                self:MakeBuyZone(vehicle, def.buyzoneradius*1.15, def.buyzoneflags);
+
+                if (not def.spawngroup) then
+                    g_gameRules.game:AddMinimapEntity(vehicle.id, 1, 0);
+                end
+            end
+
+            if (def.servicezoneradius) then
+                self:MakeServiceZone(vehicle, def.servicezoneradius*1.15);
+            end
+
+            if (def.spawngroup) then
+                g_gameRules.game:AddSpawnGroup(vehicle.id);
+            end
+
+            return vehicle;
+        end
+
+    },
+
+    ---------------------------------------------
+    --- KillPlayers
+    ---------------------------------------------
+    {
+
+        Class = "Factory",
         Target = { "KillPlayers" },
         Type = eInjection_Replace,
 
         ------------------------
         Function = function(self, hSlot)
 
-            Debug("kill hit!!")
+            --Debug("kill hit!!")
 
             if (not ConfigGet("General.GameRules.HitConfig.FactoryKills", true, eConfigGet_Boolean)) then
                 return

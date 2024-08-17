@@ -112,7 +112,7 @@ ServerRPC.Callbacks.CanPickupWeapon = function(self, ...)
 
     -- FIXME: AntiCheat
     if (ServerItemHandler:CanPickupWeapon(...) == true) then
-        ServerItemHandler:OnPickedUp(...)
+        --ServerItemHandler:OnPickedUp(...)-- !!! BAD !!! CRASHES SERVER!!!!
         return true
     end
     return false
@@ -140,20 +140,56 @@ end
 
 --------------------------------
 --- Init
-ServerRPC.Callbacks.OnWeaponPickedUp = function(self, ...)
-    --return (ServerItemHandler:OnPickedUp(...) == true)
+ServerRPC.Callbacks.OnWeaponPickedUp = function(self, hPlayerID, hItemID)
+    ServerItemHandler:OnPickedUp(hPlayerID, hItemID)
 end
 
 --------------------------------
 --- Init
 ServerRPC.Callbacks.OnMapCommand = function(self, sMap)
+
+    -- not called? REMOVE?
     throw_error("MAP CHANGED oMG oMG oMG")
 end
 
 --------------------------------
 --- Init
-ServerRPC.Callbacks.OnGameShutdown = function()
-
+ServerRPC.Callbacks.OnGameQuit = function()
     Server:Quit()
+end
 
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnMapStarted = function()
+    Server:OnMapReset()
+end
+
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnBeforeSpawn = function(self, hParams)
+    return (Server:OnBeforeSpawn(hParams) or hParams)
+end
+
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnProjectileExplosion = function(self, ...)
+    return (ServerItemHandler:OnProjectileExplosion(...))
+end
+
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnExplosivePlaced = function(self, nPlayer, nExplosive, iType, iCount, iLimit)
+    return (ServerItemHandler:OnExplosivePlaced(nPlayer, nExplosive, iType, iCount, iLimit))
+end
+
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnExplosiveRemoved = function(self, nPlayer, nExplosive, iType, iCount)
+    return (ServerItemHandler:OnExplosiveRemoved(nPlayer, nExplosive, iType, iCount))
+end
+
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnProjectileHit = function(self, nShooter, nProjectile, iDamage, nWeapon, vPos, vNormal)
+    return (ServerItemHandler:OnProjectileHit(nShooter, nProjectile, iDamage, nWeapon, vPos, vNormal))
 end

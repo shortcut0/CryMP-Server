@@ -3,6 +3,27 @@ local ServerGameRulesBuying = {
 
     -----------------
     This = "g_gameRules",
+    Init = function(self)
+
+    end,
+
+    ---------------------------------------------
+    --- OnPurchaseCancelled
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "PatchBuyLists" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self)
+
+
+            self.buyList["rocket"] = { id="rocket", name="@mp_eRocket", ammo = true, price = 25, amount = 1, category="@mp_catAmmo", loadout = 1 }
+        end
+
+    },
 
     ---------------------------------------------
     --- OnPurchaseCancelled
@@ -101,9 +122,10 @@ local ServerGameRulesBuying = {
                                         end
                                         --Debug(">>",totalPrice)
 
+                                        player:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..player:LocalizeNest("@l_ui_ammo @l_ui_refilled ( -" .. totalPrice .. " PP )")..[[")]])
                                         self:AwardPPCount(player.id, -totalPrice, nil, player:HasClientMod())
                                         --player:GivePrestige(-totalPrice);
-                                        return false, "no more prestige left";
+                                        return false, "@l_ui_noMorePrestige";
                                     end
                                 end
                             end
@@ -117,9 +139,10 @@ local ServerGameRulesBuying = {
                 --	nCX.ParticleManager("explosions.light.mine_light", 2, pos, g_Vectors.up, 0);
                -- SendMsg(CHAT_EQUIP, player, "(AMMO REFILL: -[ "..buyMessage.." | " .. totalPrice .. " PP ])");
                 SendMsg(CHAT_EQUIP, player, player:Localize("@l_ui_ammoRefilledCMD", { buyMessage, totalPrice }));
+                player:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..player:LocalizeNest("@l_ui_ammo @l_ui_refilled ( -" .. totalPrice .. " PP )")..[[")]])
                 self:AwardPPCount(player.id, -totalPrice, nil, player:HasClientMod())
             else
-                return false, "ammo already full"
+                return false, "@l_ui_ammoAlreadyFull"
             end
             return true;
         end;
@@ -145,8 +168,8 @@ local ServerGameRulesBuying = {
             local iPrice, iEnergy = self:GetPrice(sItem)
             if (iPrice > 0) then
 
-                -- FIXME: ClientMod!
-                -- hPlayer:ClientEvent(eCallClMod_BattleLog, string.format("%s (+%d)", LocalizeForClient(hPlayer, "@l_ui_vehiclerefund")))
+
+                hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest("@l_ui_vehicle @l_ui_refund ( +" .. iPrice .. " PP )")..[[")]])
                 self:AwardPPCount(idPlayer, iPrice, nil, hPlayer:HasClientMod())
             end
 
@@ -200,7 +223,7 @@ local ServerGameRulesBuying = {
     {
 
         Class = "g_gameRules",
-        Target = { "Server.BuyVehicle" },
+        Target = { "BuyVehicle" },
         Type = eInjection_Replace,
 
         ------------------------
@@ -239,8 +262,9 @@ local ServerGameRulesBuying = {
                 local iPrice, iEnergy = self:GetPrice(sItem)
                 if (hFactory:Buy(hPlayerID, sItem, aServerProperties)) then
 
-                    -- FIXME: ClientMod()
-                    -- ClientMod()
+                    -- ---: ---()
+                    -- ---()
+                    hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest("@l_ui_vehicle " .. aDef.class .. " @l_ui_bought ( -" .. iPrice .. " PP )")..[[")]])
 
                     self:AwardPPCount(hPlayerID, -iPrice, nil, hPlayer:HasClientMod())
                     self:AwardCPCount(hPlayerID, self.cpList.BUYVEHICLE)
@@ -398,7 +422,7 @@ local ServerGameRulesBuying = {
             local iAmmoCurr, iAmmoMax, iNeed
 
             if (aAmmo and aAmmo.ammo) then
-
+                Debug("1")
                 iPrice = self:GetPrice(sItem)
 
                 -- ignore vehicles with buyzones here (we want to buy ammo for the player not the vehicle in this case)
@@ -424,8 +448,7 @@ local ServerGameRulesBuying = {
                                         iPrice = math.ceil((iNeed * iPrice) / aAmmo.amount)
                                     end
 
-                                    -- TODO: ClientMod()
-                                    -- ClientMod()
+                                    hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest("@l_ui_vehicle @l_ui_ammo @l_ui_bought ( -" .. iPrice .. " PP )")..[[")]])
                                     self:AwardPPCount(hPlayerID, -iPrice, nil, hPlayer:HasClientMod())
                                 end
 
@@ -461,8 +484,7 @@ local ServerGameRulesBuying = {
 
                             if (bAlive) then
 
-                                -- FIXME: ClientMod()
-                                -- ClientMod()
+                                hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest("@l_ui_ammo @l_ui_bought ( -" .. iPrice .. " PP )")..[[")]])
                                 self:AwardPPCount(hPlayerID, -iPrice, nil, hPlayer:HasClientMod())
                             else
                                 aReviveQueue.ammo_price = (aReviveQueue.ammo_price + iPrice)
@@ -682,6 +704,7 @@ local ServerGameRulesBuying = {
 
                     ServerItemHandler:OnItemBought(hPlayer, hItem, aDef, iPrice, aFactory)
 
+                    hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest("@l_ui_item " .. aDef.class .. " @l_ui_bought ( -" .. iPrice .. " PP )")..[[")]])
                     self:AwardPPCount(hPlayerID, -iPrice, nil, hPlayer:HasClientMod())
                     if (iEnergy and iEnergy > 0) then
                         self:SetTeamPower(iTeam, self:GetTeamPower(iTeam) - iEnergy)
@@ -740,7 +763,7 @@ local ServerGameRulesBuying = {
                 for _, hUser in pairs(hSpawn.CapturedBy or {}) do
                     if (_ ~= hPlayer.id and hPlayer:GetTeam() == hUser:GetTeam()) then
 
-                        -- FIXME: ClientMod
+                        hUser:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hUser:LocalizeNest("@l_ui_spawn @l_ui_award ( +" .. iBunkerAward .. " PP )")..[[")]])
                         self:AwardPPCount(_, iBunkerAward, nil, hUser:HasClientMod())
                         Debug("Awarding for spawning in bunker")
                     end
@@ -749,8 +772,8 @@ local ServerGameRulesBuying = {
                 local hOwner = GetEntity(hSpawn.vehicle:GetOwnerId()) or GetEntity(hSpawn.OwnerID)
                 if (hOwner and hOwner.IsPlayer and hOwner.id ~= hPlayer.id) then
 
-                    -- FIXME: ClientMod
-                    self:AwardPPCount(hOwner.id, iBunkerAward, nil, hUser:HasClientMod())
+                    hOwner:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hOwner:LocalizeNest("@l_ui_vehicle @l_ui_spawn @l_ui_award ( +" .. iVehicleAward .. " PP )")..[[")]])
+                    self:AwardPPCount(hOwner.id, iVehicleAward, nil, hOwner:HasClientMod())
                     Debug("Awarding for spawning in vehicle")
                 end
             end

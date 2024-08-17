@@ -5,6 +5,10 @@ ErrorHandler = {
     UnloggedErrorCount = 0
 }
 
+DllErrorCallback = GetDummyFunc()
+HandleError = GetDummyFunc()
+Interrupt = GetDummyFunc()
+
 ----------------
 ErrorHandler.Init = function(self)
 
@@ -72,24 +76,31 @@ ErrorHandler.Log = function(self, sFormatted)
         self.UnloggedErrorCount = 0
     end
 
-    DLL_ERROR = false
+    DLL_ERROR    = false
+    ERROR_THROWN = false
 end
 
 ----------------
-ErrorHandler.GetErrorList = function(self)
-    return (self.CollectedErrors)
+ErrorHandler.GetErrorList = function(self, bCopy)
+    local aList = self.CollectedErrors
+    return (bCopy and table.copy(aList) or aList)
 end
 
 ----------------
 ErrorHandler.CollectedError = function(self, sFormatted)
 
-    local sErrorDesc = (string.matchex(sFormatted, "^(Error Thrown .-)\n*", "^(Error .-)\n") or sFormatted)
-    local aLocation  = string.split(sFormatted, "\n", 2)
     local sFixed
+    local sErrorDesc = (string.matchex(sFormatted, "^(Error Thrown .-)\n*", "^(Error .-)\n", "(\\%w+%.lua:%d+:.*)") or sFormatted)
+    local aLocation  = string.split(sFormatted, "\n", 2)
+    if (table.empty(aLocation)) then
+        aLocation = string.split(debug.traceback(), "\n", 2)
+    end
     for i, sLine in pairs(aLocation) do
-        sFixed = ""
+        sFixed = string.gsub(sLine, "^\t+", "")
         for ii = 3, 1, -1 do
-            sFixed = string.matchex(sLine, ".*\\(" .. string.repeats(".-\\", ii) .. ".-:%d+: .+'?)$")
+            --sFixed = string.matchex(sLine, ".*\\(" .. string.repeats(".-\\", ii) .. ".-:%d+: .+'?)$")
+            --sFixed = string.gsub(sLine, "^(.*\\CryMP%-Server\\)", "")
+            --sFixed = string.gsub(sLine, "^(.*/CryMP%-Server/)", "")
             if (sFixed) then
                 break
             end
@@ -97,6 +108,12 @@ ErrorHandler.CollectedError = function(self, sFormatted)
         if (sFixed) then
             aLocation[i] = sFixed
         end
+    end
+
+    local sEnd = aLocation[1]
+    if (sEnd) then
+        local sEndTrimmed = string.match(sEnd, ".*:%d+: in (.*)")
+        if (sEndTrimmed) then aLocation = table.insertFirst(aLocation, sEndTrimmed) end
     end
 
     table.insert(self.CollectedErrors, {
@@ -107,5 +124,13 @@ ErrorHandler.CollectedError = function(self, sFormatted)
             Location = aLocation
         }
     })
+
+    --[[
+    == [ ~ Error Log ~ ] =============================================================================
+    [
+    [   1) <1d: 30m: 1s Ago>  : Attempt to Call a Nil Value
+    [
+    ==================================================================================================
+    ]]
 
 end

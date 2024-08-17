@@ -44,8 +44,11 @@ TEAM_END     = 3
 
 ----------------
 
-eCounter_Generic = 0
-eCounter_Spawned = 1
+eCounter_Generic        = 0
+eCounter_Spawned        = 1
+eCounter_RPC            = 2
+eCounter_ClientMod      = 3
+eCounter_ClientModSync  = 4
 
 ----------------
 
@@ -75,10 +78,16 @@ ServerUtils.Init = function(self)
     GetPlayers   = self.GetPlayers
     GetPlayer    = self.GetPlayer
 
+    --- Sounds
+    PlaySound    = function() HandleError("fixme!")  end
+
     --- Effects
-    SpawnEffect  = self.SpawnEffect
+    SpawnEffect    = self.SpawnEffect
+    SpawnEffectT   = self.SpawnEffectT
+    SpawnExplosion = self.SpawnExplosion
 
     --- Entities
+    GetVehicleClasses = self.GetVehicleClasses
     GetEntityClasses  = self.GetEntityClasses
     GetItemClasses    = self.GetItemClasses
     IsEntityClass     = function(s, l) return table.it(l or GetEntityClasses(), function(x, i, v) return (x or string.lower(v) == string.lower(s))  end)  end
@@ -96,14 +105,19 @@ ServerUtils.Init = function(self)
     IsEntity        = self.IsEntity
 
     --- Game
-    GetTeamName  = self.GetTeamName
+    GetTeamName     = self.GetTeamName
+    GetOtherTeam    = self.GetOtherTeam
+    FindTeam        = self.FindTeam
 
     --- Utils
     ByteSuffix   = self.ByteSuffix
 
     --- Stuff.. :3
 
-    GetFacingPos = self.GetFacingPos
+    AutoFollow    = self.AutoFollow
+    FollowWater   = self.FollowWater
+    FollowTerrain = self.FollowTerrain
+    GetFacingPos  = self.GetFacingPos
 
     local iMaxInt = 1
     while (not string.find(g_ts(iMaxInt),"e")) do
@@ -279,6 +293,12 @@ ServerUtils.GetItemClasses = function(bSpawnable)
 
 
     return aSpawn
+end
+
+----------------
+
+ServerUtils.GetVehicleClasses = function()
+    return ServerDLL.GetVehicleClasses()
 end
 
 ----------------
@@ -508,6 +528,42 @@ ServerUtils.GetTeamName = function(iTeam, sNeutral)
 end
 
 ----------------
+ServerUtils.GetOtherTeam = function(iTeam)
+    if (iTeam == TEAM_NK) then
+        return TEAM_US
+
+    elseif (iTeam == TEAM_US) then
+        return TEAM_NK
+
+    elseif (iTeam == TEAM_NEUTRAL) then
+        return TEAM_NEUTRAL -- ???
+    end
+
+    throw_error("INVALID team. learn to code.")
+end
+
+----------------
+ServerUtils.FindTeam = function(iTeam)
+
+    if (not iTeam) then
+        return
+    end
+
+    local sTeam = string.lower(iTeam)
+    if (iTeam == TEAM_NK or sTeam == "nk") then
+        return TEAM_NK
+
+    elseif (iTeam == TEAM_US or sTeam == "us") then
+        return TEAM_US
+
+    elseif (iTeam == TEAM_NEUTRAL or sTeam == "none" or sTeam == "neutral") then
+        return TEAM_NEUTRAL -- ???
+    end
+
+    return
+end
+
+----------------
 ServerUtils.InitEntityClasses = function(self)
 
     ALL_ENTITIES = ServerDLL.GetEntityClasses()
@@ -531,8 +587,48 @@ ServerUtils.ByteSuffix = function(iBytes, iZeroCount)
 end
 
 ----------------
+ServerUtils.SpawnExplosion = function(sEffect, vPos, iRadius, iDamage, vDir, hShooter, hWeapon, iScale)
+
+    if (not sEffect) then
+        return false
+    end
+
+    vPos = vPos or vector.make()
+    vDir = vDir or vector.make(0, 0, 1)
+    iScale  = iScale or 1
+    iDamage = iDamage or 0
+    iRadius = iRadius or 1
+    hShooter = hShooter or NULL_ENTITY
+    hWeapon  = hWeapon or hShooter or NULL_ENTITY
+
+    g_gameRules:CreateExplosion(hShooter, hShooter, iDamage, vPos, vDir, iRadius, 45, iRadius, iRadius, sEffect, iScale, iRadius, iRadius/2, iRadius/2)
+end
+
+----------------
 ServerUtils.SpawnEffect = function(sEffect, vPos, vDir, iScale)
     g_pGame:ServerExplosion(NULL_ENTITY, NULL_ENTITY, 0, (vPos), (vDir or vectors.up), 0, 0, 0, 0, sEffect, (iScale or 1), nil, 0, 0, 0)
+end
+
+----------------
+ServerUtils.SpawnEffectT = function(sHandle, sEffect, ...)
+
+    if (not sEffect) then
+        return
+    end
+
+    table.checkM(ServerUtils, "ExplosionCache", {})
+    table.checkM(ServerUtils.ExplosionCache, sHandle, {})
+    local hLast = ServerUtils.ExplosionCache[sHandle][sEffect]
+    if (hLast) then
+        if (not hLast.expired()) then
+            return
+        end
+        hLast.refresh()
+    else
+        ServerUtils.ExplosionCache[sHandle][sEffect] = timernew(0.15)
+    end
+
+    SpawnEffect(sEffect, ...)
 end
 
 ----------------
@@ -657,6 +753,18 @@ ServerUtils.GetPlayers = function(aParams)
                     bInsert = false
                 end
             end
+
+            if (aParams.NotID) then
+                if (hPlayer.id == aParams.NotID) then
+                    bInsert = false
+                end
+            end
+
+            if (aParams.ThisID) then
+                if (hPlayer.id ~= aParams.ThisID) then
+                    bInsert = false
+                end
+            end
         end
 
         if (bInsert) then
@@ -752,6 +860,19 @@ ServerUtils.GetEntityName = function(hId)
 end
 
 ----------------
+ServerUtils.SpawnEntity = function(aParams)
+    if (aParams.class == "Civ_car1") then
+        aParams.properties = aParams.properties or {}
+        if (aParams.properties.Paint == nil) then
+            local aPaints = {
+                "brown","green","blue","black","silver"
+            }
+            aParams.properties.Paint = sPaint
+        end
+    end
+end
+
+----------------
 ServerUtils.SvSpawnEntity = function(aParams)
 
     local sClass = aParams.Class
@@ -760,7 +881,7 @@ ServerUtils.SvSpawnEntity = function(aParams)
     local aTagList  = aParams.Tags
     local fMass     = aParams.Mass
     local hFlags    = aParams.Flags
-    local sName     = (aParams.Name or "Spawned-Entity")
+    local sName     = (aParams.Name or "entity-")
 
     local bPermanent    = aParams.IsPermanent
     local iRemovalTimer = (aParams.RemovalTimer or 120)
@@ -774,26 +895,32 @@ ServerUtils.SvSpawnEntity = function(aParams)
         orientation = vDir,
         fMass       = (fMass),
         flags       = hFlags,
-        properties  = {}
+        properties  = table.merge(aParams.Properties or {}, {})
     }
 
     if (IsItemClass(sClass)) then
         aProperties.properties.fMass    = 10
         aProperties.properties.bPhysics = 1
-        aProperties.properties.Respawn  = {
-            nTimer		= g_gameRules.WEAPON_ABANDONED_TIME,
-            bUnique		= 0,
-            bRespawn	= 0,
-        }
     end
 
+    -- Vehicles ?
+    aProperties.properties.Respawn  = {
+        nTimer		= g_gameRules.WEAPON_ABANDONED_TIME,
+        bUnique		= 0,
+        bRespawn	= (aParams.Respawn and 1 or 0),
+    }
+
+    local hLastSpawned
     local aEquip = aParams.Equipment
     local hItem
 
-    -- Vehicles
-    Script.SetTimer(1, function()
+    -- Apply timer by default because of Vehicles
+    --Script.SetTimer(1, function()
         local iZAdd = 0
         for i = 1, iCount do
+
+            aProperties.name = (sName .. UpdateCounter(eCounter_Spawned, 1))
+
             vSpawn = vector.modifyz(vSpawn, iZAdd)
             aProperties.position = vSpawn
 
@@ -819,9 +946,9 @@ ServerUtils.SvSpawnEntity = function(aParams)
                         hEntity.vehicle:StartAbandonTimer(true, iRemovalTimer) -- we dont want bad admins trashing the map with useless vehicles..
                     else
                         if (hEntity.weapon) then
-                            g_pGame:ScheduleEntityRemoval(hEntity.id, hEntity.Properties.Respawn.nTimer, false)
+                            g_pGame:ScheduleEntityRemoval(hEntity.id, hEntity.Properties.Respawn.nTimer, false) -- or weapons..
                         else
-                            g_pGame:ScheduleEntityRemoval(hEntity.id, iRemovalTimer, false)
+                            g_pGame:ScheduleEntityRemoval(hEntity.id, iRemovalTimer, false) -- or random entities..
                         end
                     end
 
@@ -829,13 +956,14 @@ ServerUtils.SvSpawnEntity = function(aParams)
                 end
 
                 AwakeEntity(hEntity)
+                hLastSpawned = hEntity
             else
                 HandleError("Failed to Spawn Entity of Class " .. sClass)
             end
-
-            aProperties.name = (sName .. UpdateCounter(eCounter_Spawned, 1))
         end
-    end)
+  --  end)
+
+    return hLastSpawned
 end
 
 ----------------
@@ -858,6 +986,42 @@ ServerUtils.IsPointUnderground = function(vPoint)
     end
 
     return false
+end
+
+----------------
+ServerUtils.FollowTerrain = function(vPoint)
+
+    local iTerrain = System.GetTerrainElevation(vPoint)
+    if (iTerrain) then
+        vPoint.z = iTerrain
+    end
+
+    return vPoint
+end
+
+----------------
+ServerUtils.FollowWater = function(vPoint)
+
+    local iTerrain = CryAction.GetWaterInfo(vPoint)
+    if (iTerrain) then
+        vPoint.z = iTerrain
+    end
+
+    return vPoint
+end
+
+----------------
+ServerUtils.AutoFollow = function(vPoint, iThreshold, hElse)
+
+    local iWater = CryAction.GetWaterInfo(vPoint)
+    local iTerrain = System.GetTerrainElevation(vPoint)
+
+    local z = math.max(iWater, iTerrain)
+    if (math.positive(vPoint.z - z) < (iThreshold or 2)) then
+        vPoint.z = z
+    end
+
+    return hElse or vPoint
 end
 
 ----------------
@@ -906,16 +1070,6 @@ ServerUtils.GetEntitiesInFront = function(hEntityID, iType, iDistance, iRadius)
     }
 
     return aInfo
-end
-
-----------------
-ServerUtils.SpawnEntity = function(...)
-    return LocalSystem.SpawnEntity(...)
-end
-
-----------------
-ServerUtils.DeleteEntity = function(...)
-    return LocalSystem.DeleteEntity(...)
 end
 
 

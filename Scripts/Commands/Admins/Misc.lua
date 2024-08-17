@@ -15,7 +15,7 @@ AddCommand({
     },
 
     Properties = {
-        PowerStruggle = true
+       -- PowerStruggle = true
     },
 
     -- self is the user unless specified otherwise

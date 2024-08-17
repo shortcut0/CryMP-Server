@@ -50,6 +50,7 @@ ServerPCH.OnValidation = function(self, hClient, sError, sResponse, iCode)
         return ServerLogError("Client left before validation finished!")
     end
 
+    local bPunish = false
     local bOk = true
     if (iCode ~= 200) then
         bOk = false
@@ -57,6 +58,7 @@ ServerPCH.OnValidation = function(self, hClient, sError, sResponse, iCode)
 
     if (sResponse ~= "%Validation:Successful%") then
         bOk = false
+        bPunish = true
     end
 
     if (bOk) then
@@ -73,11 +75,11 @@ ServerPCH.OnValidation = function(self, hClient, sError, sResponse, iCode)
         ServerLog("(%d) %s", iCode, g_ts(sResponse))
 
 
-        if (ConfigGet("Server.Punishment.BanInvalidProfile", true, eConfigGet_Boolean)) then
-            ServerPunish:BanPlayer(Server.ServerEntity, hClient, "10m", "Probable Profile Spoof")
+        if (bPunish and ConfigGet("Server.Punishment.BanInvalidProfile", true, eConfigGet_Boolean)) then
+            ServerPunish:BanPlayer(Server.ServerEntity, hClient, "1h", "Validate at CryMP.org Failed - Please Try again")
 
         elseif (ConfigGet("Server.Punishment.KickInvalidProfile", true, eConfigGet_Boolean)) then
-            ServerPunish:DisconnectPlayer(eKickType_Kicked, hClient, "Probable Profile Spoof", nil, "Server")
+            ServerPunish:DisconnectPlayer(eKickType_Kicked, hClient, "Validate at CryMP.org Failed - Please Try again", nil, "Server")
         end
 
         hClient.Info.Validated  = false

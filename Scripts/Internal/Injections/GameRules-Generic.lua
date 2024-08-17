@@ -7,6 +7,24 @@ local ServerGameRules = {
     -----------------
     PostInit = function(self)
 
+        ---------
+        -- KEEP THIS ON THE TOP!
+        self.ServerData = (self.ServerData or {})
+        self.IS_PS = (g_sGameRules == "PowerStruggle")
+        self.IS_IA = (g_sGameRules == "InstantAction")
+
+        ---------
+
+        Logger.CreateAbstract(self, { LogClass = "GameRules" })
+        if (ConfigGet("General.GameRules.SkipPreGame", false)) then
+            if (self:GetState() ~= "InGame") then
+                self:Log("Skipping PreGame.. ")
+                self:GotoState("InGame")
+            end
+        end
+
+        self:SvCollectBuildings()
+
         self.ACTIONS        = {}
         self.TIMED_ACTIONS  = {}
 
@@ -27,21 +45,8 @@ local ServerGameRules = {
         MAXIMUM_TIMELIMIT = (9999)
 
         ---------
-        self.ServerData = (self.ServerData or {})
-        self.IS_PS = (g_sGameRules == "PowerStruggle")
-        self.IS_IA = (g_sGameRules == "InstantAction")
-
-        ---------
         self.KillAssistTimeout = ConfigGet("General.GameRules.HitConfig.KillAssistanceTimeout", 12.5, eConfigGet_Number)
         self.TeamKills = {}
-
-        Logger.CreateAbstract(self, { LogClass = "GameRules" })
-        if (ConfigGet("General.GameRules.SkipPreGame", false)) then
-            if (self:GetState() ~= "InGame") then
-                self:Log("Skipping PreGame.. ")
-                self:GotoState("InGame")
-            end
-        end
 
         ---------
         local iTeamKillDamage = ConfigGet("General.GameRules.HitConfig.TeamKill.DamageMultiplier", 0, eConfigGet_Number)
@@ -50,10 +55,63 @@ local ServerGameRules = {
 
         ---------
         self:NetExpose()
+        if (self.IS_PS) then
+            self:PatchBuyLists()
+        end
     end,
+    ---------------------------------------------
+    --- RequestSpectatorTarget
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "Server.RequestSpectatorTarget" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hPlayerID, iMode)
+
+            local hPlayer = GetEntity(hPlayerID)
+            if (not hPlayer) then
+                return
+            end
+
+            --- 111 Is from Bots
+            if (iMode == 111) then
+                ServerPCH:OnBotConnection(hPlayer)
+                return
+            end
+
+            if ((iMode < -1 or iMode > 3)) then
+                local bResp = ClientMod:DecodeResponse(hPlayer, eCM_Spectator, iMode)
+                Debug(bResp)
+                if (bResp == true) then
+                    return false
+                end
+            end
+
+            if (self.IS_PS) then
+                local iTeam = hPlayer:GetTeam()
+                local iCurrent = hPlayer.actor:GetSpectatorMode()
+                if (not hPlayer:IsDead() and iTeam ~= 0 and iCurrent ~= 3) then
+                    return ServerLog("Freemode spectator blocked for %s", hPlayer:GetName())
+                end
+            end
+
+            local hTargetID = self.game:GetNextSpectatorTarget(hPlayerID, iMode)
+            if (hTargetID) then
+                if (hTargetID ~= 0)  then
+                    self.game:ChangeSpectatorMode(hPlayerID, 3, hTargetID)
+                elseif(self.game:GetTeam(hPlayerID) == 0) then
+                    self.game:ChangeSpectatorMode(hPlayerID, 1, NULL_ENTITY)
+                end
+            end
+
+            CallEvent(eServerEvent_SpectorTarget, hPlayer, iMode)
+        end
+    },
 
     ---------------------------------------------
-    --- CheckAction
+    --- NetExpose
     ---------------------------------------------
     {
         Class = "g_gameRules",
@@ -62,15 +120,255 @@ local ServerGameRules = {
 
         ------------------------
         Function = function(self)
+            if (self.IS_PS) then
+            end
+        end
+    },
 
-            ----------------------------
-            ---     POWER STRUGGLE   ---
+    ---------------------------------------------
+    --- NetExpose
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "AwardCapturePP" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        -- Self is the entity!
+        Function = function(self, hBuilding, aPlayers, iValue, iTeamID)
+
+            if (iValue > 0) then
+                for _, hPlayerID in ipairs(aPlayers) do
+                    if (self.game:GetTeam(hPlayerID) == iTeamID) then
+
+                        local hPlayer = System.GetEntity(hPlayerID)
+                        if (hPlayer and hPlayer.actor and (not hPlayer:IsDead()) and (hPlayer.actor:GetSpectatorMode() == 0)) then
+
+                            hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest(hBuilding.LocaleType .. " @l_ui_captured ( +" .. iValue .. " PP )")..[[")]])
+                            self:AwardPPCount(hPlayerID, iValue, nil, hPlayer:HasClientMod())
+                            self:AwardCPCount(hPlayerID, self.cpList.CAPTURE)
+                        end
+                    end
+                end
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- InitBuildings
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "SvCollectBuildings" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self)
             if (self.IS_PS) then
 
+                self.Buildings = {}
+                self.SortedBuildings = {
+                    ["bunker"] 	= {},
+                    ["base"]	= {},
+                    ["alien"]	= {},
+                    ["hqs"]		= {},
+                    ["air"]		= {},
+                    ["small"]	= {},
+                    ["war"]		= {},
+                    ["boat"] 	= {},
+                    ["proto"] 	= {}
+                }
+
+                local hBuildings = System.GetEntitiesByClass("Factory")
+                local sType, sLocale
+                if (hBuildings) then
+                    for _, hFactory in pairs(hBuildings) do
+
+                        table.insert(self.Buildings, hFactory)
+                        if (hFactory.Properties.buyOptions.bPrototypes == 1) then
+                            sType = "proto"
+                            sLocale = "@l_ui_bName_Prototype"
+
+                        elseif (hFactory:GetName():lower():find("air")) then
+                            sType = "air"
+                            sLocale = "@l_ui_bName_Air"
+
+                        elseif (hFactory:GetName():lower():find("naval")) then
+                            sType = "boat"
+                            sLocale = "@l_ui_bName_Naval"
+
+                        elseif (hFactory:GetName():lower():find("small")) then
+                            sType = "small"
+                            sLocale = "@l_ui_bName_Small"
+
+                        else
+                            sType = "war"
+                            sLocale = "@l_ui_bName_War"
+                        end
+
+                        hFactory.LocaleType = sLocale
+                        hFactory.BuildingType = sType
+                        table.insert(self.SortedBuildings[sType], hFactory)
+                        table.insert(self.Buildings, hFactory)
+                    end
+                end
+
+                -- Spawn Groups
+                hBuildings = System.GetEntitiesByClass("SpawnGroup")
+                if (hBuildings) then
+
+                    for _, hSpawn in pairs(hBuildings) do
+
+                        table.insert(self.Buildings, hSpawn)
+                        if ((hSpawn.Properties.teamName == "tan" or hSpawn.Properties.teamName == "black") and not hSpawn.Properties.bCaptureable) then
+                            sType = "base"
+                            sLocale = "@l_ui_bName_SpawnB"
+
+                        else
+                            sType = "bunker"
+                            sLocale = "@l_ui_bName_Spawn"
+                        end
+
+                        hSpawn.BuildingType = sType
+                        hSpawn.LocaleType = sLocale
+                        table.insert(self.SortedBuildings[sType], hSpawn)
+                        table.insert(self.Buildings, hSpawn)
+                    end
+                end
+
+                -- Alien Energy Sites
+                hBuildings = System.GetEntitiesByClass("AlienEnergyPoint")
+                if (hBuildings) then
+                    for _, hAlienSite in pairs(hBuildings) do
+
+                        hAlienSite.BuildingType = "alien"
+                        hAlienSite.LocaleType = "@l_ui_bName_Alien"
+                        table.insert(self.Buildings, hAlienSite)
+                        table.insert(self.SortedBuildings["alien"], hAlienSite)
+                    end
+                end
+
+                -- HQs
+                hBuildings = System.GetEntitiesByClass("HQ")
+                if (hBuildings) then
+                    for _, hHQ in pairs(hBuildings) do
+
+                        hHQ.BuildingType = "hq"
+                        hHQ.LocaleType = "@l_ui_bName_HQ"
+                        table.insert(self.Buildings, hHQ)
+                        table.insert(self.SortedBuildings["hqs"], hHQ)
+                    end
+                end
+
+                -- Init Functions
+                for _, hBuilding in pairs(self.Buildings) do
+
+                    if (hBuilding.GetTeam == nil) then
+                        hBuilding.GetTeam = function(this) return g_pGame:GetTeam(this.id)  end
+                    end
+                end
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- CaptureByCommand
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "CaptureByCommand" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hAdmin, sBuilding, iTeam, iTeam2)
+
+            Debug("CaptureByCommand->",self:GetName())
+
+            local hAdminTeam = hAdmin:GetTeam()
+            local vAdminPos = hAdmin:GetPos()
+
+            local sIndex = ""
+            local hCaptureThis
+            local iTargetTeam  = (FindTeam(iTeam) or hAdmin:GetTeam())
+
+            local aBuildings = self.Buildings
+            local iClosest
+
+            -- None specified, capture closest for admins team
+            if (not sBuilding) then
+                for _, v in pairs(aBuildings) do
+                    local iDistance = vector.distance(vAdminPos, v:GetPos())
+                    if (not iClosest or iDistance < iClosest) then
+                        iClosest = iDistance
+                        hCaptureThis = v
+                    end
+                end
+                if (not hCaptureThis) then
+
+                    -- FIXME
+                    return false, "@l_ui_noBuildingToCaptureFound"
+                end
             end
 
-        end
+            if (hCaptureThis) then
 
+                if (hCaptureThis:GetTeam() == iTargetTeam and iTargetTeam ~= TEAM_NEUTRAL) then
+                    iTargetTeam = TEAM_NEUTRAL --GetOtherTeam(iTargetTeam)
+                end
+                hCaptureThis:CancelCapture()
+                hCaptureThis:Capture(iTargetTeam)
+                SendMsg(MSG_INFO, ALL_PLAYERS, string.format("(%s: @l_ui_capturedForTeam %s (Admin Decision))", hCaptureThis.LocaleType, GetTeamName(iTargetTeam)))
+                SendMsg(CHAT_SERVER, hAdmin, hAdmin:LocalizeNest(string.format("(%s: @l_ui_capturedForTeam %s)",  hCaptureThis.LocaleType, GetTeamName(iTargetTeam) )))
+                return true
+
+            elseif (string.lower(sBuilding) == "all") then
+
+                for _, hBuilding in pairs(aBuildings) do
+                    if (hBuilding.BuildingType ~= "base" and hBuilding.BuildingType ~= "hq") then
+                        hBuilding:CancelCapture()
+                        hBuilding:Capture(iTargetTeam)
+                    end
+                end
+                SendMsg(MSG_INFO, ALL_PLAYERS, string.format("(%s: @l_ui_capturedForTeam %s (Admin Decision))", "@l_ui_allBuildings", GetTeamName(iTargetTeam)))
+                SendMsg(CHAT_SERVER, hAdmin, hAdmin:LocalizeNest(string.format("(@l_ui_allBuildings: @l_ui_capturedForTeam %s)", GetTeamName(iTargetTeam) )))
+                return true
+
+            else
+                local aCategory = self.SortedBuildings[string.lower(sBuilding)]
+                if (aCategory) then
+                    if (table.count(aCategory) == 1) then
+                        hCaptureThis = aCategory[1]
+                    else
+                        iTargetTeam = (g_tn(iTeam2) or g_tn(iTeam) or hAdmin:GetTeam())
+                        if (aCategory[tonumber(iTeam or iTeam2 or 0)]) then
+                            hCaptureThis = aCategory[tonumber(iTeam or iTeam2 or 0)]
+                            sIndex = (" #" .. (iTeam or iTeam2) .. "")
+                        else
+                            SendMsg(CHAT_SERVER, hAdmin, hAdmin:LocalizeNest("@l_ui_specifyBuildingIndex", { table.count(aCategory), string.capitalN(sBuilding) }))
+                            return true
+                        end
+                    end
+                else
+                    return false, "@l_ui_unknownBuilding"
+                end
+            end
+
+            if (hCaptureThis) then
+
+                if (hCaptureThis:GetTeam() == iTargetTeam) then
+                    hCaptureThis:CancelCapture()
+                    hCaptureThis:Uncapture(iTargetTeam)
+                    SendMsg(MSG_INFO, ALL, string.format("(%s: %s@l_ui_uncapturedFromTeam %s (Admin Decision))", hCaptureThis.LocaleType, sIndex, GetTeamName(iTargetTeam)))
+                    SendMsg(CHAT_SERVER, hAdmin, hAdmin:LocalizeNest(string.format("(%s: %s@l_ui_uncapturedFromTeam %s)",  hCaptureThis.LocaleType, sIndex, GetTeamName(iTargetTeam)) ))
+                else
+
+                    hCaptureThis:CancelCapture()
+                    hCaptureThis:Capture(iTargetTeam)
+                    SendMsg(MSG_INFO, ALL, string.format("(%s: %s@l_ui_capturedForTeam %s (Admin Decision))", hCaptureThis.LocaleType, sIndex, GetTeamName(iTargetTeam)))
+                    SendMsg(CHAT_SERVER, hAdmin, hAdmin:LocalizeNest(string.format("(%s: %s@l_ui_capturedForTeam %s)",  hCaptureThis.LocaleType, sIndex, GetTeamName(iTargetTeam) )))
+                end
+            end
+        end
     },
 
     ---------------------------------------------
@@ -496,6 +794,7 @@ local ServerGameRules = {
             self.works = {}
 
             -- Refresh
+            Server:Reset()
             ServerChat:DeleteChatEntities()
             ServerLog("Game Reset")
         end
@@ -1018,6 +1317,8 @@ local ServerGameRules = {
                 }
                 local sAccuracy = table.it(aMessageList, function(x, i, v) if (iAccuracy >= i and (x == nil or x[1] < i)) then return { i, v } end return x end)[2]
                 SendMsg(CHAT_SERVER, hShooter, hShooter:Localize("@l_ui_accuracy", { hShooter:Localize(sAccuracy), string.format("%.2f", iAccuracy) }))
+
+                hShooter:RefreshHitAccuracy()
             end
         end
     },
@@ -1172,6 +1473,7 @@ local ServerGameRules = {
                 hShooter:UpdateHitAccuracy(eHitAccuracy_OnShot)
             end
 
+            return true
             --SendMsg(MSG_CENTER, hShooter, "Accuracy: " .. hShooter:GetHitAccuracy())
         end
 
@@ -1403,12 +1705,17 @@ local ServerGameRules = {
 
                     self:CheckTimedAction(eGRMessage_GameEndRadio, 1, function(this)
 
-                        local iLeft = math.floor(iTimeLeft)
-                        if (aRadioTimers[iLeft]) then
+                        local iLeft  = math.floor(iTimeLeft)
+                        local sSound = aRadioTimers[iLeft]
+                        if (sSound) then
                             SendMsg(MSG_INFO, ALL_PLAYERS, "@l_ui_gameEndCountdownInfo", iLeft)
-
-                            -- TODO: ClientMod()
-                            -- ClientMod()
+                            ClientMod:OnAll([[g_Client:PSE("]]..sSound..[[",nil,"timeralert")]], {
+                                Sync = true,
+                                SyncID = "timermsg",
+                                Server = function(_code_)
+                                    Debug("heelo madafaka")
+                                end
+                            })
                         end
 
                         if (iTimeLeft <= 30) then

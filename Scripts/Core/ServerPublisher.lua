@@ -11,13 +11,10 @@ ServerPublisher = (ServerPublisher or {
         ["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8"
     },
     JSONHeaders = {
-        ["Content-Type"] = "applicaton/json"
+        ["Content-Type"] = "application/json"
     },
 
     GameVersion = "6156",
-
-    -----
-    UseJSONReport = true, -- Send Report as JSON Instead of literal url parameter
 
     -----
     LastUpdate = timernew(0),
@@ -40,6 +37,16 @@ ServerPublisher = (ServerPublisher or {
 
 ----------------
 
+ServerPublisher.UseJSONReport = false -- Send Report as JSON Instead of literal url parameter
+ServerPublisher.DefaultHeaders = {
+    ["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8"
+}
+ServerPublisher.JSONHeaders = {
+    ["Content-Type"] = "application/json"
+}
+
+----------------
+
 eServerReport_Expose = 0
 eServerReport_Status = 1
 
@@ -48,7 +55,7 @@ eServerReport_Status = 1
 ServerPublisher.Init = function(self)
 
     -----
-    Logger.CreateAbstract(self, { Base = ServerLog, LogClass = "ServerPublisher", LogTemplate = "{class} " })
+    Logger.CreateAbstract(self, { Base = ServerLog, ErrorBase = replace_pre(ServerLog, HandleError), LogClass = "ServerPublisher", LogTemplate = "{class} " })
     self:Log("ServerPublisher.Init()")
 
     -----
@@ -60,8 +67,8 @@ ServerPublisher.Init = function(self)
     self.Description = ConfigGet("Server.Report.Description", "No Description Available.", eConfigGet_String)
     self.Initialized = true
 
-    local sName = ConfigGet("Server.Report.Name", GetCVar("sv_servername)"), eConfigGet_String)
-    System.SetCVar("sv_servername", Logger.Format(sName))
+    local sName = ConfigGet("Server.Report.Name", GetCVar("sv_servername"), eConfigGet_String)
+    SetCVar("sv_servername", Logger.Format(sName))
 end
 
 --------------------------------
@@ -159,7 +166,7 @@ ServerPublisher.UpdateServer = function(self)
 
     self.UpdateFail = nil
 
-    local sBody = self:GetServerReport(eServerReport_Report)
+    local sBody = self:GetServerReport(eServerReport_Status)
     local aHeaders = self.DefaultHeaders
     if (self.UseJSONReport) then
         aHeaders = self.JSONHeaders
@@ -281,7 +288,7 @@ ServerPublisher.GetServerReport = function(self, iType)
     -- Server Config
     local sName         = GetCVar("sv_servername")
     local sPakLink      = self:GetServerPakLink()
-    local sDesc         = Logger.Format(self:GetServerDescription())
+    local sDesc         = self:ConvertFormatTags(Logger.Format(self:GetServerDescription()))
     local sLocal        = "localhost"
     local sVersion      = self.GameVersion
     local sPass         = (self:GetServerPassword() == "0" and "0" or "1")
@@ -316,9 +323,14 @@ ServerPublisher.GetServerReport = function(self, iType)
 
     ------
     if (SERVER_DEBUG_MODE) then
-        iPlayerCount = (iPlayerCount + getrandom(50, 120))
+        iPlayerCount = (iPlayerCount + getrandom(1, 2))
         hPlayerList     = self:GetPlayers(iPlayerCount)
     end
+
+    -- TEST TEST
+   -- Debug("sPass:",sPass)
+  --  Debug("count:",table.count(hPlayerList))
+  --  Debug("iPlayerCount:",iPlayerCount)
 
     local aBody = {
         cookie       = nil,
@@ -379,7 +391,7 @@ ServerPublisher.GetPlayers = function(self, iPopulate)
             sKills   = getrandom(1, 100)
             sDeaths  = getrandom(1, 100)
             sProfile = "1008858"
-            sTeam    = getrandom(0, 2)
+            sTeam    = getrandom(0, 2) if (g_gameRules.IS_IA) then sTeam = "1" end
 
             sPopulation = string.format("%s@%s%%%s%%%s%%%s%%%s", sPopulation, sName, sRank, sKills, sDeaths, sProfile)
             table.insert(aPopulation, {
@@ -397,14 +409,37 @@ ServerPublisher.GetPlayers = function(self, iPopulate)
     -- Implementation missing!
     for _, hClient in pairs(GetPlayers()) do
 
-        sName    = hClient:GetName()
+        sName    = ServerNames:RemoveCrypt(hClient:GetName())
         sRank    = hClient:GetRank()
         sKills   = hClient:GetKills()
         sDeaths  = hClient:GetDeaths()
         sProfile = hClient:GetProfileID()
-        sTeam    = hClient:GetTeam()
 
-        sPlayers = string.format("%s@%s%%%s%%%s%%%s%%%s", g_ts(sPlayers), g_ts(sName), g_ts(sRank), g_ts(sKills), g_ts(sDeaths), g_ts(sProfile))
+        -- FIXME: In IA games, Make it team 0 if spectator?
+        sTeam    = hClient:GetTeam() if (g_gameRules.IS_IA) then sTeam = "1" end
+
+        sPlayers = string.format("%s@%s%%%s%%%s%%%s%%%s%%%s", g_ts(sPlayers), (g_ts(sName)), g_ts(sRank), g_ts(sKills), g_ts(sDeaths), g_ts(sProfile), g_ts(sTeam))
+        table.insert(aPlayers, {
+            name       = sName,
+            rank       = sRank,
+            kills      = sKills,
+            deaths     = sDeaths,
+            profile_id = sProfile,
+            team       = sTeam
+        })
+    end
+
+    -- INCOMING CONNECTIONS !!
+    for _, aInfo in pairs(ServerChannels:GetConnecting()) do
+
+        sName    = string.format("(Connecting) %s", aInfo.Nick)
+        sRank    = "0"
+        sKills   = "0"
+        sDeaths  = "0"
+        sProfile = "0"
+        sTeam    = "0" if (g_gameRules.IS_IA) then sTeam = "1" end
+
+        sPlayers = string.format("%s@%s%%%s%%%s%%%s%%%s%%%s", g_ts(sPlayers), (g_ts(sName)), g_ts(sRank), g_ts(sKills), g_ts(sDeaths), g_ts(sProfile), g_ts(sTeam))
         table.insert(aPlayers, {
             name       = sName,
             rank       = sRank,
@@ -448,11 +483,49 @@ end
 --------------------------------
 --- Init
 ServerPublisher.GetServerPassword = function(self)
-    return GetCVar("sv_password")
+    local sPass = GetCVar("sv_password")
+    if (string.empty(sPass)) then
+        sPass = "0"
+    end
+    return sPass
 end
 
 --------------------------------
 --- Init
 ServerPublisher.GetServerDescription = function(self)
     return (self.Description or "No Description Available!")
+end
+
+--------------------------------
+--- Init
+
+ServerPublisher.BoldCharMap = {
+    ['A'] = '𝗔', ['B'] = '𝗕', ['C'] = '𝗖', ['D'] = '𝗗', ['E'] = '𝗘',
+    ['F'] = '𝗙', ['G'] = '𝗚', ['H'] = '𝗛', ['I'] = '𝗜', ['J'] = '𝗝',
+    ['K'] = '𝗞', ['L'] = '𝗟', ['M'] = '𝗠', ['N'] = '𝗡', ['O'] = '𝗢',
+    ['P'] = '𝗣', ['Q'] = '𝗤', ['R'] = '𝗥', ['S'] = '𝗦', ['T'] = '𝗧',
+    ['U'] = '𝗨', ['V'] = '𝗩', ['W'] = '𝗪', ['X'] = '𝗫', ['Y'] = '𝗬',
+    ['Z'] = '𝗭', ['a'] = '𝗮', ['b'] = '𝗯', ['c'] = '𝗰', ['d'] = '𝗱',
+    ['e'] = '𝗲', ['f'] = '𝗳', ['g'] = '𝗴', ['h'] = '𝗵', ['i'] = '𝗶',
+    ['j'] = '𝗷', ['k'] = '𝗸', ['l'] = '𝗹', ['m'] = '𝗺', ['n'] = '𝗻',
+    ['o'] = '𝗼', ['p'] = '𝗽', ['q'] = '𝗾', ['r'] = '𝗿', ['s'] = '𝘀',
+    ['t'] = '𝘁', ['u'] = '𝘂', ['v'] = '𝘃', ['w'] = '𝘄', ['x'] = '𝘅',
+    ['y'] = '𝘆', ['z'] = '𝘇', ['0'] = '𝟬', ['1'] = '𝟭', ['2'] = '𝟮',
+    ['3'] = '𝟯', ['4'] = '𝟰', ['5'] = '𝟱', ['6'] = '𝟲', ['7'] = '𝟳',
+    ['8'] = '𝟴', ['9'] = '𝟵'
+}
+
+ServerPublisher.ConvertFormatTags = function(self, sInput)
+
+    -- Unicode offsets
+    local aMap = self.BoldCharMap
+    local sResult = string.gsub(sInput, "<bold>(.-)</bold>", function(content)
+        return content:gsub(".", function(c)
+            return (aMap[c] or c)  -- Use the mapped character or keep the original if not found
+        end)
+    end)
+
+   -- Debug("in->",sInput)
+   --s Debug("->",sResult)
+    return sResult
 end

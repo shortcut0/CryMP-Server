@@ -38,6 +38,7 @@ eLogEvent_Punish            = 16
 eLogEvent_Maps              = 17
 eLogEvent_HQ              = 18
 eLogEvent_Game              = 19
+eLogEvent_ClientMod              = 20
 
 --------------------------------
 --- Init
@@ -120,6 +121,13 @@ Logger.InitLogEvents = function(self, iEvent, sMessage, ...)
         [eLogEvent_Maps] = {
             PlayerMessages  = true,
             Tag             = "Levels",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_GUEST }
+        },
+
+        [eLogEvent_ClientMod] = {
+            PlayerMessages  = true,
+            Tag             = "ClientMod",
             Color           = self.DefaultColor,
             Access          = { Regular = RANK_GUEST }
         },
@@ -573,6 +581,9 @@ Logger.Format = function(sMessage, aFormatAppend)
         ["server_uptime"]  = math.calctime(_time),
         ["server_highestchannel"]  = LAST_CHANNEL,
 
+        -- debug
+        ["dbg_scripterr"] = table.count(ErrorHandler:GetErrorList(1)),
+
     }, (aFormatAppend or {}))
 
     ---------------
@@ -648,9 +659,10 @@ Logger.CreateAbstract = function(self, aParams)
     sLog = string.gsub(sLog, "{color}", sColor)
     sLog = string.gsub(sLog, "{class}", sLogClass)
 
-    local fBase = (aParams.Base or SystemLog)
+    local fBase    = (aParams.Base or SystemLog)
+    local fErrBase = (aParams.ErrorBase or fBase)
 
     self.Log        = hLogger:CreateLogFunction(LOG_NORMAL,  fBase, (sLog))
-    self.LogError   = hLogger:CreateLogFunction(LOG_ERROR,   fBase, (sLog ..  "Error: "))
-    self.LogWarning = hLogger:CreateLogFunction(LOG_WARNING, fBase, (sLog ..  "Warning: "))
+    self.LogError   = hLogger:CreateLogFunction(LOG_ERROR,   fErrBase, (sLog ..  "Error: "))
+    self.LogWarning = hLogger:CreateLogFunction(LOG_WARNING, fErrBase, (sLog ..  "Warning: "))
 end

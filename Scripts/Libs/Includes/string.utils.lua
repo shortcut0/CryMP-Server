@@ -65,7 +65,7 @@ end
 -- string.islc
 
 string.fc = function(s, check)
-	local fc = string.sub(s, 1, 1)
+	local fc = string.sub(s, 1, string.len(check))
 	if (check) then
 		return (fc == check)
 	end

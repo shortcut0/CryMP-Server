@@ -1,6 +1,7 @@
 ----------------
 Server = (Server or {
 
+    ResetListeners = {},
     DefaultCVars = {},
 
     -- FIXME: Add Identifiers!
@@ -19,6 +20,13 @@ Server.Init = function(self)
     --------
     self.INIT_TIMER = timernew()
     self.Initializer = ServerInit
+
+    --------
+    self.ResetListeners = {}
+    RegisterReset = function(sID, hFunc)
+        ServerLog("Added Reset Listener..")
+        Server.ResetListeners[sID] = hFunc
+    end
 
     --------
     self.CONFIG_FILES = {
@@ -253,6 +261,10 @@ Server.InitInternals = function(self)
     ServerNames:Init()
     ServerChannels:Init()
     ServerItemHandler:Init()
+
+    if (ClientMod) then
+        ClientMod:Init()
+    end
 end
 
 ----------------
@@ -263,6 +275,11 @@ end
 
 ----------------
 Server.OnUpdate = function(self)
+
+    if (not SERVER_INITIALIZED) then
+        return
+    end
+
     self:UpdateCore()
     self:UpdateInternals()
 
@@ -277,6 +294,10 @@ end
 
 ----------------
 Server.OnTick = function(self)
+
+    if (not SERVER_INITIALIZED) then
+        return
+    end
 
     -- New Timer
     g_gameRules:OnTickTimer()
@@ -328,7 +349,7 @@ end
 Server.RestoreCVar = function(self, sCVar, hUser)
 
     if (self:IsCVarChanged(sCVar)) then
-        SetCVar(sCVar, self.DefaultCVars[string.lower(sCVar)])
+        FSetCVar(sCVar, self.DefaultCVars[string.lower(sCVar)])
         self.DefaultCVars[string.lower(sCVar)] = nil
 
         if (hUser) then
@@ -342,7 +363,7 @@ end
 Server.ChangeCVar = function(self, sCVar, hValue, hUser)
 
     self:SaveCVar(sCVar)
-    SetCVar(sCVar, hValue)
+    FSetCVar(sCVar, hValue)
 
     if (hUser) then
         SendMsg(CHAT_SERVER, hUser, hUser:Localize("@l_ui_cvarChanged", { sCVar, hValue }))
@@ -351,8 +372,38 @@ Server.ChangeCVar = function(self, sCVar, hValue, hUser)
 end
 
 ----------------
+Server.Reset = function(self)
+    for _, h in pairs(self.ResetListeners) do
+        if (isString(h)) then
+            local bOk, sErr = pcall(loadstring, h)
+            if (not bOk) then
+                ErrorHandler("Failed to execute event listener %s (%s)", _, g_ts(sErr))
+            end
+        else
+            ServerLog("Executing Reset Listener..")
+            h()
+        end
+    end
+end
+
+----------------
+Server.OnMapReset = function(self)
+
+    self:Reset()
+    CallEvent(eServerEvent_MapReset)
+end
+
+----------------
+Server.OnBeforeSpawn = function(self, aParams)
+
+    if (aParams.class == "Civ_car1") then
+    end
+    return aParams
+end
+
+----------------
 Server.Quit = function(self)
 
-    self:OnReload()
-    CallEvent(eServerEvent_OnExit)
+    --self:OnReload()
+   -- CallEvent(eServerEvent_OnExit)
 end

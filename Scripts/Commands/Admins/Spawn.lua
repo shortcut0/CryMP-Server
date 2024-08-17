@@ -68,16 +68,18 @@ AddCommand({
         end
 
         local vPos = self:GetFacingPos(eFacing_Front, 5, eFollow_Auto, 3)
-        SvSpawnEntity({
+        Script.SetTimer(1, function()
+            SvSpawnEntity({
 
-            Pos = vPos,
-            Dir = self.actor:GetRotation(),
+                Pos = vPos,
+                Dir = self.actor:GetRotation(),
 
-            Command = true,
-            Admin   = self,
-            Class   = aFound[1],
-            Count   = iCount
-        })
+                Command = true,
+                Admin   = self,
+                Class   = aFound[1],
+                Count   = iCount
+            })
+        end)
         SpawnEffect(ePE_Light, vPos)
 
         SendMsg(CHAT_SERVER, self, self:Localize("@l_ui_entitiesSpawned", { aFound[1], iCount }))

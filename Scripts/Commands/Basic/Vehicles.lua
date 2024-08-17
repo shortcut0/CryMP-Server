@@ -33,15 +33,33 @@ AddCommand({
             }
         end
 
-        SvSpawnEntity({
+        local hLast = self.LastTaxi
+        if (hLast and GetEntity(hLast)) then
+            if (hLast:GetPassengerCount() == 0) then
+                ClientMod:OnAll(string.format([[
+                ClientLog(GetEntity("%s"):GetName())
+                    g_Client:DissolveVehicle(GetEntity("%s"),true)
+                ]], hLast:GetName(), hLast:GetName()))
+                Script.SetTimer(6000, function()
+                    if (hLast:GetPassengerCount() == 0) then
+                        RemoveEntity(hLast.id)
+                    end
+                end)
+            end
+        end
+        Script.SetTimer(1, function()
+            self.LastTaxi = SvSpawnEntity({
 
-            Pos = vPos,
-            Dir = self.actor:GetRotation(),
+                Pos = vPos,
+                Dir = self:SmartGetDir(1),
 
-            Command = true,
-            Class   = aClass[1],
-            Count   = 1
-        })
+                Command = true,
+                Class   = aClass[1],
+                Count   = 1,
+
+                RemovalTimer = 30,
+            })
+        end)
         SpawnEffect(ePE_Light, vPos)
         SendMsg(CHAT_SERVER, self, self:LocalizeNest("@l_ui_hereIsYour", {aClass[2]}))
     end

@@ -22,6 +22,20 @@ ConfigCreate({
     ----------------
     --- Server CVars
     CVars = {
+
+        MP_CRYMP          = 0,
+        MP_CIRCLEJUMP     = 0.45,
+        MP_WALLJUMP       = 1,
+        MP_FLYMODE        = 0,
+        MP_PICKUPOBJECTS  = 1,
+        MP_PICKUPVEHICLES = 1,
+        MP_WEAPONSONBACK  = 1,
+        MP_THRIDPERSON    = 1,
+
+        MP_UNRESTRICTEDRAGDOOLS   = 1,
+        MP_ANIMATIONGRENADESWITCH = 1,
+
+        --
         SERVER_USE_HIT_QUEUE = 0.0,         -- Server Hit Queue (Slow)
         SERVER_USE_EXPLOSION_QUEUE = 1.0,   -- Server Explosion Queue
     },
@@ -33,6 +47,9 @@ ConfigCreate({
         --------------------------
         ---> Command Configuration
         Commands = {
+
+            --- Send a Sound feedback to the clients
+            SoundFeedback = true,
 
             --- Create Server Console Command Representation of each Command (server_cmd_*)
             CreateCCommand = true,
@@ -80,7 +97,7 @@ ConfigCreate({
             Punishment = {
 
                 -- Ban profile spoofers
-                BanInvalidProfile = true,
+                BanInvalidProfile = false, -- sometimes there are false positives or timeouts!
 
                 -- Kick profile spoofers
                 KickInvalidProfile = true,
@@ -139,9 +156,10 @@ ConfigCreate({
 
                 -- The Server Description
                 -- Format Variables are
+                --  <bold>...</bold>
                 --- > {mod_name}        > Server Mod Name
                 --- > {mod_version}     > Server Mod Version
-                Description = "\tServer Running on *${mod_exe} ${mod_version}* (*x${mod_bits}*)\nCompiled Using *${mod_compiler}*\n\nUp-Time: *${server_uptime}*",
+                Description = "\tServer Running on {mod_exe} ${mod_version} (x${mod_bits})\nCompiled Using ${mod_compiler}\n\nUp-Time: ${server_uptime}\n\n[debug]: se(${dbg_scripterr})",
 
             }, ---< Report
 
@@ -158,6 +176,10 @@ ConfigCreate({
         --------------------------
         ---> General Game Settings
         General = {
+
+
+            -- Disables forbidden areas
+            DisableForbiddenAreas = true,
 
             ------------------------
             ---> Player Data Config
@@ -237,7 +259,7 @@ ConfigCreate({
                     -- Maximum ping after which the player will receive a warning
                     Limit = 300,
 
-                    -- Infaction Delay (in seconds)
+                    -- Infraction Delay (in seconds)
                     InfractionDelay = 3,
 
                     -- Maximum infractions after which the Player will be kicked
@@ -271,9 +293,9 @@ ConfigCreate({
                         -- If true, will enable new HQ settings
                         CustomHQSettings = true,
 
-                        -- TODO: Add this!
+                        -- TODO: FINISH this.
                         -- Localized damage (overwrites TacHits config)
-                        LocalizedDamage = true,
+                        LocalizedDamage = false,
 
                         -- How many TAC Hits it requires to destroy a HQ
                         TacHits = 5,
@@ -402,6 +424,9 @@ ConfigCreate({
             ---------------------------
             --- Equipment Configuration
             Equipment = {
+
+                -- Physicalize plantables such as claymores and avmines
+                PhysicalizePlantables = true,
 
                 -- Load saved accessories and attach them when picking up an item
                 RestoreOnPickUp = true,

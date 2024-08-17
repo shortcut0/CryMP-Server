@@ -54,14 +54,13 @@ ServerCommands.Init = function(self)
 
     self.CommandPrefixes = ConfigGet("Commands.Prefixes", self.CommandPrefixes, eConfigGet_Array)
     self.CreateCCommand  = ConfigGet("Commands.CreateServerCommand", self.CreateCCommand, eConfigGet_Boolean)
-
-    self:LoadCommands()
 end
 
 -------------------
 --- Init
 ServerCommands.PostInit = function(self)
 
+    self:LoadCommands()
     ServerLog("Created (%d) Server-Console Commands", self.CCommands)
     Logger:LogEvent(eLogEvent_Commands, string.format("Loaded ${red}%d${gray} Commands", table.count(self.Commands)))
 end
@@ -487,6 +486,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
         --end
 
         if (not hClient:TimerExpired(sTimerID, iCooldown)) then
+            hClient:Execute(string.format("g_Client.Event(eEvent_BLE, eBLE_Warning,\"!%s\")", hClient:LocalizeNest(string.capitalN(sName) .. " @l_ui_cooldown ( " .. math.calctime(hClient:TimerExpiry(sTimerID), nil, 3) .. " )")))
             return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_cooldown", math.calctime(hClient:TimerExpiry(sTimerID), nil, 3))
         end
     end
@@ -718,7 +718,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
         if (bPay and not bTestingMode) then
 
             g_gameRules:AwardPPCount(hClient.id, -iPrestige, nil, hClient:HasClientMod())
-            -- FIXME: clientmod()
+            hClient:Execute(string.format("g_Client.Event(eEvent_BLE, eBLE_Currency,\"%s\")", hClient:LocalizeNest("@l_ui_command " .. string.capitalN(sName) .. " @l_ui_used ( -" .. iPrestige .. " PP )")))
         end
     end
 
@@ -786,6 +786,14 @@ ServerCommands.SendResponse = function(self, hClient, iResponse, sCmd, sMsg, ...
         sLocalizedMsg = " (".. self:LocalizeMessage(hClient, sMsg, { ... }) .. ")"
     end
 
+    -- client
+    --ok sounds/interface:hud:pda_update
+    --no Sounds/interface:menu:buy_error
+    -- g_Client:PSE(\"\",nil,'commanderror')
+    local bError         = true
+    local sFeedback      = "sounds/interface:hud:pda_update"
+    local sErrorFeedback = "Sounds/interface:menu:buy_error"
+
 
     local aMsg1, aMsg2
     if (iResponse == eCommandResponse_Failed) then
@@ -801,11 +809,13 @@ ServerCommands.SendResponse = function(self, hClient, iResponse, sCmd, sMsg, ...
         if (sMsg) then sMsg = string.format(" (%s)", (sMsg)) end
         aMsg1 = { "@l_commandresp_con_success", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
 
+        bError = false
 
     elseif (iResponse == eCommandResponse_NoFeedback) then
         aMsg1 = { "@l_commandresp_con_nofeedback", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
         --aMsg2 = { "@l_commandresp_chat_nofeedback", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
 
+        bError = false
 
     elseif (iResponse == eCommandResponse_NotFound) then
         aMsg1 = { "@l_commandresp_con_notfound", string.upper(sCmd), (sLocalizedMsg or sMsg or "") }
@@ -860,6 +870,15 @@ ServerCommands.SendResponse = function(self, hClient, iResponse, sCmd, sMsg, ...
 
     if (aMsg2 and bChatMsg) then
         SendMsg(CHAT_SERVER_LOCALE, hClient, aMsg2[1], unpack(aMsg2, 2))
+    end
+
+    if (ConfigGet("Commands.SoundFeedback", true, eConfigGet_Boolean)) then
+        if (bError) then
+            hClient:Execute(string.format("g_Client:PSE(\"%s\",nil,\"%s\")", sErrorFeedback, sErrorFeedback))
+        else
+            hClient:Execute(string.format("g_Client:PSE(\"%s\",nil,\"%s\")",
+                    sFeedback, sFeedback))
+        end
     end
 end
 

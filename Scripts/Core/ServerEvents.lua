@@ -29,9 +29,11 @@ eServerEvent_OnClientRevived        = 16  -- ()           When Server Initialize
 eServerEvent_OnHardwareIDReceived   = 17  -- ()           When Server Initialized
 eServerEvent_OnHardwareIDReceived   = 17  -- ()           When Server Initialized
 eServerEvent_OnExit                 = 18  -- ()           When Server Initialized
+eServerEvent_SpectorTarget          = 19  -- ()           When Server Initialized
+eServerEvent_OnShoot                = 20  -- ()           When Server Initialized
 
 eServerEvent_Begin          = 0
-eServerEvent_End            = 19
+eServerEvent_End            = 21
 
 ------------------------------------
 --- Init

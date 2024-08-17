@@ -62,7 +62,7 @@ ServerStats.Set = function(self, hID, hValue, bAdd, bIncreaseOnly)
         end
     end
 
-    ServerLog("%s=%s",g_ts(hID),g_ts(hValue))
+    --ServerLog("%s=%s",g_ts(hID),g_ts(hValue))
     self.Stats[hID] = hValue
 end
 

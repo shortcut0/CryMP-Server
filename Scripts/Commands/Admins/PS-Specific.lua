@@ -67,3 +67,41 @@ AddCommand({
         return true
     end
 })
+
+------------
+AddCommand({
+    Name = "capture",
+    Access = RANK_ADMIN, -- Must be accessible to all!
+
+    Arguments = {
+        {
+            Name = "@l_ui_building",
+            Desc = "@l_ui_building_d",
+            Optional = true
+        },
+        {
+            Name = "@l_ui_argument",
+            Desc = "@l_ui_argument_d",
+            Optional = true
+        },
+        {
+            Name = "@l_ui_argument",
+            Desc = "@l_ui_argument_d",
+            Optional = true
+        },
+        {
+            Name = "@l_ui_argument",
+            Desc = "@l_ui_argument_d",
+            Optional = true
+        },
+    },
+
+    Properties = {
+        PowerStruggle = true,
+        Host = "g_gameRules",
+    },
+
+    Function = function(self, hClient, hP1, hP2, hP3)
+        return self:CaptureByCommand(hClient, hP1, hP2, hP3)
+    end
+})

@@ -4,6 +4,7 @@ ServerInjector = {
 
     FILE = nil,
     LOADED_FILES = {},
+    CACHE = {},
 
     DataDir = (SERVER_DIR_INTERNAL .. "Injections\\"),
 }
@@ -128,8 +129,8 @@ ServerInjector.Inject = function(aParams, aInfo)
         -- FIXME: Error Handler
         -- ErrorHandler()
 
-        ServerLogError("Class %s to Inject not found", sEntity)
-        return
+        ServerLogError("Class %s to Inject not found", g_ts(sEntity))
+        --return
     end
 
     local function Replace(sT, c, f)
@@ -143,7 +144,6 @@ ServerInjector.Inject = function(aParams, aInfo)
             local r = (sT .. "_REPLACED")
             if (iType == eInjection_Replace) then
                 c[sT] = f
-
 
             else
 
@@ -159,22 +159,26 @@ ServerInjector.Inject = function(aParams, aInfo)
         end
     end
 
-    if (isArray(sTarget)) then
-        for _, s in pairs(sTarget) do
-            Replace(s, hClass, fFunction)
-        end
-    else
-        Replace(sTarget, hClass, fFunction)
-    end
+    for __, sC in pairs(checkArray(sEntity, sEntity)) do
 
-    if (bPatchEntities) then
-        for _, hEnt in pairs(GetEntities(sEntity) or {}) do
-            if (isArray(sTarget)) then
-                for _, s in pairs(sTarget) do
-                    Replace(s, hEnt, fFunction)
+        if (isArray(sTarget)) then
+            for _, s in pairs(sTarget) do
+                Replace(s, _G[sC], fFunction)
+            end
+        else
+            Replace(sTarget, _G[sC], fFunction)
+        end
+
+        if (bPatchEntities) then
+            for _, hEnt in pairs(GetEntities(sC) or {}) do
+                -- Debug("fix",hEnt.class)
+                if (isArray(sTarget)) then
+                    for _, s in pairs(sTarget) do
+                        Replace(s, hEnt, fFunction)
+                    end
+                else
+                    Replace(sTarget, hEnt, fFunction)
                 end
-            else
-                Replace(sTarget, hEnt, fFunction)
             end
         end
     end

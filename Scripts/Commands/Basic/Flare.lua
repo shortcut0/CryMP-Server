@@ -6,7 +6,7 @@ AddCommand({
         Cooldown = 120,
     },
     Function = function(self)
-        SpawnEffect(ePE_Flare, self:GetPos())
+        SpawnEffect((GetCVar("e_time_of_day") <= 12 and ePE_FlareNight or ePE_Flare), self:GetPos())
     end
 })
 

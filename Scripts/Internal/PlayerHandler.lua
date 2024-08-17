@@ -39,6 +39,7 @@ ePlayerTemp_SpectatorEquip  = 0
 
 ePlayerTimer_EquipmentMsg       = 0
 ePlayerTimer_EquipmentLoadedMsg = 1
+ePlayerTimer_ClientInstall      = 2
 
 ------------------
 
@@ -81,8 +82,6 @@ PlayerHandler.LoadFile = function(self)
             end
         end
     end
-
-    Debug("hello kitty")
 
     self.PlayerData = aData
 end
@@ -243,7 +242,6 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
         },
 
         ----------
-        -- FIXME: ClientMod
         ClientMod = {
             InstallTimer    = nil,
             IsInstalled     = false, -- Did she install the client mod?
@@ -262,8 +260,8 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
             Default = ServerChannels:GetDefaultData(),
 
             Set             = function(x, y) x.Info.Data = y end,
-            GetCountry      = function(x) local f = (x.Info.Data or {}) return (f["Country"] or f["country"] or x.Info.IPData.Default.Country) end,
-            GetCountryCode  = function(x) local f = (x.Info.IPData.Data or {}) return (f["CountryCode"] or f["countryCode"] or x.Info.IPData.Default.CountryCode) end
+            GetCountry      = function(x) local f = (x.Info.Data or {}) return (f["isocode"] or f["Country"] or f["country"] or x.Info.IPData.Default.Country) end,
+            GetCountryCode  = function(x) local f = (x.Info.IPData.Data or {}) return (f["isocode"] or f["CountryCode"] or f["countryCode"] or x.Info.IPData.Default.CountryCode) end
         },
 
         ----------
@@ -289,10 +287,10 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
             GodStatus  = 0,
             TestStatus = 0,
 
-            SetGod     = function(this, level) this.GodStatus = level if (level > 1) then this:SetTesting(1) end end,
+            SetGod     = function(this, level) this:SetTesting(0) this.GodStatus = level if (level > 1) then this:SetTesting(1) end end,
             IsGod      = function(this, level) local g = this.GodStatus if (level) then return g >= level end return (g or 0) > 0 end,
             IsTesting  = function(this, level) local t = this.TestStatus if (level) then return t >= level end return (t or 0) > 0 end,
-            SetTesting = function(this, level) this.TestingStatus = level end,
+            SetTesting = function(this, level) this.TestStatus = level end,
 
         },
 
@@ -373,12 +371,28 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.GetVehicle      = function(self) return GetEntity(self:GetVehicleId()) end -- NOT synched
     hClient.GetVehicleId    = function(self) return self.actor:GetLinkedVehicleId() end -- NOT synched
 
+    hClient.GetHitPos = function(self, iDist, iTypes, vDir, vPos)
+        iTypes = iTypes or ent_all
+        iDist = iDist or 5
+        vDir = vector.scale(vDir or self:GetViewDir(), iDist)
+        local nIgnore = (self:GetVehicleId() or self.id)
+        local iHits = Physics.RayWorldIntersection(vPos, vDir, iDist, iTypes, nIgnore, nil, g_PlayerRayTable)
+        local aHit = g_PlayerRayTable[1]
+        if (iHits and iHits > 0) then
+            aHit.surfaceName = System.GetSurfaceTypeNameById( aHit.surface )
+            return aHit
+        end
+        return
+    end
     hClient.GetFacingPos        = function(self, iFace, iDistance, iFollowType, t) return GetFacingPos(self, iFace, iDistance, iFollowType, t)  end
     hClient.GetHeadPos          = function(self) return self.actor:GetHeadPos() end
     hClient.GetHeadDir          = function(self) return self.actor:GetHeadDir()  end
     hClient.GetViewPoint        = function(self, dist) return (self.actor:GetLookAtPoint(dist or 9999))  end
     hClient.SvMoveTo            = function(self, pos, ang) self:SetInvulnerability(5) g_pGame:MovePlayer(self.id, vector.modifyz(pos, 0.25), (ang or self:GetWorldAngles()))  end
     hClient.SetInvulnerability  = function(self, time) g_pGame:SetInvulnerability(self.id, true, (time or 2.5)) end
+    hClient.GetSpectatorDir     = function(self) return (self.PesudoDirection or vector.make()) end
+    hClient.GetVehicleDir       = function(self) return (self.actor:GetVehicleViewDir()) end
+    hClient.SmartGetDir         = function(self, dv) if (self:IsSpectating()) then return self:GetSpectatorDir() elseif (self:GetVehicleId()) then return self:GetVehicleViewDir()end return (dv and self:GetDirectionVector() or self:GetHeadDir()) end
 
     hClient.IsValidated     = function(self) return (self.Info.Validated == true) end
     hClient.GetProfileID    = function(self) return self.Info.ProfileID end
@@ -460,6 +474,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     -- TODO ClientMod :o
     hClient.HasClientMod    = function(self) return self.Info.ClientMod.IsInstalled  end
     hClient.GetClientMod    = function(self, data) if (data) then return self.Info.ClientMod[data] end return self.Info.ClientMod end
+    hClient.SetClientMod    = function(self, data, value) self.Info.ClientMod[data] = value end
 
     -- mp
     hClient.GetMPClient     = function(self, data) if (data) then return self.Info.MPClientMod[data] end return self.Info.MPClientMod end
@@ -554,6 +569,9 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
 
         if (self:HasGodMode()) then
             self:SetInvulnerability()
+            if (self:IsDead() and not self:IsSpectating()) then
+                self:Revive(1, 1)
+            end
         end
 
         if (self:IsValidated()) then
@@ -615,12 +633,28 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     end
 
     hClient.Update = function(self)
+
+        ---------------------------
+        -- Update World Dir (kinda)
+        local vPos      = self:GetWorldPos()
+        local vLast      = self.LastPosition
+        local vPesudoDir = self.LastDirection
+        if (self.LastPosition) then
+            if (vector.distance(vPos, vLast) > 0) then
+                vPesudoDir = vector.getdir(vPos, vLast, 1)
+            end
+        end
+
+        self.PesudoDirection = vPesudoDir
+        self.LastPosition    = vPos
     end
 
     hClient.Info.Initialized = true
     hClient.InfoInitialized  = true
     hClient.InitTimer        = (hClient.InitTimer or timernew(5))
     hClient.LastTick         = timernew()
+
+    ClientMod:InitClient(hClient)
 
     SendMsg(MSG_CENTER, hClient, "Successfully Initialized")
     ServerLog("Client Initialized!")

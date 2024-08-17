@@ -113,7 +113,7 @@ AddCommand({
             IsTime = true,
             Required = true,
             Min = 1,
-            Max = MAXIMUM_TIMELIMIT,
+            Max = MAXIMUM_TIMELIMIT * 60,
             Auto = true
         }
     },
@@ -122,6 +122,6 @@ AddCommand({
     },
 
     Function = function(self, iNewLimit)
-        return ServerMaps:SetTimeLimit(self, iNewLimit)
+        return ServerMaps:SetTimeLimit(self, iNewLimit/60)
     end
 })

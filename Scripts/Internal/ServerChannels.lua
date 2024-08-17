@@ -75,6 +75,28 @@ ServerChannels.OnChannelDisconnect = function(self, iChannel)
 end
 
 -------------------
+ServerChannels.GetConnecting = function(self)
+    local aConns = {}
+    for _, iChannel in pairs(self.ActiveConnections or {}) do
+        table.insert(aConns, {
+            Nick = ServerDLL.GetChannelNick(iChannel) or "Nomad",
+            IP   = ServerDLL.GetChannelIP(iChannel) or "127.0.0.1",
+        })
+    end
+
+    if (SERVER_DEBUG_MODE) then
+        for i = 1, 3 do
+            table.insert(aConns, {
+                Nick = "Nomad-" .. i,
+                IP   = "127.0.0.1",
+            })
+        end
+    end
+
+    return aConns
+end
+
+-------------------
 ServerChannels.InitChannel = function(self, iChannel, sIP)
 
     if (iChannel > LAST_CHANNEL) then
@@ -154,6 +176,7 @@ ServerChannels.OnResolve = function(self, iChannel, sIP, sError, sResponse, iCod
 
     ServerLog("Resolved IP Data for Channel %d", aChannel.ID)
 
+    aResponse = aResponse[sIP]
     aChannel.IPData = aResponse
     self.IPData[sIP] = aResponse
     self:SaveFile()

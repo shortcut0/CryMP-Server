@@ -308,8 +308,19 @@ CreateLocalization("l_ui_enemyHQHit_console", {
     english = "Enemy HQ Hit By ${magenta}${1}${gray} - ${2} Hits Remaining${3})"
 })
 CreateLocalization("l_ui_ourHQHit_console", {
-    english = "Our HQ Hit By ${magenta}${1}${gray} - ${2} Hits Remaining)"
+    english = "Our HQ was Hit By ${magenta}${1}${gray} - ${2} Hits Remaining)"
 })
+
+------->>>>>>>
+
+CreateLocalization("l_ui_ourHQHit_console_L", { -- playername, hitstatus, teamname
+    english = "${3} HQ was Hit By ${magenta}${1}${gray} - ${1} Hit" -- perfect, bad, close, etc, etc...
+})
+CreateLocalization("l_ui_ourHQHit_L", { -- playername,  teamname,, hitstatus,, reward
+    english = "(${1}: Hit ${2} HQ - ${3} Hit${4}"
+})
+
+-----<<<<<
 
 
 CreateLocalization("l_ui_ourHQDestroyed", {
@@ -409,25 +420,113 @@ CreateLocalization("l_ui_accuracy_20", {
     english = "Bad"
 })
 CreateLocalization("l_ui_accuracy_35", {
-    english = "Not Bad"
-})
-CreateLocalization("l_ui_accuracy_50", {
     english = "Below Average"
 })
-CreateLocalization("l_ui_accuracy_60", {
+CreateLocalization("l_ui_accuracy_50", {
     english = "Average"
 })
+CreateLocalization("l_ui_accuracy_60", {
+    english = "Good"
+})
 CreateLocalization("l_ui_accuracy_70", {
-    english = "Very Decent"
+    english = "Very Good"
 })
 CreateLocalization("l_ui_accuracy_80", {
-    english = "Very Good"
+    english = "Perfect"
 })
 CreateLocalization("l_ui_accuracy_90", {
     english = "Godlike"
 })
 CreateLocalization("l_ui_accuracy_99", {
     english = "Aimbotter"
+})
+
+
+
+
+
+
+
+CreateLocalization("l_ui_horrible", {
+    english = "Horrible"
+})
+CreateLocalization("l_ui_bad", {
+    english = "Bad"
+})
+CreateLocalization("l_ui_decent", {
+    english = "Decent"
+})
+CreateLocalization("l_ui_good", {
+    english = "Good"
+})
+CreateLocalization("l_ui_verygood", {
+    english = "Very Good"
+})
+CreateLocalization("l_ui_perfect", {
+    english = "Perfect"
+})
+CreateLocalization("l_ui_godlike", {
+    english = "Godlike"
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CreateLocalization("l_ui_capturedForTeam", {
+    english = "Captured for Team"
+})
+CreateLocalization("l_ui_captured", {
+    english = "Captured"
+})
+CreateLocalization("l_ui_uncapturedFromTeam", {
+    english = "Removed from Team"
+})
+CreateLocalization("l_ui_noBuildingToCaptureFound", {
+    english = "No building to Capture was found"
+})
+CreateLocalization("l_ui_allBuildings", {
+    english = "All Buildings"
+})
+CreateLocalization("l_ui_unknownBuilding", {
+    english = "Unknown Building"
+})
+CreateLocalization("l_ui_bName_Prototype", {
+    english = "Prototype Factory"
+})
+CreateLocalization("l_ui_bName_Air", {
+    english = "Aviation Factory"
+})
+CreateLocalization("l_ui_bName_Naval", {
+    english = "Naval Factory"
+})
+CreateLocalization("l_ui_bName_Small", {
+    english = "Vehicle Factory"
+})
+CreateLocalization("l_ui_bName_War", {
+    english = "Vehicle Factory"
+})
+CreateLocalization("l_ui_bName_SpawnB", {
+    english = "Spawn Base"
+})
+CreateLocalization("l_ui_bName_Spawn", {
+    english = "Spawn Bunker"
+})
+CreateLocalization("l_ui_bName_Alien", {
+    english = "Energy Site"
+})
+CreateLocalization("l_ui_bName_HQ", {
+    english = "HQ"
 })
 
 
@@ -494,6 +593,9 @@ CreateLocalization("l_ui_boat", {
 CreateLocalization("l_ui_timeofday", {
     english = "Time of Day"
 })
+CreateLocalization("l_ui_TODChanged", {
+    english = "(Time Of Day : ${1}${2})"
+})
 
 
 
@@ -554,6 +656,12 @@ CreateLocalization("l_ui_AllEquipmentRefilled", {
 CreateLocalization("l_ui_yourself", {
     english = "Yourself"
 })
+CreateLocalization("l_ui_our", {
+    english = "Our"
+})
+CreateLocalization("l_ui_enemy", {
+    english = "Our"
+})
 
 
 
@@ -585,9 +693,6 @@ CreateLocalization("l_ui_EntitiesInFront", {
 
 
 
-CreateLocalization("l_ui_TODChanged", {
-    english = "(Time Of Day : ${1}${2})"
-})
 
 
 
@@ -603,3 +708,140 @@ CreateLocalization("l_ui_testNestedLocale", {
 CreateLocalization("l_ui_testNestedLocale2", {
     english = "Locale2 Was LOCALIZED value: ${1}!"
 })
+
+
+
+
+
+
+
+
+
+
+
+
+CreateLocalization("l_ui_item", {
+    english = "Item"
+})
+CreateLocalization("l_ui_sold", {
+    english = "Sold"
+})
+CreateLocalization("l_ui_for", {
+    english = "for"
+})
+CreateLocalization("l_ui_BLE_itemsold", {
+    english = "Item ${1} Sold"
+})
+CreateLocalization("l_ui_vehicle", {
+    english = "Vehicle"
+})
+
+CreateLocalization("l_ui_refund", {
+    english = "Refund"
+})
+
+CreateLocalization("l_ui_bought", {
+    english = "Bought"
+})
+CreateLocalization("l_ui_ammo", {
+    english = "Ammo"
+})
+CreateLocalization("l_ui_refilled", {
+    english = "Refilled"
+})
+CreateLocalization("l_ui_spawn", {
+    english = "Spawn"
+})
+CreateLocalization("l_ui_award", {
+    english = "Award"
+})
+CreateLocalization("l_ui_detonated_u", {
+    english = "DETONATED"
+})
+CreateLocalization("l_ui_exploded_u", {
+    english = "EXPLODED"
+})
+CreateLocalization("l_ui_cloaked_u", {
+    english = "CLOAKED"
+})
+CreateLocalization("l_ui_placed_u", {
+    english = "PLACED"
+})
+CreateLocalization("l_ui_remaining", {
+    english = "Remaining"
+})
+
+CreateLocalization("l_ui_investmentShare", {
+    english = "Investment Share"
+})
+CreateLocalization("l_ui_thisIsAFriendyExplosive", {
+    english = "Warning: This a Friendly Explosive!"
+})
+CreateLocalization("l_ui_noMorePrestige", {
+    english = "No More Prestige"
+})
+CreateLocalization("l_ui_ammoAlreadyFull", {
+    english = "Ammo already Maxed"
+})
+CreateLocalization("l_ui_buyVehicleForbidden", {
+    english = "Vehicle ${magenta}${1}${gray} Is Currently Blocked"
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+CreateLocalization("l_ui_ErrorLogEmpty", {
+    english = "No errors Found"
+})
+CreateLocalization("l_ui_errorLog", {
+    english = "Error Log"
+})
+CreateLocalization("l_ui_ago", {
+    english = "Ago"
+})
+CreateLocalization("l_ui_used", {
+    english = "Used"
+})
+CreateLocalization("l_ui_cooldown", {
+    english = "Cooldown"
+})
+CreateLocalization("l_ui_command", {
+    english = "Command"
+})
+CreateLocalization("l_ui_debugMode", {
+    english = "Debug Mode"
+})
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+CreateLocalization("l_ui_clm_InstallStart", { english = "Installing Client Mod on ${red}${1} ${gray}..."})
+CreateLocalization("l_ui_clm_invalidResponse", { english = "Invalid Message ${red}${2} ${gray}from ${red}${1}"})
+CreateLocalization("l_ui_clm_Installed", { english = "${red}${1}${gray} Successfully Installed the Client ($4${2}$9)"})
+CreateLocalization("l_ui_clm_InstalledFailed", { english = "${red}${1}${gray} Failed to Install the Client ($4${2}$9)"})
+CreateLocalization("l_ui_clm_InstalledPAK", { english = "${red}${1}${gray} Loaded the Client PAK"})
+CreateLocalization("l_ui_clm_NotInstalledPak", { english = "${red}${1}${gray} Failed to Load the Client PAK"})
+CreateLocalization("l_ui_clm_ExecError", { english = "Client Script Error on ${red}${1}"})
+CreateLocalization("l_ui_clm_syncFinished", { english = "Synched $4${3}$9 Items on ${red}${1}${gray} (Deleted ${red}${2}${gray} Invalids)"})

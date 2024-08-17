@@ -73,7 +73,7 @@ ServerLocale.LocalizeNestForClient = function(self, hClient, sMsg, ...)
         end
 
         sNextLocalized = Localize(sNextLocale, sLang, bExtended ,true)
-        if (not sNextLocalized) then
+        if (not sNextLocalized or sNextLocalized == sNextLocale) then
             break
         end
 
@@ -114,9 +114,9 @@ ServerLocale.LocalizeText = function(self, sId, sLang, bForceExt, noReturn)
     end
 
     if (not aLocale) then
-        ServerLogError("No Locale found for string %s", sId)
+        HandleError("Missing Locale: " .. g_ts(sId))
         if (noReturn) then
-            return ("!{error:missing_" .. string.gsub(sId, "@", "AT") .. "}")
+            return sId--("!{error:missing_" .. string.gsub(sId, "@", "AT") .. "}")
         end
         return ("@{error:missing_" .. sId .. "}")
     end
@@ -127,7 +127,8 @@ ServerLocale.LocalizeText = function(self, sId, sLang, bForceExt, noReturn)
     --ServerLog(sLang)
    -- ServerLog(table.tostring(aLocale["english"]))
     if (not aContent) then
-        ServerLogError("Localization for string %s for Language %s not found.. Trying '%s'", sId, sLang, sDefault)
+
+        HandleError("Missing Language: " .. g_ts(sLang) .. " for Locale " .. g_ts(sId))
         return ("@{error:missing_" .. sId .. "_" .. sLang .. "}")
     end
 

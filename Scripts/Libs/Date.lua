@@ -31,7 +31,15 @@ Date.Init = function(self)
     GetTimestamp  = self.DateNow
 
     -- test
-    ParseTime("100d-600d")
+    --ServerLog(ParseTime("100d-600d"))
+
+    --ServerLog(ParseTime("10m"))
+    --ServerLog(ParseTime("10mo"))
+    --ServerLog(ParseTime("10d"))
+
+    --ServerLog(ParseTime(100))
+    --ServerLog(ParseTime("100s"))
+    --throw_error()
 end
 
 --------------
@@ -118,6 +126,12 @@ Date.ParseTime = function(sInput)
 
     if (not sInput) then
         return 0
+    elseif (string.sub(sInput, -1) == "m") then
+        sInput = sInput .. "0"
+    end
+
+    if (string.match(g_ts(sInput),"^%d+$")) then
+        return g_tn(sInput)
     end
 
     local sTime = string.gsub(sInput, "%s", "")

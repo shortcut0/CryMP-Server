@@ -511,6 +511,8 @@ end
 ServerMaps.SetTimeLimit = function(self, hAdmin, iTime)
 
     local iMinutes = math.max(0, iTime)
+    Debug(">",iTime)
+
     System.SetCVar("g_timelimit", iMinutes)
     g_pGame:ResetGameTime()
 end

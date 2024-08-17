@@ -155,6 +155,22 @@ ServerNames.ValidateName = function(self, sName, hClient)
 end
 
 ----------------
+ServerNames.RemoveCrypt = function(self, sName)
+    local sNewName = ""
+    local iRemoved = 0
+    local sAllowed = "[a-zA-Z0-9_'{}\"%(%) %*&%%%$#@!%?/\\;:,%.<>%-%[%]%+]"
+    for i = 1, string.len(sName) do
+        local s = string.sub(sName, i, i)
+        if (s and s:match(sAllowed)) then
+            sNewName = sNewName .. s
+        else
+            iRemoved = iRemoved + 1
+        end
+    end
+    return sNewName, iRemoved
+end
+
+----------------
 ServerNames.Sanitize = function(self, sName)
 
     local sSanitized = sName

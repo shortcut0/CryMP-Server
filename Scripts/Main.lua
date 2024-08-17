@@ -22,6 +22,8 @@ SERVER_DEBUG_MODE = false
 ----------------
 ServerInit.Init = function(self)
 
+    if (EarlyInit) then EarlyInit.Init() end
+
     SCRIPT_ERROR = true
 
     LOG_STARS = (string.rep("*", 40))

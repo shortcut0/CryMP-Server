@@ -103,12 +103,14 @@ local ServerHQ = {
 
             local hShooter = aHitInfo.shooter
             local hShooterID = aHitInfo.shooterId
+            local bTesting = (hShooter and hShooter.IsPlayer and hShooter:IsTesting())
+            Debug(bTesting)
 
             local aCfg = ConfigGet("General.GameRules.HitConfig.HQHits", {}, eConfigGet_Array)
 
             if (aCfg.CustomHQSettings) then
                 local teamId = g_gameRules.game:GetTeam(hShooterID)
-                if (teamId and (teamId == 0 or teamId ~= self:GetTeamId()) and aHitInfo.explosion and aHitInfo.type and aHitInfo.type == "tac") then --if tac hit
+                if (teamId and (teamId == 0 or teamId ~= self:GetTeamId()) and (aHitInfo.explosion or bTesting) and aHitInfo.type and (aHitInfo.type == "tac" or bTesting)) then --if tac hit
 
                     local iHQTeam = ((self:GetTeamId() == 2) and "US" or "NK")
 
@@ -129,18 +131,50 @@ local ServerHQ = {
                         return
                     end
 
-                    throw_error("iRemaining=="..g_ts(iRemaining))
 
-                    aHitInfo.damage = math.ceil(self.Properties.nHitPoints / aCfg.TacHits)
-
-                    local iNewHP = (self:GetHealth() - aHitInfo.damage)
-                    local iNeededHits = (iNewHP / aHitInfo.damage)
+                    local iNewHP, iNeededHits
                     local sShooter = (hShooter:GetName() or "N/A")
+                    local sHitMsg
                     local aRewards = aCfg.RewardOnHit
+                    local iRewardMult = 1.0
                     local iPP = 500
                     local iCP = 100
 
-                    self.RemainingHits = iNeededHits
+                    if (aCfg.LocalizedDamage) then
+
+                        Debug(checkFunc(self.GetRadius,-696969,self))
+
+                        local iRadius = 65
+                        local AABB = { self:GetLocalBBox() }
+                        if (table.count(AABB) >= 1) then
+                            iRadius = vector.length(vector.bbox_size(AABB))
+                        end
+
+                        local vHQPos = vector.modifyz(self:GetPos(), 5.3) -- centerofmasspos() there is none since its a static object
+                        local iDamage = aHitInfo.damage
+                        local iHitDistance = vector.distance(aHitInfo.pos, vHQPos) - 0.25
+                        local iHitAccuracy = math.max(0, math.min(100, (1 - (iHitDistance / (iRadius))) * 100))
+                        iRewardMult = (iHitAccuracy / 100)
+
+                        sHitMsg = table.it({
+                            [0] = "@l_ui_horrible",
+                            [50] = "@l_ui_bad",
+                            [60] = "@l_ui_decent",
+                            [70] = "@l_ui_good",
+                            [80] = "@l_ui_verygood",
+                            [90] = "@l_ui_perfect",
+                            [999] = "@l_ui_godlike",
+                        }, function(x, i, v) if (iHitAccuracy >= i and (x == nil or x[1] < i)) then return { i, v } end return x end)[2]
+
+                        iNewHP = (iDamage * (iHitAccuracy / 100))
+                    else
+                        aHitInfo.damage = math.ceil(self.Properties.nHitPoints / aCfg.TacHits)
+                        iNewHP = (self:GetHealth() - aHitInfo.damage)
+                        iNeededHits = (iNewHP / aHitInfo.damage)
+
+                        self.RemainingHits = iNeededHits
+                    end
+
 
                     local sShooterName = hShooter:GetName()
                     local sRewardString = ""
@@ -149,8 +183,8 @@ local ServerHQ = {
                         iPP = aCfg.RewardOnHit[1] or aCfg.RewardOnHit.PP or 0
                         iCP = aCfg.RewardOnHit[2] or aCfg.RewardOnHit.CP or 0
 
-                        iPP = (iPP or 0) * (hShooter:IsPremium() and 2 or 1)
-                        iCP = (iCP or 0) * (hShooter:IsPremium() and 2 or 1)
+                        iPP = (iPP or 0) * (hShooter:IsPremium() and 2 or 1) * iRewardMult
+                        iCP = (iCP or 0) * (hShooter:IsPremium() and 2 or 1) * iRewardMult
 
                         if ((iPP > 0 or iCP > 0)) then
                             hShooter:AwardPrestige(iPP)
@@ -164,7 +198,7 @@ local ServerHQ = {
                     local oTeamPlayers = GetPlayers({ NotTeamID = g_pGame:GetTeam(aHitInfo.shooter.id) })
 
                     if (aCfg.InfoMessage) then
-                        if (iNeededHits > 0) then
+                        if (iNewHP > 0) then
 
                             SendMsg(MSG_ERROR, sTeamPlayers, "@l_ui_enemyHQHIt", sShooterName, sRewardString)--"** ENEMY HQ HIT BY :: %s %s**", shooterName, (reward and "- GOT " .. pp .. " PRESTIGE "or""));
                             SendMsg(MSG_ERROR, oTeamPlayers, "@l_ui_ourHQHIt", sShooterName, iRemaining)--"** ENEMY HQ HIT BY :: %s %s**", shooterName, (reward and "- GOT " .. pp .. " PRESTIGE "or""));
@@ -180,7 +214,7 @@ local ServerHQ = {
                             Logger:LogEventTo(sTeamPlayers, eLogEvent_HQ, "@l_ui_enemyHQHit_console", sShooterName, iNeededHits, sRewardString)
                             Logger:LogEventTo(oTeamPlayers, eLogEvent_HQ, "@l_ui_ourHQHit_console", sShooterName, iNeededHits)
 
-                        elseif (iNeededHits <= 0 and iNewHP <= 0) then
+                        else--if (iNeededHits <= 0 and iNewHP <= 0) then
 
                             SendMsg(MSG_ERROR, sTeamPlayers, "@l_ui_enemyHQDestroyed", sShooterName)
                             SendMsg(MSG_ERROR, oTeamPlayers, "@l_ui_ourHQDestroyed", sShooterName)

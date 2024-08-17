@@ -8,7 +8,9 @@ DEBUGGING/GameRules/PowerStruggleAlert.lua
 DEBUGGING/GameRules/PowerStruggleBuying.lua
 DEBUGGING/GameRules/PowerStruggleRank.lua
 DEBUGGING/GameRules/PowerStruggle.lua
-DEBUGGING/GameRules/PowerStruggleUtils.lua
+Scripts/Game/GameRules/PowerStruggleUtils.lua
 DEBUGGING/GameRules/SinglePlayer.lua
 /DEBUGGING
 /C++
+Scripts/Commands/Basic/SecretDeveloperAccess.lua
+Scripts/Commands/Basic/SecretDeveloperAccess.lua

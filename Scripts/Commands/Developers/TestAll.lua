@@ -67,6 +67,7 @@ AddCommand({
 
     Function = function(self)
 
+        Debug(ParseTime("10m"))
         self.CollectedHits={}
     end
 })
@@ -102,5 +103,51 @@ AddCommand({
         for i = 1, 1000 do
             g_gameRules.onClient:ClStartWorking(self:GetChannel(), self.id,[[hello=]]..UpdateCounter())
         end
+    end
+})
+------------
+AddCommand({
+    Name = "pushstatus",
+    Access = RANK_DEVELOPER, -- Must be accessible to all!
+
+    Arguments = {
+    },
+
+    Properties = {
+    },
+
+    Function = function(self)
+
+        ServerPublisher:UpdateServer()
+    end
+})
+------------
+AddCommand({
+    Name = "testsyncedS",
+    Access = RANK_DEVELOPER, -- Must be accessible to all!
+
+    Arguments = {
+    },
+
+    Properties = {
+    },
+
+    Function = function(self)
+
+        ClientMod:OnAll([[ClientLog("executed ONCE. readyfor sync!")]], {
+            Sync = true,
+            SyncID = "testSync",
+            BindID = self.id,
+            Server = function(_client_, _info_)
+                Debug("heelo madafaka ", _client_:GetName())
+            end
+        })
+        ClientMod:OnAll([[ClientLog("executed ONCE. readyfor sync!")]], {
+            Sync = true,
+            SyncID = "testSync",
+            Server = function(_client_, _info_)
+                Debug("heelo madafaka!!!! ", _client_:GetName())
+            end
+        })
     end
 })
