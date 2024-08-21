@@ -25,8 +25,13 @@ end
 --------------------------------
 --------------------------------
 --- Init
-ServerRPC.Callbacks.OnCheat = function()
-    throw_error("cheater detected :3 BAN BAN ")
+ServerRPC.Callbacks.OnCheat = function(self, iNetChannel, sName, sInfo, hVictimID, ...)
+
+    if (ServerDefense) then
+        ServerDefense:HandleCheater(iNetChannel, sName, sInfo, hVictimID, ...)
+    else
+        ServerLog("Cheater detected! channel %d, info %s (victim: %s)", iNetChannel, sInfo, g_ts(hVictimID))
+    end
 end
 
 --------------------------------
@@ -91,6 +96,7 @@ end
 --------------------------------
 --- Init
 ServerRPC.Callbacks.OnShoot = function(self, ...)
+
     return (ServerItemHandler:OnShoot(...) == true)
 end
 
@@ -192,4 +198,21 @@ end
 --- Init
 ServerRPC.Callbacks.OnProjectileHit = function(self, nShooter, nProjectile, iDamage, nWeapon, vPos, vNormal)
     return (ServerItemHandler:OnProjectileHit(nShooter, nProjectile, iDamage, nWeapon, vPos, vNormal))
+end
+
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnMelee = function(self, nPlayer, ...)
+
+    if (ClientMod) then
+        ClientMod:OnMelee(GetEntity(nPlayer), ...)
+    end
+end
+
+
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnWalljump = function(self, hPlayerID, hItemID)
+
+   --FIXME!!
 end

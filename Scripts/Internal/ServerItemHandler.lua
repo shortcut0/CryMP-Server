@@ -279,7 +279,7 @@ ServerItemHandler.EquipPlayer = function(self, hPlayer, aList)
         self:Equip(hPlayer, aAdmin)
     elseif (hPlayer:IsPremium() and aPremium ~= nil) then
         self:Equip(hPlayer, aPremium)
-    else
+    elseif (aRegular) then
         self:Equip(hPlayer, aRegular)
     end
 
@@ -289,13 +289,17 @@ end
 ----------------------
 ServerItemHandler.Equip = function(self, hPlayer, aEquipment)
 
+    Debug(aEquipment)
     local hWeapon, aStored
     for _, aInfo in pairs(aEquipment) do
+        Debug(aInfo[1])
         hWeapon = GetEntity(hPlayer:GiveItem(aInfo[1]))
         if (hWeapon) then
-            aStored = (checkArray(hPlayer:GetData(ePlayerData_Equipment))[hWeapon.class])
-            if (aStored) then
+            for __, sAttach in pairs(aInfo[2]) do
+                hPlayer:GiveItem(sAttach) -- give the player the spawn attachment regardless of stored data...
             end
+
+            aStored = (checkArray(hPlayer:GetData(ePlayerData_Equipment))[hWeapon.class])
             self:AttachOnWeapon(hPlayer, hWeapon, (aStored or aInfo[2] or {}), false, (aStored ~= nil))
         end
     end
@@ -503,6 +507,25 @@ end
 
 ----------------------
 ServerItemHandler.CheckHit = function(self, aHitInfo)
+
+    -----------
+    local hShooter = GetEntity(aHitInfo.shooterId)
+    if (hShooter and hShooter.id ~= aHitInfo.targetId and aHitInfo.target and not aHitInfo.explosion and not ServerDefense:CheckDistance(hShooter, aHitInfo.target:GetPos(), aHitInfo.pos)) then
+        return false
+    end
+
+    local hObject = GetEntity(aHitInfo.shooterId)
+    if (hObject and hObject.OwnerID) then
+
+        --overwrite test
+        if (hObject.OwnerID ~= aHitInfo.targetId) then
+            aHitInfo.shooterId = hObject.OwnerID
+            aHitInfo.damage = aHitInfo.damage * 10
+        else
+            aHitInfo.damage = 0
+        end
+    end
+
     return true
 end
 
@@ -657,14 +680,41 @@ end
 
 
 ----------------------
-ServerItemHandler.OnProjectileHit = function(self, nShooter, nProjectile, iDamage, nWeapon, vPos, vNormal)
+ServerItemHandler.OnProjectileHit = function(self, nShooter, nProjectile, bDead, iDamage, nWeapon, vPos, vNormal)
 
     local hShooter = GetEntity(nShooter)
+    local hProjectile = GetEntity(nProjectile)
     if (not hShooter) then return end
 
+    local iBonus = ConfigGet("General.GameRules.Prestige.ProjectileEliminationAward", 50, eConfigGet_Number)
     if (g_gameRules.IS_PS) then
-        if (hShooter.IsPlayer and hShooter:GetTeam() == g_pGame:GetTeam(nProjectile)) then
-            SendMsg(MSG_CENTER, hShooter, "@l_ui_thisIsAFriendyExplosive")
+        if (hShooter.IsPlayer) then
+
+            Debug(hProjectile)
+            if (ServerDLL.GetProjectileOwnerId(nProjectile) ~= nShooter) then
+                if (hShooter:GetTeam() == g_pGame:GetTeam(nProjectile)) then
+                    if (not bDead) then
+                        SendMsg(MSG_CENTER, hShooter, "@l_ui_thisIsAFriendyExplosive")
+                    else
+                        hShooter:Execute(string.format(
+                                [[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( -%d PP )")]],
+                                hShooter:LocalizeNest("@l_ui_projectileEleminated",{"@l_ui_friendly "}),
+                                iBonus
+                        ))
+                        g_gameRules:AwardPPCount(nShooter, -iBonus, nil, hShooter:HasClientMod())
+                    end
+                elseif (bDead) then
+
+                    hShooter:Execute(string.format(
+                            [[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( +%d PP )")]],
+                            hShooter:Localize("@l_ui_projectileEleminated",{""}),
+                            iBonus
+                    ))
+                    g_gameRules:AwardPPCount(nShooter, iBonus, nil, hShooter:HasClientMod())
+                end
+            else
+                SendMsg(MSG_CENTER, hShooter, "@l_ui_thisIsYourExplosive")
+            end
         end
     end
 end
@@ -725,7 +775,7 @@ ServerItemHandler.OnExplosivePlaced = function(self, nPlayer, nExplosive, iType,
 			]]
             ClientMod:OnAll(sCode, {
                 BindID = hExplosive.id,
-                SyncID = "CloakMode",
+                SyncID = "EnableCloak",
                 Sync = true
             })
         end
@@ -736,8 +786,16 @@ end
 ----------------------
 ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, vPos, vHit, vDir)
 
-    -- TODO: Anticheat
-    -- Check()
+    -----------
+    --- check only weapons
+    local aIgnore = {
+        ["RadarKit"] = true,
+        ["RepairKit"] = true,
+        ["Lockpick"] = true,
+    }
+    if (not aIgnore[hWeapon.class] and not ServerDefense:CheckDistance(hShooter, hShooter:GetPos(), vPos)) then
+        return false
+    end
 
     local vFollowed = AutoFollow(vPos, 5, vPos)
     local aShotInfo = {

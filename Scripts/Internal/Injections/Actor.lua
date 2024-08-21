@@ -22,7 +22,6 @@ local ServerActor = {
         Function = function()
         end
     },
-
 }
 
 ------------

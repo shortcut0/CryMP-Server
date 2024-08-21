@@ -37,6 +37,9 @@ eCommandResponse_Premium            = 7 -- It's for premium members
 eCommandResponse_NoAccess           = 8 -- User doesn't have access (uses not found response!)
 eCommandResponse_BadGameRules       = 9 -- User doesn't have access (uses not found response!)
 
+ARGUMENT_TARGET  = function() return ServerCommands:GetPrefab("ARGUMENT_TARGET") end
+ARGUMENT_MESSAGE = function() return ServerCommands:GetPrefab("ARGUMENT_MESSAGE") end
+
 -------------------------
 --- Init
 ServerCommands.Init = function(self)
@@ -63,6 +66,36 @@ ServerCommands.PostInit = function(self)
     self:LoadCommands()
     ServerLog("Created (%d) Server-Console Commands", self.CCommands)
     Logger:LogEvent(eLogEvent_Commands, string.format("Loaded ${red}%d${gray} Commands", table.count(self.Commands)))
+end
+
+-------------------
+--- Init
+ServerCommands.GetPrefab = function(self, sID, bRequired)
+
+    local aPrefabs = {
+        ["ARGUMENT_TARGET"] = {
+            Name = "@l_ui_target",
+            Desc = "@l_ui_target_d",
+            IsPlayer = true,
+            Required = bRequired,
+            Optional = (not bRequired),
+        },
+        ["ARGUMENT_MESSAGE"] = {
+            Name = "@l_ui_message",
+            Desc = "@l_ui_message_d",
+            Concat = true,
+            Required = bRequired,
+            Optional = (not bRequired),
+        }
+    }
+
+    local aPrefab = aPrefabs[sID]
+    if (not aPrefab) then
+        throw_error("prefab " .. g_ts(sID) .. " not found")
+    end
+
+    return aPrefab
+
 end
 
 -------------------
@@ -429,6 +462,13 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
 
     local aTestProperties = {
 
+        Indoors  = false,
+        Flying   = false,
+        Cooldown = 320,
+        Price    = 50,
+        Alive    = true,
+        Vehicle  = false,
+
         NoChatResponse = false,     -- Never show chat response
         NoConsoleResponse = false,  -- Never show console response
 
@@ -455,39 +495,71 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
 
     local bTestingMode = hClient:IsTesting()
 
-    local iPrestige = (aCmdProps.Prestige or 0)
-    local bPay = false
-    if (g_gameRules.IS_PS and iPrestige > 0 and not bTestingMode) then
-        local iBalance = hClient:GetPrestige()
-        if (iBalance < iPrestige) then
-            return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_insufficientPrestige", iPrestige - iBalance)
-        end
-        bPay = true
-    end
-
-    local bIndoors = aCmdProps.Indoors
-    local bOutdoors = aCmdProps.Outdoors
-    local bIsIndoors = System.IsPointIndoors(hClient:GetPos())
-
-    if (bIndoors == false and bIsIndoors and not bTestingMode) then
-        return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_notIndoors")
-    end
-    if (bOutdoors == false and not bIsIndoors and not bTestingMode) then
-        return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_notOutdoors")
-    end
+    local bVehicle = aCmdProps.Vehicle
+    local bAlive = aCmdProps.Alive
+    local bFlying = aCmdProps.Flying
 
     local iCooldown = (aCmdProps.Timer or aCmdProps.Cooldown or 0)
     local sTimerID  = string.format("cmd_%s_timer", string.lower(sName))
-    if (iCooldown > 0 and not bTestingMode) then
-        --local hLastUsed = hClient.CommandTimers[string.lower(sName)]
 
-        --if (hLastUsed and not hLastUsed.expired()) then
-        --    return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_cooldown", math.calctime(hLastUsed.getexpiry(), nil, 3))
-        --end
+    local iPrestige = (aCmdProps.Prestige or 0)
+    local bPay = false
 
-        if (not hClient:TimerExpired(sTimerID, iCooldown)) then
-            hClient:Execute(string.format("g_Client.Event(eEvent_BLE, eBLE_Warning,\"!%s\")", hClient:LocalizeNest(string.capitalN(sName) .. " @l_ui_cooldown ( " .. math.calctime(hClient:TimerExpiry(sTimerID), nil, 3) .. " )")))
-            return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_cooldown", math.calctime(hClient:TimerExpiry(sTimerID), nil, 3))
+    if (not bTestingMode) then
+        if (iCooldown > 0) then
+            --local hLastUsed = hClient.CommandTimers[string.lower(sName)]
+
+            --if (hLastUsed and not hLastUsed.expired()) then
+            --    return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_cooldown", math.calctime(hLastUsed.getexpiry(), nil, 3))
+            --end
+
+            if (not hClient:TimerExpired(sTimerID, iCooldown, nil, true)) then
+                hClient:Execute(string.format("g_Client.Event(eEvent_BLE, eBLE_Warning,\"!%s\")", hClient:LocalizeNest(string.capitalN(sName) .. " @l_ui_cooldown ( " .. math.calctime(hClient:TimerExpiry(sTimerID), nil, 3) .. " )")))
+                return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_cooldown", math.calctime(hClient:TimerExpiry(sTimerID), nil, 3))
+            end
+        end
+
+        if (hClient:IsAlive()) then
+            if (bAlive == false) then
+                return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_notAlive")
+            end
+        elseif (bAlive == true) then
+            return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_onlyAlive")
+        end
+
+        if (hClient:GetVehicle()) then
+            if (bVehicle == false) then
+                return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_notVehicle")
+            end
+        elseif (bVehicle == true) then
+            return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_onlyVehicle")
+        end
+
+        if (hClient:IsFlying()) then
+            if (bFlying == false) then
+                return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_notFlying")
+            end
+        elseif (bFlying == true) then
+            return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_onlyFlying")
+        end
+
+        if (g_gameRules.IS_PS and iPrestige > 0) then
+            local iBalance = hClient:GetPrestige()
+            if (iBalance < iPrestige) then
+                return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_insufficientPrestige", iPrestige - iBalance)
+            end
+            bPay = true
+        end
+
+        local bIndoors = aCmdProps.Indoors
+        local bOutdoors = aCmdProps.Outdoors
+        local bIsIndoors = System.IsPointIndoors(hClient:GetPos())
+
+        if (bIndoors == false and bIsIndoors) then
+            return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_notIndoors")
+        end
+        if (bOutdoors == false and not bIsIndoors) then
+            return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_notOutdoors")
         end
     end
 
@@ -714,6 +786,8 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
 
     if (bTimer) then
         --hClient.CommandTimers[string.lower(sName)] = timernew(iCooldown)
+
+        Debug("TIMER REFRESHED")
         hClient:TimerRefresh(sTimerID, iCooldown, true)
         if (bPay and not bTestingMode) then
 
@@ -872,12 +946,14 @@ ServerCommands.SendResponse = function(self, hClient, iResponse, sCmd, sMsg, ...
         SendMsg(CHAT_SERVER_LOCALE, hClient, aMsg2[1], unpack(aMsg2, 2))
     end
 
-    if (ConfigGet("Commands.SoundFeedback", true, eConfigGet_Boolean)) then
-        if (bError) then
-            hClient:Execute(string.format("g_Client:PSE(\"%s\",nil,\"%s\")", sErrorFeedback, sErrorFeedback))
-        else
-            hClient:Execute(string.format("g_Client:PSE(\"%s\",nil,\"%s\")",
-                    sFeedback, sFeedback))
+    if (not hClient.IsServer) then
+        if (ConfigGet("Commands.SoundFeedback", true, eConfigGet_Boolean)) then
+            if (bError) then
+                hClient:Execute(string.format("g_Client:PSE(\"%s\",nil,\"%s\")", sErrorFeedback, sErrorFeedback))
+            else
+                hClient:Execute(string.format("g_Client:PSE(\"%s\",nil,\"%s\")",
+                        sFeedback, sFeedback))
+            end
         end
     end
 end

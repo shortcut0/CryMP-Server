@@ -103,6 +103,7 @@ ServerPCH.OnConnection = function(self, iChannel, sIP)
     -- Stats
     AddServerStat(eServerStat_ConnectionCount, 1)
 
+    ServerDefense:InitChannel(iChannel)
     ServerChannels:InitChannel(iChannel, sIP)
     PlayerHandler:CreateClientInfo(iChannel, sIP)
 
@@ -288,7 +289,7 @@ ServerPCH.SendBanner = function(self, hClient, sForcedLang)
     local aFormat = {
         ["cl_ip"]       = hClient:GetIP(),
         ["cl_id"]       = hClient:GetProfileID(),
-        ["cl_playtime"] = math.calctime(hClient:GetPlayTime(), 1),
+        ["cl_playtime"] = math.calctime(hClient:GetPlayTime()),
         ["cl_country"]  = hClient:GetCountry(),
         ["cl_lang"]     = string.capitalN(sLang),
         ["cl_access"]   = sAccess,
@@ -346,7 +347,7 @@ ServerPCH.SendBanner = function(self, hClient, sForcedLang)
     end
 
     local aBoxes = {}
-    CreateLine(aBoxes,{ ID = "ID",       Data = "${red}${cl_id}${gray}"      },{ ID = "@l_ui_uptime", Data = "${red}" .. math.calctime(timerinit(), 1), }, { Data = "" })
+    CreateLine(aBoxes,{ ID = "ID",       Data = "${red}${cl_id}${gray}"      },{ ID = "@l_ui_uptime", Data = "${red}" .. math.calctime(timerinit()+1, 5), }, { Data = "" })
     CreateLine(aBoxes,{ ID = "IP",       Data = "${white}${cl_ip}${gray}"      },{ ID = "@l_ui_rssusage", Data = "${red}" .. sUsageInfo }, { Data = "${white}${cl_welcome}${gray}" })
     CreateLine(aBoxes,{ ID = "@l_ui_playtime",   Data = "${cl_playtime}"  },{ ID = "-", Data = "-", }, { Data = "${cl_name}" })
     CreateLine(aBoxes,{ ID = "@l_ui_country",  Data = "${cl_country}" },{ ID = "-", Data = "-", }, { Data = "" })
@@ -357,6 +358,12 @@ ServerPCH.SendBanner = function(self, hClient, sForcedLang)
     local sCPU = checkString(ServerDLL.GetCPUName(), "Unknown")
     local sModInfo = Logger.Format("${red}${mod_version}${gray}, ${red}x${mod_bits}", {})
 
+    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. " "))
+    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. " "))
+    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. " "))
+    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. " "))
+    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. " "))
+    SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. " "))
     SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. sMidSpace .. "**********************************************************************"))
     SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. sMidSpace .. "   ______           __  _______       _____                           "))
     SendMsg(MSG_CONSOLE_FIXED, hClient, ("${grey}" .. sMidSpace .. "  / ____/______  __/  |/  / __ \\     / ___/___  ______   _____  _____ "))

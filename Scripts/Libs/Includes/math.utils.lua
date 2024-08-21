@@ -149,7 +149,10 @@ math.calctime = function(seconds, style, datemax)
 			end
 		end
 
-		if style == 3 then
+		local sGeneric = table.concat(formatted, ": ")
+		if (style == 5) then -- last 3.. or 2.. or 1......
+			return string.match(sGeneric, "^(%d+:%d+:%d+).*") or string.match(sGeneric, "^(%d+:%d+).*") or sGeneric
+		elseif style == 3 then
 			return { result[6].value, result[5].value, result[4].value, result[3].value, result[2].value, result[1].value }
 		elseif style == 2 then
 			return table.concat(formatted, ", ")

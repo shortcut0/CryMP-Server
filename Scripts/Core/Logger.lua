@@ -39,6 +39,8 @@ eLogEvent_Maps              = 17
 eLogEvent_HQ              = 18
 eLogEvent_Game              = 19
 eLogEvent_ClientMod              = 20
+eLogEvent_Cheat              = 21
+eLogEvent_Voting              = 22
 
 --------------------------------
 --- Init
@@ -130,6 +132,20 @@ Logger.InitLogEvents = function(self, iEvent, sMessage, ...)
             Tag             = "ClientMod",
             Color           = self.DefaultColor,
             Access          = { Regular = RANK_GUEST }
+        },
+
+        [eLogEvent_Voting] = {
+            PlayerMessages  = true,
+            Tag             = "Voting",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_GUEST }
+        },
+
+        [eLogEvent_Cheat] = {
+            PlayerMessages  = true,
+            Tag             = "Defense",
+            Color           = self.DefaultColor,
+            Access          = { Regular = RANK_GUEST, Extended = RANK_ADMIN }
         },
 
         [eLogEvent_HQ] = {
@@ -487,9 +503,9 @@ Logger.LogToPlayers = function(self, aInfo, sMessage, aFormat, aClients, sLogTag
                     sEntity = sEntity .. ("(" .. LocalizeForClient(hClient, sAppendTag, {}) .. ")")
                 end
 
-                SendMsg((aInfo.ConsoleType or MSG_CONSOLE), hClient, ((aInfo.MsgColor or "") .. sLocalized), sEntity)
+                SendMsg((aInfo.ConsoleType or MSG_CONSOLE), hClient, ((aInfo.MsgColor or "") .. sLocalized), sEntity, unpack(aFormat))
                 if (aInfo.ChatTypes) then
-                    SendMsg(aInfo.ChatTypes, hClient, string.gsub(sLocalized, string.COLOR_CODE, ""))
+                    SendMsg(aInfo.ChatTypes, hClient, string.gsub(sLocalized, string.COLOR_CODE, ""), unpack(aFormat))
                 end
                 --ServerLog("Final message for client %s: %s", hClient:GetName(), sLocalized)
             else

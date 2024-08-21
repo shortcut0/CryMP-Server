@@ -121,11 +121,10 @@ ServerUtils.Init = function(self)
 
     local iMaxInt = 1
     while (not string.find(g_ts(iMaxInt),"e")) do
-        ServerLog(g_ts(iMaxInt))
+        --ServerLog(g_ts(iMaxInt))
         iMaxInt = (iMaxInt * 10)
     end
     LUA_MAX_INTEGER = (iMaxInt / 10)
-
     ServerLog("LUA_MAX_INTEGER = %s", g_ts(LUA_MAX_INTEGER))
 end
 
@@ -413,6 +412,7 @@ ServerUtils.ListToConsole = function(aParams)
     local sIndex  = aParams.Index
     local iWidth  = (aParams.ItemWidth or (iBoxWidth / iItems))
     local bValue  = (aParams.Value or false)
+    local bPIndex = aParams.PrintIndex
 
     SendMsg(MSG_CONSOLE, hPlayer, string.format("$9%s", string.rep("=", iBoxWidth)))
     SendMsg(MSG_CONSOLE, hPlayer, string.format("$9[ %s ]", string.mspace(("$4" .. sTitle .. "$9"), (iBoxWidth - 4), nil, string.COLOR_CODE)))
@@ -430,7 +430,7 @@ ServerUtils.ListToConsole = function(aParams)
             sItem = v
         end
 
-        sLine = sLine .. "$1(" .. string.lspace(iCurrent, string.len(iTotal)) .. ". $9" .. string.rspace(sItem, iWidth) .. "$1)" .. (iCurrent == iTotal and "" or " ")
+        sLine = sLine .. "$1(" .. string.lspace((bPIndex and g_ts(i) or iCurrent), string.len(iTotal)) .. ". $9" .. string.rspace(sItem, iWidth) .. "$1)" .. (iCurrent == iTotal and "" or " ")
         if (iCurrent % iItems == 0 or iCurrent == iTotal) then
             SendMsg(MSG_CONSOLE, hPlayer, "$9[ " .. string.rspace(sLine, (iBoxWidth - 4), string.COLOR_CODE)  .. " $9]")
             sLine = ""
@@ -448,7 +448,7 @@ ServerUtils.GetFacingPos = function(hEntityID, iFace, iDistance, iFollowType, iF
 
     local hEntity = GetEntity(hEntityID)
 
-    local vPos    = hEntity:GetWorldPos()
+    local vPos    = hEntity:GetPos()
     local vDir    = hEntity:GetDirectionVector()
     if (hEntity.IsPlayer) then
         vDir = hEntity:GetHeadDir()
@@ -457,26 +457,28 @@ ServerUtils.GetFacingPos = function(hEntityID, iFace, iDistance, iFollowType, iF
     iDistance = (iDistance or 1.5)
     if (iFace == eFacing_Front) then
         vDir = vector.scaleInPlace(vDir, iDistance)
-        vPos = vector.addInPlace(vPos, vDir)
 
     elseif (iFace == eFacing_Left) then
         vDir = vector.left(vDir)
         vDir = vector.scaleInPlace(vDir, iDistance)
-        vPos = vector.addInPlace(vPos, vDir)
 
     elseif (iFace == eFacing_Right) then
         vDir = vector.right(vDir)
         vDir = vector.scaleInPlace(vDir, iDistance)
-        vPos = vector.addInPlace(vPos, vDir, iDistance)
 
     elseif (iFace == eFacing_Back) then
         vDir = vector.scaleInPlace(vDir, -iDistance)
-        vPos = vector.addInPlace(vPos, vDir)
+
+    elseif (vector.isvector(iFace)) then
+
+        vDir = vector.scaleInPlace(iFace, iDistance)
 
     end
 
-    local iFollowed
 
+    vector.fastsum(vPos,vPos,vDir)
+
+    local iFollowed
     local iGround = System.GetTerrainElevation(vPos)
     local iWater  = CryAction.GetWaterInfo(vPos)
     local iDiff
@@ -695,19 +697,21 @@ end
 ServerUtils.GetPlayers = function(aParams)
 
     local aPlayers = g_pGame:GetPlayers()
-    local iParams = table.count(aParams)
+    if (aParams == 1) then
+        return table.count(aPlayers)
+    end
 
+    local iParams = table.count(aParams)
     if (iParams > 0 and (aParams.Bots or aParams.NPCs)) then
         aPlayers = table.append(aPlayers, GetEntities("Player", function(a) return (not a.actor:IsPlayer())  end))
     end
 
+    local aResult = {}
     if (table.empty(aPlayers)) then
-        return {}
+        return aResult
     end
 
-    local aResult = {}
     local bInsert = true
-
     for i, hPlayer in pairs(aPlayers) do
 
         bInsert = true

@@ -19,7 +19,11 @@ AddCommand({
             return false, self:Localize("@l_ui_EntitiesInFront", {aInfo.First or "Object"})
         end
 
-        local vPos, iFollowed = self:GetFacingPos(eFacing_Front, 8.5, eFollow_Auto, 1.5)
+        local vDir = self:SmartGetDir(1)
+        local vPos, iFollowed = self:GetFacingPos(vDir, 8.5, eFollow_Auto, 1.5)
+
+        --SpawnEffect(ePE_Flare,vPos)
+        --SpawnEffect(ePE_Flare,self:GetPos())
 
         local aClass = {
             "Civ_car1",
@@ -51,7 +55,7 @@ AddCommand({
             self.LastTaxi = SvSpawnEntity({
 
                 Pos = vPos,
-                Dir = self:SmartGetDir(1),
+                Dir = vDir,
 
                 Command = true,
                 Class   = aClass[1],

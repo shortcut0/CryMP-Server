@@ -47,6 +47,8 @@ ServerChat.Init = function(self)
     MSG_INFO             = 5
     MSG_ERROR            = 6
 
+    MSG_CONSOLE_FIXED_NOLOCALE    = 1 -- Ignoring ConsoleMessageCenterPos (is this the wrong name?)
+
     ----------
     self.TM_START = 0
     self.TM_END   = 7
@@ -95,9 +97,10 @@ ServerChat.Init = function(self)
 end
 
 ----------------
-ServerChat.QueuePush = function(self, sMessage, aClients)
+ServerChat.QueuePush = function(self, sMessage, aFmt, aClients)
     table.insertFirst(self.ConsoleQueue.Queue, {
         Message = sMessage,
+        Format  = aFmt,
         SendTo  = aClients
     })
 end
@@ -129,13 +132,15 @@ ServerChat.UpdateQueue = function(self)
 
     for _, aPop in pairs(aPopList) do
         if (aPop.SendTo == ALL) then
-            g_pGame:SendTextMessage(TextMessageConsole, aPop.Message, TextMessageToAll)
+            for _, hClient in pairs(GetPlayers()) do
+                g_pGame:SendTextMessage(TextMessageConsole, hClient:LocalizeNest(aPop.Message, aPop.Format), TextMessageToAll)
+            end
         else
-            for __, hClient in pairs(aPop.SendTo) do
+            for _, hClient in pairs(aPop.SendTo) do
                 if (hClient.IsServer) then
                     ServerLog(aPop.Message)
                 else
-                    g_pGame:SendTextMessage(TextMessageConsole, aPop.Message, TextMessageToClient, hClient.id)
+                    g_pGame:SendTextMessage(TextMessageConsole, hClient:LocalizeNest(aPop.Message, aPop.Format), TextMessageToClient, hClient.id)
                 end
             end
         end
@@ -217,11 +222,20 @@ ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage,
     local bLog = true
     local bShow = true
 
+    if (hSender.IsPlayer) then
+
+        if (ClientMod) then
+            ClientMod:ChatEffect(hSender,false)
+        end
+
+    end
+
     if (ServerCommands:OnChatMessage(iType, hSender, hTarget, sMessage)) then
         return false
     end
 
     if (hSender.IsPlayer) then
+
         local aMuteInfo = hSender:GetMute()
         if (aMuteInfo) then
             SendMsg(CHAT_SERVER_LOCALE, hSender, "@l_ui_youAreMuted", aMuteInfo:GetReason(), math.calctime(aMuteInfo:GetRemaining(), nil, 3))
@@ -276,6 +290,30 @@ ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage,
 end
 
 ----------------
+ServerChat.SendPM = function(self, hFrom, hTo, sMessage)
+
+    if (hFrom == hTo and not hFrom:IsTesting()) then return end
+
+    -- Chat Msg
+    SendMsg(CHAT_SERVER, hTo, hTo:LocalizeNest("@l_ui_pmReceived", {hFrom:GetName()}))
+
+    -- Console Msgs
+    local iBoxWidth = (CLIENT_CONSOLE_LEN - 24) -- fany fancy~
+    local sBanner = string.rspace(string.format("$9== ~ $4%s$9 ~ ", hTo:LocalizeNest("@l_ui_pm")), iBoxWidth, string.COLOR_CODE, "=")
+    local sPMLine = string.format("<%s> : %s", string.rspace(hFrom:GetName(), 30, string.COLOR_CODE), sMessage)
+
+    SendMsg(CONSOLE_CENTERED, hTo, sBanner)
+    SendMsg(CONSOLE_CENTERED, hTo, string.format("$9[ %s $9]", string.rspace(sPMLine, (iBoxWidth - 4), string.COLOR_CODE)))
+    SendMsg(CONSOLE_CENTERED, hTo, string.format("$9%s", string.rep("=", iBoxWidth)))
+    --[[
+    == [ ~ PM ~ ] ==================================================================================
+    [ <Marisa            > : Hello uwu listen to when the world ends
+    ================================================================================================
+
+    ]]
+end
+
+----------------
 ServerChat.Send = function(self, iType, aTargetList, sMessage, sMessage2, ...)
 
     if (not iType) then
@@ -302,17 +340,24 @@ end
 
 ----------------
 ServerChat.SendTextMessage = function(self, iType, aTargetList, sMessage, sMessage2, ...)
+    --ServerLog(table.tostring({...}))
 
     if (not iType) then
         error("no message type")
     end
 
+    if (not isArray(aTargetList) and not isNumber(aTargetList)) then
+        HandleError("bad target")
+    end
+
     local sFinalMsg = sMessage
     local bUseQueue = self.ConsoleQueue.Enabled
+    local bConsole  = false
 
     local iRealType
     if (IsAny(iType, MSG_CONSOLE, MSG_CONSOLE_FIXED, MSG_CONSOLE_CENTERED)) then
 
+        bConsole = true
         if (iType == MSG_CONSOLE) then
             if (sMessage2) then
                 sFinalMsg = string.format("%" .. (self.ConsoleMessageCenterPos + (string.count(sMessage2, "%$%d") * 2)) .. "s$9: %s", sMessage2, sMessage)
@@ -346,12 +391,22 @@ ServerChat.SendTextMessage = function(self, iType, aTargetList, sMessage, sMessa
 
     if (aTargetList == ALL) then
 
-        if (iRealType == TextMessageConsole and bUseQueue) then
-            self:QueuePush(sFinalMsg, TextMessageToAll)
+        if (iRealType == TextMessageConsole) then
+            if (bUseQueue) then
+                self:QueuePush(sFinalMsg, { ... }, TextMessageToAll)
+            else
+                for _, hClient in pairs(GetPlayers()) do
+                    local sFormatted = hClient:LocalizeNest(sFinalMsg, { ... })
+                    if (not bConsole) then sFormatted = Logger:RemoveColors(sFormatted) end
+                    g_pGame:SendTextMessage(iRealType, sFormatted, TextMessageToClient, hClient.id)
+                end
+            end
         else
             for _, hClient in pairs(GetPlayers()) do
                 --g_pGame:SendTextMessage(iRealType, sFinalMsg, TextMessageToAll)
-                g_pGame:SendTextMessage(iRealType, Logger:RemoveColors(hClient:LocalizeNest(sFinalMsg, { sMessage2, ... })), TextMessageToClient, hClient.id)
+                local sFormatted = hClient:LocalizeNest(sFinalMsg, { sMessage2, ... })
+                if (not bConsole) then sFormatted = Logger:RemoveColors(sFormatted) end
+                g_pGame:SendTextMessage(iRealType, sFormatted, TextMessageToClient, hClient.id)
             end
         end
 
@@ -361,19 +416,42 @@ ServerChat.SendTextMessage = function(self, iType, aTargetList, sMessage, sMessa
         throw_error("no receipients")
     else
         if (not aTargetList.id) then
+            for _, hClient in pairs(aTargetList) do
 
-            if (iRealType == TextMessageConsole and bUseQueue) then
-                self:QueuePush(sFinalMsg, aTargetList)
-            else
-                for _, hClient in pairs(aTargetList) do
-                    g_pGame:SendTextMessage(iRealType, Logger:RemoveColors(hClient:LocalizeNest(sFinalMsg, { sMessage2, ... })), TextMessageToClient, hClient.id)
+                if (not isArray(hClient) or not hClient.IsPlayer) then
+                    throw_error("bad client list")
                 end
+                if (iRealType == TextMessageConsole) then
+                    if (bUseQueue) then
+                        self:QueuePush(sFinalMsg, { ... }, aTargetList)
+                        break
+                    else
+                        local sFormatted = hClient:LocalizeNest(sFinalMsg, { ... })
+                        if (not bConsole) then sFormatted = Logger:RemoveColors(sFormatted) end
+                        g_pGame:SendTextMessage(iRealType, sFormatted, TextMessageToClient, hClient.id)
+                    end
+                else
+                    local sFormatted = hClient:LocalizeNest(sFinalMsg, { sMessage2, ... })
+                    if (not bConsole) then sFormatted = Logger:RemoveColors(sFormatted) end
+                    g_pGame:SendTextMessage(iRealType, sFormatted, TextMessageToClient, hClient.id)
+                end
+
             end
         else
-            if (iRealType == TextMessageConsole and bUseQueue) then
-                self:QueuePush(sFinalMsg, { aTargetList })
+            if (iRealType == TextMessageConsole) then
+                if (bUseQueue) then
+                    self:QueuePush(sFinalMsg, { ... }, { aTargetList })
+                    ServerLog("ppuuuu")
+                else
+                    local sFormatted = aTargetList:LocalizeNest(sFinalMsg, { ... })
+                    if (not bConsole) then sFormatted = Logger:RemoveColors(sFormatted) end
+                    g_pGame:SendTextMessage(iRealType, sFormatted, TextMessageToClient, aTargetList.id)
+                    ServerLog("ssss")
+                end
             else
-                g_pGame:SendTextMessage(iRealType, Logger:RemoveColors(aTargetList:LocalizeNest(sFinalMsg, { sMessage2, ... })), TextMessageToClient, aTargetList.id)
+                local sFormatted = aTargetList:LocalizeNest(sFinalMsg, { ... })
+                if (not bConsole) then sFormatted = Logger:RemoveColors(sFormatted) end
+                g_pGame:SendTextMessage(iRealType, sFormatted, TextMessageToClient, aTargetList.id)
             end
         end
     end
@@ -398,11 +476,11 @@ ServerChat.SendChatMessage = function(self, iType, aTargetList, sMessage, ...)
     end
 
     local hSender = aInfo.Entity
-    local hSenderID = hSender.id
+    --local hSenderID = hSender.id --unused
 
     -- g_pGame:SetTeam(TEAM_NEUTRAL, hSenderID)
 
-    local iForcedteam = -1
+    local iForcedTeam = -1
     local iRealType = ChatToTarget
     local bTeam = (aInfo.Team)
     if (bTeam) then
@@ -419,6 +497,8 @@ ServerChat.SendChatMessage = function(self, iType, aTargetList, sMessage, ...)
     local aFormat = { ... }
     local function fSendTo(hClient)
 
+        -- FIXME: use localize nest??
+        -- tried.. its hard..
         sFinalMsg = nil
         if (aInfo.Locale) then
             sLocalized, sExtended = Localize(sMessage, hClient:GetPreferredLanguage())
@@ -432,11 +512,17 @@ ServerChat.SendChatMessage = function(self, iType, aTargetList, sMessage, ...)
             end
         end
 
-        if (bTeam) then iForcedteam = hClient:GetTeam() end
+        --workaround..doesnt support >1 format tho!
+        --if (sFinalMsg) then
+        --ServerLog("%s,%s",g_ts(sFinalMsg),g_ts(sMessage))
+        sFinalMsg = hClient:LocalizeNest(sFinalMsg or sMessage)--, unpack(aFormat))
+        --end
+
+        if (bTeam) then iForcedTeam = hClient:GetTeam() end
         if (not aInfo.IgnoreID or (aInfo.IgnoreID ~= hClient.id)) then
 
             -- FIXME: Some client could be used as the chat entity, in case of loggin, add something to prevent recursion!!
-            g_pGame:SendChatMessage(iRealType, aInfo.Entity.id, hClient.id, (sFinalMsg or sMessage), iForcedteam)
+            g_pGame:SendChatMessage(iRealType, aInfo.Entity.id, hClient.id, (sFinalMsg or sMessage), iForcedTeam)
 
             -- FIXME: Proper logging
             ServerLog("Chat (%s) To %s: %s", aInfo.Name, hClient:GetName(), sMessage)

@@ -52,6 +52,12 @@ CreateLocalization("l_ui_map", {
 CreateLocalization("l_ui_mapRotation", {
     english = "Map Rotation"
 })
+CreateLocalization("l_ui_mapRestartingIn", {
+    english = "Map Restarts in ${red}${1}${gray}"
+})
+CreateLocalization("l_ui_mapAlreadyRestarting", {
+    english = "Map restart already Queued"
+})
 CreateLocalization("l_ui_rotationOpenConsole", {
     english = "Open your Console to view the ${1} Maps in the Rotation"
 })
@@ -59,10 +65,10 @@ CreateLocalization("l_ui_changeMap_d", {
     english = "The new map you wish to Load"
 })
 CreateLocalization("l_ui_currentMap", {
-    english = "(Current Map: ${1})"
+    english = "Current Map: ${1}"
 })
 CreateLocalization("l_ui_nextMap", {
-    english = "(Next Map: ${1} (${2}))"
+    english = "Next Map: ${1} (${2})"
 })
 CreateLocalization("l_ui_startingLevel", {
     english = "Starting Map ${red}${1}${gray} (${red}${2}${gray}, ${red}${3}${gray})"
@@ -624,6 +630,56 @@ CreateLocalization("l_commandresp_notOutdoors", {
 CreateLocalization("l_commandresp_insufficientPrestige", {
     english = "Insufficient Prestige (Need ${1} More)"
 })
+CreateLocalization("l_ui_insufficientPrestige", {
+    english = "Insufficient Prestige"
+})
+
+CreateLocalization("l_commandresp_notVehicle", {
+    english = "Not usable inside Vehicles"
+})
+CreateLocalization("l_commandresp_onlyVehicle", {
+    english = "Only usable inside Vehicles"
+})
+
+CreateLocalization("l_commandresp_notFlying", {
+    english = "Not usable while Flying"
+})
+CreateLocalization("l_commandresp_onlyFlying", {
+    english = "Only usable when Flying"
+})
+
+CreateLocalization("l_commandresp_notAlive", {
+    english = "Not usable while being Alive"
+})
+CreateLocalization("l_commandresp_onlyAlive", {
+    english = "Only usable while being Alive"
+})
+
+
+CreateLocalization("l_ui_prestigeReceived", {
+    english = "Transfer Received"
+})
+CreateLocalization("l_ui_prestigeTransferred", {
+    english = "Prestige Transferred"
+})
+CreateLocalization("l_ui_prestigeReceivedC", {
+    english = "You Received - ( ${1} ) - Prestige from ${2}"
+})
+CreateLocalization("l_ui_prestigeTransferredC", {
+    english = "You transferred - ( ${1} ) - Prestige to ${2}"
+})
+CreateLocalization("l_ui_projectileEleminated", {
+    english = "${1}Projectile Eliminated"
+})
+CreateLocalization("l_ui_friendly", {
+    english = "Friendly"
+})
+CreateLocalization("l_ui_entitiesTagged", {
+    english = "${1}Entities Tagged"
+})
+CreateLocalization("l_ui_thisIsYourExplosive", {
+    english = "This is your Explosive!"
+})
 
 
 
@@ -631,6 +687,96 @@ CreateLocalization("l_commandresp_insufficientPrestige", {
 
 
 
+
+
+
+
+
+
+
+CreateLocalization("l_ui_insufficientParams", {
+    english = "Insufficient Arguments"
+})
+
+CreateLocalization("l_ui_chooseDifferentLevel", {
+    english = "Choose a different Map"
+})
+CreateLocalization("l_ui_votingSucceeded", {
+    english = "VOTING $3Succeeded$9"
+})
+CreateLocalization("l_ui_votingSucceeded_c", {
+    english = "VOTING Succeeded"
+})
+CreateLocalization("l_ui_votingFailed", {
+    english = "VOTING $4FAILED$9"
+})
+CreateLocalization("l_ui_votingFailed_c", {
+    english = "VOTING FAILED"
+})
+CreateLocalization("l_ui_stoppedBy", {
+    english = "Stopped by"
+})
+CreateLocalization("l_ui_cancelledBy", {
+    english = "Cancelled by"
+})
+CreateLocalization("l_ui_cancelled", {
+    english = "Cancelled"
+})
+CreateLocalization("l_ui_voteInsufficientVotes", {
+    english = "Insufficient Votes"
+})
+CreateLocalization("l_ui_voteInsufficientYes", {
+    english = "Insufficient Positive Votes"
+})
+CreateLocalization("l_ui_voteEnded", {
+    english = "Voting Ended"
+})
+CreateLocalization("l_ui_voteMessageConsole", {
+    english = "$4${1}$9 VOTING Ends in $4${2}$9 (Yes $3${3}$9, No $4${4}$9)"
+})
+CreateLocalization("l_ui_voteMessage", {
+    english = "${1}: VOTING - Yes (${2}), No (${3}) - (${4} REMAINING)"
+})
+
+CreateLocalization("l_ui_votingStarted_c", {
+    english = "$4${1}$9 VOTING STARTED (${2}${3} Remaining)"
+})
+CreateLocalization("l_ui_votingStarted", {
+    english = "(${1}: VOTING STARTED - (${2}${3} REMAINING))"
+})
+CreateLocalization("l_ui_addedTimeLimit", {
+    english = "${1} :: ADDED TO GAME TIME"
+})
+CreateLocalization("l_ui_add", {
+    english = "Add"
+})
+CreateLocalization("l_ui_noVoteActive", {
+    english = "There is no voting in Progress"
+})
+CreateLocalization("l_ui_playerNotFound", {
+    english = "Player Not Found"
+})
+CreateLocalization("l_ui_voteTypeDisabled", {
+    english = "Vote Type Disabled"
+})
+CreateLocalization("l_ui_insufficientPlayersOnline", {
+    english = "Insufficient Players online"
+})
+CreateLocalization("l_ui_insufficientAccess", {
+    english = "Insufficient Access"
+})
+CreateLocalization("l_ui_mapEndsSoon", {
+    english = "Map ends in 15 Minutes, vote to add more time using !vote <time>"
+})
+CreateLocalization("l_ui_youVotedYES", {
+    english = "YES - Vote Registered"
+})
+CreateLocalization("l_ui_youVotedNO", {
+    english = "NO - Vote Registered"
+})
+CreateLocalization("l_ui_voteNotFound", {
+    english = "Unknown type ${1}"
+})
 
 
 
@@ -821,6 +967,25 @@ CreateLocalization("l_ui_debugMode", {
     english = "Debug Mode"
 })
 
+CreateLocalization("l_ui_index", {
+    english = "Index"
+})
+
+CreateLocalization("l_ui_index_d", {
+    english = "The Index of the list or item"
+})
+
+
+
+
+
+
+CreateLocalization("l_ui_message", {
+    english = "Message"
+})
+CreateLocalization("l_ui_message_d", {
+    english = "The Message to use"
+})
 
 
 
@@ -832,6 +997,83 @@ CreateLocalization("l_ui_debugMode", {
 
 
 
+
+
+
+
+--  1     2     3                     4                       5
+--sName, sInfo, sDetect, (bSure and "Positively-" or ""), (bLag and "Lagger-" or ""))
+
+CreateLocalization("l_ui_cheat_Detected", { -- what da HAAEEEEELL
+    english = {
+        regular = "Detected $4${1}$9 Using $4${3}",
+        extended = "${4}Detected $4${5}${1}$9 Using $4${3}$9 ($4${2}$9)"
+    }
+})
+
+
+
+
+
+CreateLocalization("l_ui_superJumped", { -- what da HAAEEEEELL
+    english = "${1} :: SUPER-JUMPED",
+})
+CreateLocalization("l_ui_a", { -- what da HAAEEEEELL
+    english = "a",
+    spanish = "un",
+    german = "ein",
+})
+CreateLocalization("l_ui_CMEquipBlock", {
+    english = "(As a ${1}, You cannot use {weapon})"
+})
+CreateLocalization("l_ui_playerCM", {
+    english = "(${1}: Selected to Play as - ${3}${2})"
+})
+CreateLocalization("l_ui_CMList", {
+    english = "Character List"
+})
+CreateLocalization("l_ui_CMHeadList", {
+    english = "Head List"
+})
+CreateLocalization("l_ui_youHaveNoCM", {
+    english = "You have no Custom Model"
+})
+CreateLocalization("l_ui_CMRemoved", {
+    english = "Character - Restored"
+})
+CreateLocalization("l_ui_CMListedInConsole", {
+    english = "@l_ui_openConsoleToViewThe (${1}) Models"
+})
+CreateLocalization("l_ui_chooseDifferentCM", {
+    english = "Already playing as - ${1}"
+})
+CreateLocalization("l_ui_cannotUseCMHead", {
+    english = "Return to Nomad before requesting a new Head"
+})
+CreateLocalization("l_ui_youHaveNoCM_Head", {
+    english = "You have no Custom Head"
+})
+CreateLocalization("l_ui_CMHeadRemoved", {
+    english = "Original Head - Restored"
+})
+CreateLocalization("l_ui_CMHeadList", {
+    english = "Head Wardrobe"
+})
+CreateLocalization("l_ui_CMHeadsListedInConsole", {
+    english = "@l_ui_openConsoleToViewThe (${1}) Heads"
+})
+CreateLocalization("l_ui_openConsoleToViewThe", {
+    english = "Open your Console to view the List of"
+})
+CreateLocalization("l_ui_playerCMHead", {
+    english = "(${1}: Selected to Play with - ${2})"
+})
+CreateLocalization("l_ui_CMCharRemoved", {
+    english = "(${1}: Is Playing as a Human again)"
+})
+CreateLocalization("l_ui_CMHumanTip", {
+    english = "(${1}: Use !Human to Play as a Human again)"
+})
 
 
 

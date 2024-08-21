@@ -55,6 +55,8 @@ ServerAccess.Init = function(self)
     -- Reset this in case of changes
     RANK_DEFAULT = nil
 
+    self.RegisteredUsers = table.merge(self.RegisteredUsers, ConfigGet("Ranks.UserList", {}, eConfigGet_Array))
+
     self:LoadFile()
     self:RegisterRanks()
     Logger:InitLogEvents()

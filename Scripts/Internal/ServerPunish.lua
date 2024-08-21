@@ -350,11 +350,11 @@ ServerPunish.BanPlayer = function(self, hAdmin, hPlayer, sTime, sReason)
     local sHWID     = hPlayer:GetHWID()
 
     if (self:GetInfoForType(ePunishType_Ban, { sIP, sHost, sID, sStatic, sHWID })) then
-        return false, hAdmin:Localize("@l_ui_playerAlreadyBanned", hPlayer:GetName())
+        return false, hAdmin and hAdmin:Localize("@l_ui_playerAlreadyBanned", {hPlayer:GetName()})
     end
 
     local iMax = self.MaxBanTime
-    if (hAdmin:IsDeveloper()) then iMax = (LUA_MAX_INTEGER - GetTimestamp() - 1) end
+    if (hAdmin and hAdmin:IsDeveloper()) then iMax = (LUA_MAX_INTEGER - GetTimestamp() - 1) end
     local iBanTime = math.max(0, math.min(iMax, (ParseTime(sTime) or self.DefaultBanTime)))
     if (not iBanTime or iBanTime == 0) then
         iBanTime = ONE_HOUR
@@ -365,7 +365,7 @@ ServerPunish.BanPlayer = function(self, hAdmin, hPlayer, sTime, sReason)
         Date   = iTimestamp,
         Expiry = g_ts(iTimestamp + iBanTime),
         Reason = (sReason or "Server Decision"),
-        Admin  = { hAdmin:GetProfileID(), hAdmin:GetName() },
+        Admin  = { hAdmin and hAdmin:GetProfileID() or SERVERENT_ID, hAdmin and hAdmin:GetName() or "Server" },
         Player = { hPlayer:GetProfileID(), hPlayer:GetName() },
         IPs    = { sIP, sHost },
         IDs    = { sID, sStatic },
@@ -374,8 +374,8 @@ ServerPunish.BanPlayer = function(self, hAdmin, hPlayer, sTime, sReason)
     self:SetupEntry(aBanInfo, (self:GetTypeCount(ePunishType_Ban) + 1))
 
     table.insert(self.Data.Bans, aBanInfo)
-    self:DisconnectPlayer(eKickType_Banned, hPlayer, self:FormatBanReason(aBanInfo), aBanInfo.Reason, hAdmin:GetName())
     self:SaveData()
+    self:DisconnectPlayer(eKickType_Banned, hPlayer, self:FormatBanReason(aBanInfo), aBanInfo.Reason, hAdmin and hAdmin:GetName() or "Server")
     return true
 end
 
@@ -386,7 +386,7 @@ ServerPunish.BanChannel = function(self, hAdmin, iChannel, sTime, sReason)
     local sNick     = (ServerDLL.GetChannelNick(iChannel) or "Nomad")
 
     if (self:GetInfoForType(ePunishType_Ban, { sIP })) then
-        return false, hAdmin:Localize("@l_ui_playerAlreadyBanned", sNick)
+        return false, hAdmin:Localize("@l_ui_playerAlreadyBanned", {sNick})
     end
 
     local iMax = self.MaxBanTime

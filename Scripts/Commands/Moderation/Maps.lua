@@ -125,3 +125,30 @@ AddCommand({
         return ServerMaps:SetTimeLimit(self, iNewLimit/60)
     end
 })
+
+------------
+AddCommand({
+    Name = "restart",
+    Access = RANK_MODERATOR,
+
+    Arguments = {
+        {
+            Name = "@l_ui_time",
+            Desc = "@l_ui_time_d",
+            IsNumber = true,
+            IsTime = true,
+            Default = 5,
+            Required = true,
+            Min = 1,
+            Max = 60,
+            Auto = true
+        }
+    },
+
+    Properties = {
+    },
+
+    Function = function(self, iCountdown)
+        return ServerMaps:RestartMap(self, iCountdown)
+    end
+})

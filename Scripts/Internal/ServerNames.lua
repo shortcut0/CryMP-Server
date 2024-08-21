@@ -77,8 +77,8 @@ ServerNames.RequestRename = function(self, hPlayer, sName, hAdmin, sReason)
             sMsgCon = "@l_console_clientrenamedByAdmin"
             sMsgChat = "@l_chat_clientrenamedByAdmin"
         end
-        Logger:LogEvent(eLogEvent_Rename, sMsgCon, sOldName, sName, hAdmin:GetName(), checkVar(sReason, "Admin Decision"))
-        SendMsg(CHAT_SERVER_LOCALE, ALL_PLAYERS, sMsgChat, sOldName, sName, hAdmin:GetName(), checkVar(sReason, "Admin Decision"))
+        Logger:LogEvent(eLogEvent_Rename, sMsgCon, sOldName, sName, hAdmin and hAdmin:GetName() or "", checkVar(sReason, "Admin Decision"))
+        SendMsg(CHAT_SERVER_LOCALE, ALL_PLAYERS, sMsgChat, sOldName, sName, hAdmin and hAdmin:GetName() or "", checkVar(sReason, "Admin Decision"))
     else
         return false, "@l_ui_chooseDifferentName"
     end

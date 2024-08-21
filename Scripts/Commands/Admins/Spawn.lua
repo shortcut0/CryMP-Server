@@ -72,12 +72,13 @@ AddCommand({
             SvSpawnEntity({
 
                 Pos = vPos,
-                Dir = self.actor:GetRotation(),
+                Dir = self:SmartGetDir(1),
 
                 Command = true,
                 Admin   = self,
                 Class   = aFound[1],
-                Count   = iCount
+                Count   = iCount,
+
             })
         end)
         SpawnEffect(ePE_Light, vPos)

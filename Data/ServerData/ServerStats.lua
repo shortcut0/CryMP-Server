@@ -1,6 +1,6 @@
 return {
- ["server_player_record"] = 7,
- ["server_total_time"] = 116084,
- ["server_total_connects"] = 97,
- ["server_total_connections"] = 87,
+ ["server_player_record"] = 13,
+ ["server_total_time"] = 206641,
+ ["server_total_connects"] = 190,
+ ["server_total_connections"] = 148,
 }

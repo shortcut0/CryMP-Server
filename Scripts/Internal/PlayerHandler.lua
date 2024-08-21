@@ -18,8 +18,21 @@ ePlayerData_PlayTime        = "game_time"
 ePlayerData_LastName        = "last_name"
 ePlayerData_Equipment       = "equipment"
 ePlayerData_PreferredLang   = "language"
+ePlayerData_CM              = "last_cm"
+ePlayerData_CMHead          = "last_cm_head"
+
+ePlayerData_ConsecutiveVoteKicks = "vote_kicked_count"
+ePlayerData_LastKickVote         = "last_kick_vote"
+ePlayerData_LastVoteKicked       = "last_kicked_by_vote"
 
 ALL_PLAYERS = 0
+
+------------------
+
+eAllowedEquip_Default   = -1 -- allow all?
+eAllowedEquip_None      = 0 -- NONE allowed
+eAllowedEquip_All       = 1 -- all allowed
+eAllowedEquip_List      = 2 -- checks list
 
 ------------------
 
@@ -116,6 +129,11 @@ PlayerHandler.OnClientDisconnect = function(self, hClient, bNoSave, bQuiet)
         hClient:SetData(ePlayerData_LastName, sName)
     end
     hClient:SetData(ePlayerData_LastVisit, GetTimestamp())
+    if (hClient.VoteKicked) then
+        hClient:SetData(ePlayerData_LastVoteKicked, nil)
+    else
+        hClient:SetData(ePlayerData_LastVoteKicked, GetTimestamp())
+    end
 
     local sID = hClient:GetProfileID()
     local aData = hClient:GetStoredData()
@@ -189,12 +207,15 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
     local sHostName, sPort  = string.match(sChannelName, "(.-):(%d+)")
     local iDefRank          = GetDefaultRank()
 
+    local bServer = false
+
     if (iChannel == SERVERENT_CHANNEL) then
         sChannelName = MOD_NAME
         sHostName    = MOD_NAME
         sPort        = 6969
         sIP          = "127.0.0.1"
         iDefRank     = GetHighestRank()
+        bServer      = true
     end
 
     self.CachedInfo[iChannel] = {
@@ -235,7 +256,7 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
         ----------
         Timers = {
             Timers  = {},
-            Expired = function(this, id, seconds, refresh) if (this.Timers[id] == nil) then this.Timers[id] = timernew(seconds) return true end if (this.Timers[id].expired(seconds)) then if (refresh) then this.Timers[id].refresh() end return true end return false end,
+            Expired = function(this, id, seconds, refresh, check_only) if (this.Timers[id] == nil) then if (not check_only) then this.Timers[id] = timernew(seconds) end return true end if (this.Timers[id].expired(seconds)) then if (refresh) then this.Timers[id].refresh() end return true end return false end,
             Refresh = function(this, id, newseconds, f) if (not id) then return throw_error("No timer ID specified!") end if (not this.Timers[id]) then if (not f) then return end this.Timers[id] = timernew(newseconds) end this.Timers[id].refresh(newseconds) end,
             Diff    = function(this, id) if (not id) then return throw_error("No timer ID specified!") end if (not this.Timers[id]) then return 0 end return this.Timers[id].diff() end,
             Expiry  = function(this, id) if (not id) then return throw_error("No timer ID specified!") end if (not this.Timers[id]) then return 0 end return this.Timers[id].getexpiry() end
@@ -284,8 +305,8 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
         ----------
         GodMode = {
 
-            GodStatus  = 0,
-            TestStatus = 0,
+            GodStatus  = (bServer and 3 or 0),
+            TestStatus = (bServer and 3 or 0),
 
             SetGod     = function(this, level) this:SetTesting(0) this.GodStatus = level if (level > 1) then this:SetTesting(1) end end,
             IsGod      = function(this, level) local g = this.GodStatus if (level) then return g >= level end return (g or 0) > 0 end,
@@ -333,6 +354,21 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
         Temporary = {  },
 
         ----------
+        AllowedEquip = {
+
+            List    = {},
+            Status  = eAllowedEquip_All,
+            Reason  = "You're not Allowed to use ${weapon}",
+            Default = "You're not Allowed to use ${weapon}",
+
+            Allowed     = function(this, class) if (this.Status == eAllowedEquip_All or this.Status == eAllowedEquip_Default) then return true end if (this.Status == eAllowedEquip_None) then return false end return table.findv(this.List, class) end,
+            Set         = function(this, list, msg) if (isNumber(list)) then this.Status = list else this.Status = eAllowedEquip_List this.List = list end this.Reason = this.Default or msg end,
+            Get         = function(this) return this.List end,
+            GetReason   = function(this) return this.Reason end,
+            SetReason   = function(this, msg) this.Reason = msg end
+        },
+
+        ----------
         HitAccuracy = {
             Timer   = timernew(10), -- Expires after 10s..
 
@@ -357,6 +393,9 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.IsServer  = (bServer)
     hClient.Info      = PlayerHandler:GetClientInfo(iChannel)
 
+    -- FIXME
+    hClient.IsLagging       = function(self) return false end --self.actor:IsFlying()  end
+    hClient.IsFlying        = function(self) return self.actor:IsFlying()  end
     hClient.IsFrozen        = function(self) return g_pGame:IsFrozen(self.id)  end
     hClient.IsAlive         = function(self, ignorespec) return (self:GetHealth() > 0 and (ignorespec or not self:IsSpectating()))  end
     hClient.IsDead          = function(self) return (self:GetHealth() <= 0) end
@@ -370,6 +409,13 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.SetSuitMode     = function(self, mode) self.actor:SetNanoSuitMode(mode) end -- NOT synched
     hClient.GetVehicle      = function(self) return GetEntity(self:GetVehicleId()) end -- NOT synched
     hClient.GetVehicleId    = function(self) return self.actor:GetLinkedVehicleId() end -- NOT synched
+    hClient.GetVehicleSeat  = function(self) local c = self:GetVehicle() if (not c) then return end return c:GetSeat(self.id) end -- NOT synched
+    hClient.GetVehicleSeatId= function(self) local c = self:GetVehicleSeat()if (not c) then return end return c.seatId end -- NOT synched
+
+    hClient.SetAllowedEquip = function(self, list, msg) return self.Info.AllowedEquip:Set(list,msg) end -- NOT synched
+    hClient.GetAllowedEquip = function(self) return self.Info.AllowedEquip:Get() end -- NOT synched
+    hClient.IsAllowedEquip  = function(self, class) return self.Info.AllowedEquip:Allowed(class) end -- NOT synched
+    hClient.GetEquipReason  = function(self) return self.Info.AllowedEquip:GetReason() end -- NOT synched
 
     hClient.GetHitPos = function(self, iDist, iTypes, vDir, vPos)
         iTypes = iTypes or ent_all
@@ -390,7 +436,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.GetViewPoint        = function(self, dist) return (self.actor:GetLookAtPoint(dist or 9999))  end
     hClient.SvMoveTo            = function(self, pos, ang) self:SetInvulnerability(5) g_pGame:MovePlayer(self.id, vector.modifyz(pos, 0.25), (ang or self:GetWorldAngles()))  end
     hClient.SetInvulnerability  = function(self, time) g_pGame:SetInvulnerability(self.id, true, (time or 2.5)) end
-    hClient.GetSpectatorDir     = function(self) return (self.PesudoDirection or vector.make()) end
+    hClient.GetSpectatorDir     = function(self) return (self.actor:GetLookDirection() or self.PesudoDirection or vector.make()) end
     hClient.GetVehicleDir       = function(self) return (self.actor:GetVehicleViewDir()) end
     hClient.SmartGetDir         = function(self, dv) if (self:IsSpectating()) then return self:GetSpectatorDir() elseif (self:GetVehicleId()) then return self:GetVehicleViewDir()end return (dv and self:GetDirectionVector() or self:GetHeadDir()) end
 
@@ -415,6 +461,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.GetRankName     = function(self) return GetRankName(self.Info.Rank.ID) end
     hClient.GetAuthority    = function(self, minimum) local i = self.Info.Rank.ID if (i == GetHighestRank()) then return i end i = i + 1 if (i < minimum) then i = minimum end return i end
     hClient.GetAccess       = function(self) return self.Info.Rank.ID end
+    hClient.GetElevatedAccess = function(self, min, max) local r = self.Info.Rank.ID min = min or RANK_MODERATOR max = max or RANK_OWNER r = r + 1 if (r > max) then r = max end if (r < min) then r = min end return r end
     hClient.SetAccess       = function(self, iRank) self.Info.Rank.ID = iRank self.Info.Rank.PendingID = nil self.Info.Rank.Dev = IsDevRank(iRank) self.Info.Rank.Admin = IsAdminRank(iRank) self.Info.Rank.Premium = IsPremiumRank(iRank) end
     hClient.SetPendingAccess= function(self, iRank) self.Info.Rank.PendingID = iRank end
     hClient.GetPendingAccess= function(self) return self.Info.Rank.PendingID end
@@ -483,7 +530,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.GetBuyCooldown  = function(self, id) return self.Info.Buying:Get(id) end
     hClient.OnBuyCooldown   = function(self, id, seconds) return self.Info.Buying:IsOn(id, seconds) end
     hClient.SetBuyCooldown  = function(self, id) return self.Info.Buying:Set(id) end
-    hClient.TimerExpired    = function(self, id, seconds, refresh) return self.Info.Timers:Expired(id, seconds, refresh) end
+    hClient.TimerExpired    = function(self, id, seconds, refresh, check_only) return self.Info.Timers:Expired(id, seconds, refresh, check_only) end
     hClient.TimerRefresh    = function(self, id, newseconds) return self.Info.Timers:Refresh(id, newseconds) end
     hClient.TimerDiff       = function(self, id) return self.Info.Timers:Diff(id) end
     hClient.TimerExpiry     = function(self, id) return self.Info.Timers:Expiry(id) end
@@ -606,6 +653,18 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
                     end
                 end
 
+                --self.CM.Restored = false--test!
+                local iCM = self:GetData(ePlayerData_CM)
+                if (self:HasClientMod() and not self.CM.Restored and iCM ~= CM_NONE) then
+
+                    -- dont restore if dead, causes strange bug. although its only temporary, still annoying ;)
+                    if (self:IsAlive() or self:IsSpectating()) then
+                        ClientMod:RequestModel(self, iCM, true)
+                        self.CM.Restored = true
+                        -- Debug("restore CM!")
+                    end
+                end
+
                 -- Call Event
                 if (not self.ValidateLinked) then
                     CallEvent(eServerEvent_OnClientValidated, self, sID)
@@ -655,6 +714,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.LastTick         = timernew()
 
     ClientMod:InitClient(hClient)
+    g_gameRules:SvInitClient(hClient)
 
     SendMsg(MSG_CENTER, hClient, "Successfully Initialized")
     ServerLog("Client Initialized!")

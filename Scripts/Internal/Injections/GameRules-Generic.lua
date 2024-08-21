@@ -1,6 +1,8 @@
 ------------
 local ServerGameRules = {
 
+    --todo: repair turrets, revive plyer, etc
+
     -----------------
     This = "g_gameRules",
 
@@ -58,7 +60,28 @@ local ServerGameRules = {
         if (self.IS_PS) then
             self:PatchBuyLists()
         end
+
+        self.FallDamageMultiplier = ConfigGet("General.GameRules.HitConfig.FallMultiplier", 1, eConfigGet_Number)
     end,
+
+    ---------------------------------------------
+    --- SvInitClient
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "SvInitClient" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hClient)
+
+            hClient.TagPlayerAlert = timernew(10)
+            hClient.TagAward = { PP = 0, CP = 0, Timer = nil, Num = 0 }
+            ServerLog("GameRules.InitClient")
+        end
+
+    },
+
     ---------------------------------------------
     --- RequestSpectatorTarget
     ---------------------------------------------
@@ -83,7 +106,7 @@ local ServerGameRules = {
 
             if ((iMode < -1 or iMode > 3)) then
                 local bResp = ClientMod:DecodeResponse(hPlayer, eCM_Spectator, iMode)
-                Debug(bResp)
+                --Debug(bResp)
                 if (bResp == true) then
                     return false
                 end
@@ -148,6 +171,68 @@ local ServerGameRules = {
                             self:AwardPPCount(hPlayerID, iValue, nil, hPlayer:HasClientMod())
                             self:AwardCPCount(hPlayerID, self.cpList.CAPTURE)
                         end
+                    end
+                end
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- NetExpose
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "Server.OnAddTaggedEntity" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        -- Self is the entity!
+        Function = function(self, hShooterID, hTargetID)
+
+           -- Debug("C")
+
+            -- give players PP and CP for tagging enemies
+            local iTeam_S = self.game:GetTeam(hShooterID)
+            local iTeam_T = self.game:GetTeam(hTargetID)
+
+            if ((iTeam_S ~= iTeam_T)) then
+                local hTarget = System.GetEntity(hTargetID)
+                local hShooter = System.GetEntity(hShooterID)
+                if (hTarget) then
+                    if ((hShooter:IsTesting() or not hTarget.last_scanned) or (_time - hTarget.last_scanned > 16)) then
+
+                        if (hTarget.IsPlayer) then
+                            if (hShooter.TagPlayerAlert.expired()) then
+                                hShooter.TagPlayerAlert.refresh()
+                                self.onClient:ClMDAlert(hShooter:GetChannel(), "")
+                            end
+                        end
+
+                        hShooter.TagAward.Num = (hShooter.TagAward.Num) + 1
+                        hShooter.TagAward.PP  = (hShooter.TagAward.PP) + self.ppList.TAG_ENEMY
+                        hShooter.TagAward.CP  = (hShooter.TagAward.CP) + self.cpList.TAG_ENEMY
+
+                        if (hShooter.TagAward.Timer) then
+                            Script.KillTimer(hShooter.TagAward.Timer)
+                        end
+                        hShooter.TagAward.Timer = Script.SetTimer(125, function()
+
+                            -- YES! This, indeed, is horrible. But it will stay like this for now.
+                            hShooter:Execute(string.format(
+                                    [[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( +%d PP, +%d CP )")]],
+                                    hShooter:Localize("@l_ui_entitiesTagged",{hShooter.TagAward.Num.." "}),
+                                    hShooter.TagAward.PP,
+                                    hShooter.TagAward.CP
+                            ))
+                            self:AwardPPCount(hShooterID, self.ppList.TAG_ENEMY, nil, hShooter:HasClientMod())
+                            self:AwardCPCount(hShooterID, self.cpList.TAG_ENEMY, nil, hShooter:HasClientMod())
+
+                            hShooter.TagAward = {
+                                CP = 0, PP = 0, Num = 0
+                            }
+                        end)
+
+                        hTarget.last_scanned = _time
                     end
                 end
             end
@@ -1167,12 +1252,15 @@ local ServerGameRules = {
 
             hPlayer.inventory:Destroy()
             if (hPlayer:IsPunished(ePlayerPunish_NoEquipment)) then
+                throw_error("wtf")
                 return
             end
 
             hPlayer:GiveItem("AlienCloak")
             hPlayer:GiveItem("OffHand")
             hPlayer:GiveItem("Fists")
+
+          --  Debug("give stuff")
 
             local bEquipped = ServerItemHandler:EquipPlayer(hPlayer, aForced)
             if (not bEquipped) then
@@ -1207,7 +1295,7 @@ local ServerGameRules = {
             if (self.IS_IA) then
                 self.game:KillPlayer(aHitInfo.targetId, true, true, aHitInfo.shooterId, aHitInfo.weaponId, aHitInfo.damage, aHitInfo.materialId, aHitInfo.typeId, aHitInfo.dir or vector.make(0,0,1));
             else
-                if (hShooter and hShooter.actor and hShooter.actor:IsPlayer()) then
+                if (hShooter and hShooter.actor and hShooter.actor:IsPlayer() and hTarget and hTarget.IsPlayer) then
                     if (hTarget ~= hShooter) then
                         local iTeam1 = self.game:GetTeam(hShooter.id)
                         local iTeam2 = self.game:GetTeam(hTarget.id)
@@ -1508,7 +1596,6 @@ local ServerGameRules = {
                     if (hTarget.CollectedHits[hShooter.id].Timer.expired()) then
                         hTarget.CollectedHits[hShooter.id].HitCount     = 0
                         hTarget.CollectedHits[hShooter.id].DamageCount  = 0
-                        Debug("reset all")
                     end
 
                     hTarget.CollectedHits[hShooter.id].Timer.refresh()
@@ -1524,6 +1611,10 @@ local ServerGameRules = {
                         end
                     end
                 end
+            end
+
+            if (aHitInfo.type == "" and not aHitInfo.explosion and aHitInfo.targetId==aHitInfo.shooterId) then
+                aHitInfo.damage = aHitInfo.damage * self.FallDamageMultiplier
             end
         end
     },
@@ -1616,7 +1707,7 @@ local ServerGameRules = {
 
                 elseif (iTimeLeft <= FIFTEEN_MINUTES) then
                     self:CheckAction(eGRMessage_MapEndsIn, function()
-                        SendMsg(CHAT_VOTING, ALL, "Map ends in 15 Minutes, vote to add more time using !vote <time>");
+                        SendMsg(CHAT_VOTING_LOCALE, ALL, "@l_ui_mapEndsSoon");
                     end)
                 end
             end
@@ -1710,7 +1801,7 @@ local ServerGameRules = {
                         if (sSound) then
                             SendMsg(MSG_INFO, ALL_PLAYERS, "@l_ui_gameEndCountdownInfo", iLeft)
                             ClientMod:OnAll([[g_Client:PSE("]]..sSound..[[",nil,"timeralert")]], {
-                                Sync = true,
+                                Sync = false,
                                 SyncID = "timermsg",
                                 Server = function(_code_)
                                     Debug("heelo madafaka")
@@ -1843,7 +1934,9 @@ local ServerGameRules = {
                 self.nukePlayer = (hShooterID or NULL_ENTITY)
             end
 
-            SendMsg(CHAT_SERVER_LOCALE, ALL_PLAYERS, "@l_ui_nextMap", sNextMap, ServerMaps:LongRules(sRules))
+            if (not self.QuietGameEnd) then
+                SendMsg(CHAT_SERVER_LOCALE, ALL_PLAYERS, "@l_ui_nextMap", sNextMap, ServerMaps:LongRules(sRules))
+            end
 
             self.game:EndGame()
             self:GotoState("PostGame")

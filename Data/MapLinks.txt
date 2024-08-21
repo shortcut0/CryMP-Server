@@ -53,203 +53,199 @@ multiplayer/ia/_promap2 = http://nomad.nullptr.one/~finch/maps/_promap2.zip
 multiplayer/ia/_promap3 = http://nomad.nullptr.one/~finch/maps/_promap3.zip
 multiplayer/ia/_promap4 = http://nomad.nullptr.one/~finch/maps/_promap4.zip
 multiplayer/ia/_promap5 = http://nomad.nullptr.one/~finch/maps/_promap5.zip
-
-
-
-
-Multiplayer/IA/-The-Club- = http://crymp.net/maps/hotspot/IA/-The-Club-.zip =
-Multiplayer/IA/1821 = http://crymp.net/maps/hotspot/IA/1821.zip =
-Multiplayer/IA/Abyss = http://crymp.net/maps/hotspot/IA/Abyss.zip =
-Multiplayer/IA/aimmapv2 = http://crymp.net/maps/hotspot/IA/aimmapv2.zip =
-Multiplayer/IA/Alone_in_the_Dark = http://crymp.net/maps/hotspot/IA/Alone_in_the_Dark.zip =
-Multiplayer/IA/Amazonia = http://crymp.net/maps/hotspot/IA/Amazonia.zip =
-Multiplayer/IA/Archipelago = http://crymp.net/maps/hotspot/IA/Archipelago.zip =
-Multiplayer/IA/Armada = http://crymp.net/maps/hotspot/IA/Armada.zip =
-Multiplayer/IA/Bagdad = http://crymp.net/maps/hotspot/IA/Bagdad.zip =
-Multiplayer/IA/Base_tor = http://crymp.net/maps/hotspot/IA/Base_tor.zip =
-Multiplayer/IA/BASE_TOX = http://crymp.net/maps/hotspot/IA/BASE_TOX.zip =
-Multiplayer/IA/beBOXER = http://crymp.net/maps/hotspot/IA/beBOXER.zip =
-Multiplayer/IA/Borderline = http://crymp.net/maps/hotspot/IA/Borderline.zip =
-Multiplayer/IA/BoxedIn = http://crymp.net/maps/hotspot/IA/BoxedIn.zip =
-Multiplayer/IA/B_island = http://crymp.net/maps/hotspot/IA/B_island.zip =
-Multiplayer/IA/Cabana = http://crymp.net/maps/hotspot/IA/Cabana.zip =
-Multiplayer/IA/Caribbean = http://crymp.net/maps/hotspot/IA/Caribbean.zip =
-Multiplayer/IA/Coast_v2 = http://crymp.net/maps/hotspot/IA/Coast_v2.zip =
-Multiplayer/IA/Complex = http://crymp.net/maps/hotspot/IA/Complex.zip =
-Multiplayer/IA/Condemned2 = http://crymp.net/maps/hotspot/IA/Condemned2.zip =
-Multiplayer/IA/Container_war = http://crymp.net/maps/hotspot/IA/Container_war.zip =
-Multiplayer/IA/Cootervillage = http://crymp.net/maps/hotspot/IA/Cootervillage.zip =
-Multiplayer/IA/Costa = http://crymp.net/maps/hotspot/IA/Costa.zip =
-Multiplayer/IA/CountryPath = http://crymp.net/maps/hotspot/IA/CountryPath.zip =
-Multiplayer/IA/Crossroad = http://crymp.net/maps/hotspot/IA/Crossroad.zip =
-Multiplayer/IA/Deposit = http://crymp.net/maps/hotspot/IA/Deposit.zip =
-Multiplayer/IA/Desert = http://crymp.net/maps/hotspot/IA/Desert.zip =
-Multiplayer/IA/dev_Nemesis = http://crymp.net/maps/hotspot/IA/dev_Nemesis.zip =
-Multiplayer/IA/Docks = http://crymp.net/maps/hotspot/IA/Docks.zip =
-Multiplayer/IA/dsg_1_aim = http://crymp.net/maps/hotspot/IA/dsg_1_aim.zip =
-Multiplayer/IA/E4 = http://crymp.net/maps/hotspot/IA/E4.zip =
-Multiplayer/IA/Eldorado = http://crymp.net/maps/hotspot/IA/Eldorado.zip =
-Multiplayer/IA/Event = http://crymp.net/maps/hotspot/IA/Event.zip =
-Multiplayer/IA/Excavation = http://crymp.net/maps/hotspot/IA/Excavation.zip =
-Multiplayer/IA/Factory_tor = http://crymp.net/maps/hotspot/IA/Factory_tor.zip =
-Multiplayer/IA/Forest = http://crymp.net/maps/hotspot/IA/Forest.zip =
-Multiplayer/IA/Forest_IA = http://crymp.net/maps/hotspot/IA/Forest_IA.zip =
-Multiplayer/IA/fp_Alienbay = http://crymp.net/maps/hotspot/IA/fp_Alienbay.zip =
-Multiplayer/IA/GDC_06 = http://crymp.net/maps/hotspot/IA/GDC_06.zip =
-Multiplayer/IA/GOLD_FinalVersion = http://crymp.net/maps/hotspot/IA/GOLD_FinalVersion.zip =
-Multiplayer/IA/Gunisson = http://crymp.net/maps/hotspot/IA/Gunisson.zip =
-Multiplayer/IA/HawkeIsland = http://crymp.net/maps/hotspot/IA/HawkeIsland.zip =
-Multiplayer/IA/Hightec = http://crymp.net/maps/hotspot/IA/Hightec.zip =
-Multiplayer/IA/IA_Crysis_Rally3 = http://crymp.net/maps/hotspot/IA/IA_Crysis_Rally3.zip =
-Multiplayer/IA/Iceworld = http://crymp.net/maps/hotspot/IA/Iceworld.zip =
-Multiplayer/IA/Ice_v2 = http://crymp.net/maps/hotspot/IA/Ice_v2.zip =
-Multiplayer/IA/Incident = http://crymp.net/maps/hotspot/IA/Incident.zip =
-Multiplayer/IA/Industrial_v2 = http://crymp.net/maps/hotspot/IA/Industrial_v2.zip =
+Multiplayer/IA/-The-Club- = http://crymp.net/maps/hotspot/IA/-The-Club-.zip
+Multiplayer/IA/1821 = http://crymp.net/maps/hotspot/IA/1821.zip
+Multiplayer/IA/Abyss = http://crymp.net/maps/hotspot/IA/Abyss.zip
+Multiplayer/IA/aimmapv2 = http://crymp.net/maps/hotspot/IA/aimmapv2.zip
+Multiplayer/IA/Alone_in_the_Dark = http://crymp.net/maps/hotspot/IA/Alone_in_the_Dark.zip
+Multiplayer/IA/Amazonia = http://crymp.net/maps/hotspot/IA/Amazonia.zip
+Multiplayer/IA/Archipelago = http://crymp.net/maps/hotspot/IA/Archipelago.zip
+Multiplayer/IA/Armada = http://crymp.net/maps/hotspot/IA/Armada.zip
+Multiplayer/IA/Bagdad = http://crymp.net/maps/hotspot/IA/Bagdad.zip
+Multiplayer/IA/Base_tor = http://crymp.net/maps/hotspot/IA/Base_tor.zip
+Multiplayer/IA/BASE_TOX = http://crymp.net/maps/hotspot/IA/BASE_TOX.zip
+Multiplayer/IA/beBOXER = http://crymp.net/maps/hotspot/IA/beBOXER.zip
+Multiplayer/IA/Borderline = http://crymp.net/maps/hotspot/IA/Borderline.zip
+Multiplayer/IA/BoxedIn = http://crymp.net/maps/hotspot/IA/BoxedIn.zip
+Multiplayer/IA/B_island = http://crymp.net/maps/hotspot/IA/B_island.zip
+Multiplayer/IA/Cabana = http://crymp.net/maps/hotspot/IA/Cabana.zip
+Multiplayer/IA/Caribbean = http://crymp.net/maps/hotspot/IA/Caribbean.zip
+Multiplayer/IA/Coast_v2 = http://crymp.net/maps/hotspot/IA/Coast_v2.zip
+Multiplayer/IA/Complex = http://crymp.net/maps/hotspot/IA/Complex.zip
+Multiplayer/IA/Condemned2 = http://crymp.net/maps/hotspot/IA/Condemned2.zip
+Multiplayer/IA/Container_war = http://crymp.net/maps/hotspot/IA/Container_war.zip
+Multiplayer/IA/Cootervillage = http://crymp.net/maps/hotspot/IA/Cootervillage.zip
+Multiplayer/IA/Costa = http://crymp.net/maps/hotspot/IA/Costa.zip
+Multiplayer/IA/CountryPath = http://crymp.net/maps/hotspot/IA/CountryPath.zip
+Multiplayer/IA/Crossroad = http://crymp.net/maps/hotspot/IA/Crossroad.zip
+Multiplayer/IA/Deposit = http://crymp.net/maps/hotspot/IA/Deposit.zip
+Multiplayer/IA/Desert = http://crymp.net/maps/hotspot/IA/Desert.zip
+Multiplayer/IA/dev_Nemesis = http://crymp.net/maps/hotspot/IA/dev_Nemesis.zip
+Multiplayer/IA/Docks = http://crymp.net/maps/hotspot/IA/Docks.zip
+Multiplayer/IA/dsg_1_aim = http://crymp.net/maps/hotspot/IA/dsg_1_aim.zip
+Multiplayer/IA/E4 = http://crymp.net/maps/hotspot/IA/E4.zip
+Multiplayer/IA/Eldorado = http://crymp.net/maps/hotspot/IA/Eldorado.zip
+Multiplayer/IA/Event = http://crymp.net/maps/hotspot/IA/Event.zip
+Multiplayer/IA/Excavation = http://crymp.net/maps/hotspot/IA/Excavation.zip
+Multiplayer/IA/Factory_tor = http://crymp.net/maps/hotspot/IA/Factory_tor.zip
+Multiplayer/IA/Forest = http://crymp.net/maps/hotspot/IA/Forest.zip
+Multiplayer/IA/Forest_IA = http://crymp.net/maps/hotspot/IA/Forest_IA.zip
+Multiplayer/IA/fp_Alienbay = http://crymp.net/maps/hotspot/IA/fp_Alienbay.zip
+Multiplayer/IA/GDC_06 = http://crymp.net/maps/hotspot/IA/GDC_06.zip
+Multiplayer/IA/GOLD_FinalVersion = http://crymp.net/maps/hotspot/IA/GOLD_FinalVersion.zip
+Multiplayer/IA/Gunisson = http://crymp.net/maps/hotspot/IA/Gunisson.zip
+Multiplayer/IA/HawkeIsland = http://crymp.net/maps/hotspot/IA/HawkeIsland.zip
+Multiplayer/IA/Hightec = http://crymp.net/maps/hotspot/IA/Hightec.zip
+Multiplayer/IA/IA_Crysis_Rally3 = http://crymp.net/maps/hotspot/IA/IA_Crysis_Rally3.zip
+Multiplayer/IA/Iceworld = http://crymp.net/maps/hotspot/IA/Iceworld.zip
+Multiplayer/IA/Ice_v2 = http://crymp.net/maps/hotspot/IA/Ice_v2.zip
+Multiplayer/IA/Incident = http://crymp.net/maps/hotspot/IA/Incident.zip
+Multiplayer/IA/Industrial_v2 = http://crymp.net/maps/hotspot/IA/Industrial_v2.zip
 Multiplayer/IA/Italy = http://crymp.net/maps/hotspot/IA/Italy.zip?whatever =
-Multiplayer/IA/Jox = http://crymp.net/maps/hotspot/IA/Jox.zip =
-Multiplayer/IA/Jungle = http://crymp.net/maps/hotspot/IA/Jungle.zip =
-Multiplayer/IA/JungleNight = http://crymp.net/maps/hotspot/IA/JungleNight.zip =
-Multiplayer/IA/KillHouse_Prime = http://crymp.net/maps/hotspot/IA/KillHouse_Prime.zip =
-Multiplayer/IA/Kontakt_2 = http://crymp.net/maps/hotspot/IA/Kontakt_2.zip =
-Multiplayer/IA/Lowlands = http://crymp.net/maps/hotspot/IA/Lowlands.zip =
-Multiplayer/IA/Maze = http://crymp.net/maps/hotspot/IA/Maze.zip =
-Multiplayer/IA/MonoX = http://crymp.net/maps/hotspot/IA/MonoX.zip =
-Multiplayer/IA/NBtX_TankBattle = http://crymp.net/maps/hotspot/IA/NBtX_TankBattle.zip =
-Multiplayer/IA/nouvo = http://crymp.net/maps/hotspot/IA/nouvo.zip =
-Multiplayer/IA/NRW_Industrial = http://crymp.net/maps/hotspot/IA/NRW_Industrial.zip =
-Multiplayer/IA/Nuke_em_Acid_V2 = http://crymp.net/maps/hotspot/IA/Nuke_em_Acid_V2.zip =
-Multiplayer/IA/Old_Mine = http://crymp.net/maps/hotspot/IA/Old_Mine.zip =
-Multiplayer/IA/One = http://crymp.net/maps/hotspot/IA/One.zip =
-Multiplayer/IA/Orange_Maze = http://crymp.net/maps/hotspot/IA/Orange_Maze.zip =
-Multiplayer/IA/Outpost = http://crymp.net/maps/hotspot/IA/Outpost.zip =
-Multiplayer/IA/Paramill = http://crymp.net/maps/hotspot/IA/Paramill.zip =
-Multiplayer/IA/persuader = http://crymp.net/maps/hotspot/IA/persuader.zip =
-Multiplayer/IA/pingbox = http://crymp.net/maps/hotspot/IA/pingbox.zip =
-Multiplayer/IA/PitchBlackv2 = http://crymp.net/maps/hotspot/IA/PitchBlackv2.zip =
-Multiplayer/IA/PoolDay = http://crymp.net/maps/hotspot/IA/PoolDay.zip =
-Multiplayer/IA/PoolDay_v2 = http://crymp.net/maps/hotspot/IA/PoolDay_v2.zip =
-Multiplayer/IA/Port = http://crymp.net/maps/hotspot/IA/Port.zip =
-Multiplayer/IA/Quarry = http://crymp.net/maps/hotspot/IA/Quarry.zip =
-Multiplayer/IA/Resort = http://crymp.net/maps/hotspot/IA/Resort.zip =
-Multiplayer/IA/Rooftops = http://crymp.net/maps/hotspot/IA/Rooftops.zip =
-Multiplayer/IA/Sahara = http://crymp.net/maps/hotspot/IA/Sahara.zip =
-Multiplayer/IA/sAng9_AimGauss = http://crymp.net/maps/hotspot/IA/sAng9_AimGauss.zip =
-Multiplayer/IA/Shibuya = http://crymp.net/maps/hotspot/IA/Shibuya.zip =
-Multiplayer/IA/shipment = http://crymp.net/maps/hotspot/IA/shipment.zip =
-Multiplayer/IA/Showdown = http://crymp.net/maps/hotspot/IA/Showdown.zip =
-Multiplayer/IA/Slope = http://crymp.net/maps/hotspot/IA/Slope.zip =
-Multiplayer/IA/SmallCompound = http://crymp.net/maps/hotspot/IA/SmallCompound.zip =
-Multiplayer/IA/SmallSteelmill = http://crymp.net/maps/hotspot/IA/SmallSteelmill.zip =
-Multiplayer/IA/Small_Jungle = http://crymp.net/maps/hotspot/IA/Small_Jungle.zip =
-Multiplayer/IA/SnowyVillage = http://crymp.net/maps/hotspot/IA/SnowyVillage.zip =
-Multiplayer/IA/Solidv2 = http://crymp.net/maps/hotspot/IA/Solidv2.zip =
-Multiplayer/IA/sphere_IA = http://crymp.net/maps/hotspot/IA/sphere_IA.zip =
-Multiplayer/IA/Steelmill = http://crymp.net/maps/hotspot/IA/Steelmill.zip =
-Multiplayer/IA/stream = http://crymp.net/maps/hotspot/IA/stream.zip =
-Multiplayer/IA/Suneara = http://crymp.net/maps/hotspot/IA/Suneara.zip =
-Multiplayer/IA/Swamp = http://crymp.net/maps/hotspot/IA/Swamp.zip =
-Multiplayer/IA/T-Battle = http://crymp.net/maps/hotspot/IA/T-Battle.zip =
-Multiplayer/IA/Teaparty = http://crymp.net/maps/hotspot/IA/Teaparty.zip =
-Multiplayer/IA/TekRise = http://crymp.net/maps/hotspot/IA/TekRise.zip =
-Multiplayer/IA/Tension = http://crymp.net/maps/hotspot/IA/Tension.zip =
-Multiplayer/IA/Tequendama_Falls = http://crymp.net/maps/hotspot/IA/Tequendama_Falls.zip =
-Multiplayer/IA/Terminal = http://crymp.net/maps/hotspot/IA/Terminal.zip =
-Multiplayer/IA/Terminal_Velocity = http://crymp.net/maps/hotspot/IA/Terminal_Velocity.zip =
-Multiplayer/IA/ThePit = http://crymp.net/maps/hotspot/IA/ThePit.zip =
-Multiplayer/IA/thewarehouse = http://crymp.net/maps/hotspot/IA/thewarehouse.zip =
-Multiplayer/IA/the_compound = http://crymp.net/maps/hotspot/IA/the_compound.zip =
-Multiplayer/IA/The_Cubic = http://crymp.net/maps/hotspot/IA/The_Cubic.zip =
-Multiplayer/IA/Tomato = http://crymp.net/maps/hotspot/IA/Tomato.zip =
-Multiplayer/IA/Train = http://crymp.net/maps/hotspot/IA/Train.zip =
-Multiplayer/IA/Tropic = http://crymp.net/maps/hotspot/IA/Tropic.zip =
-Multiplayer/IA/Urban_Combat = http://crymp.net/maps/hotspot/IA/Urban_Combat.zip =
-Multiplayer/IA/villager = http://crymp.net/maps/hotspot/IA/villager.zip =
-Multiplayer/IA/VillagerRevisited = http://crymp.net/maps/hotspot/IA/VillagerRevisited.zip =
-Multiplayer/IA/Whitehouse = http://crymp.net/maps/hotspot/IA/Whitehouse.zip =
-Multiplayer/IA/x4x10 = http://crymp.net/maps/hotspot/IA/x4x10.zip =
-Multiplayer/IA/xs_aimmap = http://crymp.net/maps/hotspot/IA/xs_aimmap.zip =
-Multiplayer/IA/Z-Jungle = http://crymp.net/maps/hotspot/IA/Z-Jungle.zip =
-Multiplayer/IA/~CoC~S'killer = http://crymp.net/maps/hotspot/IA/~CoC~S'killer.zip =
-Multiplayer/IA/Funny_Steelmill = http://crymp.net/maps/hotspot/IA/Funny_Steelmill.zip =
-Multiplayer/IA/SteelmillKita = http://crymp.net/maps/hotspot/IA/SteelmillKita.zip =
-Multiplayer/PS/actionsector = http://crymp.net/maps/hotspot/PS/actionsector.zip =
-Multiplayer/PS/AimElite = http://crymp.net/maps/hotspot/PS/AimElite.zip =
-Multiplayer/PS/Air = http://crymp.net/maps/hotspot/PS/Air.zip =
-Multiplayer/PS/Airfield = http://crymp.net/maps/hotspot/PS/Airfield.zip =
-Multiplayer/PS/Airstrip = http://crymp.net/maps/hotspot/PS/Airstrip.zip =
-Multiplayer/PS/Anguish = http://crymp.net/maps/hotspot/PS/Anguish.zip =
-Multiplayer/PS/Aquarium = http://crymp.net/maps/hotspot/PS/Aquarium.zip =
-Multiplayer/PS/Archipelago = http://crymp.net/maps/hotspot/PS/Archipelago.zip =
-Multiplayer/PS/Area52 = http://crymp.net/maps/hotspot/PS/Area52.zip =
-Multiplayer/PS/Armada = http://crymp.net/maps/hotspot/PS/Armada.zip =
-Multiplayer/PS/ArmadaInvasion = http://crymp.net/maps/hotspot/PS/ArmadaInvasion.zip =
-Multiplayer/PS/BattleBulge = http://crymp.net/maps/hotspot/PS/BattleBulge.zip =
-Multiplayer/PS/Battlefield = http://crymp.net/maps/hotspot/PS/Battlefield.zip =
-Multiplayer/PS/Beach = http://crymp.net/maps/hotspot/PS/Beach.zip =
-Multiplayer/PS/Beach_Ice = http://crymp.net/maps/hotspot/PS/Beach_Ice.zip =
-Multiplayer/PS/blizzard = http://crymp.net/maps/hotspot/PS/blizzard.zip =
-Multiplayer/PS/Bridges = http://crymp.net/maps/hotspot/PS/Bridges.zip =
-Multiplayer/PS/Canyon = http://crymp.net/maps/hotspot/PS/Canyon.zip =
-Multiplayer/PS/Caribbean = http://crymp.net/maps/hotspot/PS/Caribbean.zip =
-Multiplayer/PS/Country = http://crymp.net/maps/hotspot/PS/Country.zip =
-Multiplayer/PS/Crossroads = http://crymp.net/maps/hotspot/PS/Crossroads.zip =
-Multiplayer/PS/Deadwater = http://crymp.net/maps/hotspot/PS/Deadwater.zip =
-Multiplayer/PS/Desert-rivers = http://crymp.net/maps/hotspot/PS/Desert-rivers.zip =
-Multiplayer/PS/Desolation = http://crymp.net/maps/hotspot/PS/Desolation.zip =
-Multiplayer/PS/Frozen_Mesa = http://crymp.net/maps/hotspot/PS/Frozen_Mesa.zip =
-Multiplayer/PS/Frozen_Plantation = http://crymp.net/maps/hotspot/PS/Frozen_Plantation.zip =
-Multiplayer/PS/HighPS = http://crymp.net/maps/hotspot/PS/HighPS.zip =
-Multiplayer/PS/Highway1.1 = http://crymp.net/maps/hotspot/PS/Highway1.1.zip =
-Multiplayer/PS/High_Seas = http://crymp.net/maps/hotspot/PS/High_Seas.zip =
-Multiplayer/PS/Hillroads = http://crymp.net/maps/hotspot/PS/Hillroads.zip =
-Multiplayer/PS/IA_Illusion = http://crymp.net/maps/hotspot/PS/IA_Illusion.zip =
-Multiplayer/PS/IceWorld = http://crymp.net/maps/hotspot/PS/IceWorld.zip =
-Multiplayer/PS/Impact = http://crymp.net/maps/hotspot/PS/Impact.zip =
-Multiplayer/PS/Inlet = http://crymp.net/maps/hotspot/PS/Inlet.zip =
-Multiplayer/PS/Islands = http://crymp.net/maps/hotspot/PS/Islands.zip =
-Multiplayer/PS/Island_SE = http://crymp.net/maps/hotspot/PS/Island_SE.zip =
-Multiplayer/PS/Jungle = http://crymp.net/maps/hotspot/PS/Jungle.zip =
-Multiplayer/PS/KotH_Desolation = http://crymp.net/maps/hotspot/PS/KotH_Desolation.zip =
-Multiplayer/PS/KotH_Industrial = http://crymp.net/maps/hotspot/PS/KotH_Industrial.zip =
-Multiplayer/PS/KotH_Outpost = http://crymp.net/maps/hotspot/PS/KotH_Outpost.zip =
-Multiplayer/PS/KotH_Terminal = http://crymp.net/maps/hotspot/PS/KotH_Terminal.zip =
-Multiplayer/PS/Krakatoa = http://crymp.net/maps/hotspot/PS/Krakatoa.zip =
-Multiplayer/PS/L'isola = http://crymp.net/maps/hotspot/PS/L'isola.zip =
-Multiplayer/PS/Mercy-Island-PS = http://crymp.net/maps/hotspot/PS/Mercy-Island-PS.zip =
-Multiplayer/PS/Mesa = http://crymp.net/maps/hotspot/PS/Mesa.zip =
-Multiplayer/PS/Onslaught = http://crymp.net/maps/hotspot/PS/Onslaught.zip =
-Multiplayer/PS/Orangrey = http://crymp.net/maps/hotspot/PS/Orangrey.zip =
-Multiplayer/PS/Outpost = http://crymp.net/maps/hotspot/PS/Outpost.zip =
-Multiplayer/PS/Outpost2 = http://crymp.net/maps/hotspot/PS/Outpost2.zip =
-Multiplayer/PS/Outrun = http://crymp.net/maps/hotspot/PS/Outrun.zip =
-Multiplayer/PS/Plantation = http://crymp.net/maps/hotspot/PS/Plantation.zip =
-Multiplayer/PS/Project800 = http://crymp.net/maps/hotspot/PS/Project800.zip =
-Multiplayer/PS/PS_NesHem = http://crymp.net/maps/hotspot/PS/PS_NesHem.zip =
-Multiplayer/PS/Quarry = http://crymp.net/maps/hotspot/PS/Quarry.zip =
-Multiplayer/PS/Quarry_Wars_V2 = http://crymp.net/maps/hotspot/PS/Quarry_Wars_V2.zip =
-Multiplayer/PS/Race = http://crymp.net/maps/hotspot/PS/Race.zip =
-Multiplayer/PS/Reclamation = http://crymp.net/maps/hotspot/PS/Reclamation.zip =
-Multiplayer/PS/Refinery = http://crymp.net/maps/hotspot/PS/Refinery.zip =
-Multiplayer/PS/Refinery_light = http://crymp.net/maps/hotspot/PS/Refinery_light.zip =
-Multiplayer/PS/Refinery_light_v1.1 = http://crymp.net/maps/hotspot/PS/Refinery_light_v1.1.zip =
-Multiplayer/PS/Rock = http://crymp.net/maps/hotspot/PS/Rock.zip =
-Multiplayer/PS/sands_tow = http://crymp.net/maps/hotspot/PS/sands_tow.zip =
-Multiplayer/PS/Savanna = http://crymp.net/maps/hotspot/PS/Savanna.zip =
-Multiplayer/PS/Shore = http://crymp.net/maps/hotspot/PS/Shore.zip =
-Multiplayer/PS/Snow-covered = http://crymp.net/maps/hotspot/PS/Snow-covered.zip =
-Multiplayer/PS/Steelmill = http://crymp.net/maps/hotspot/PS/Steelmill.zip =
-Multiplayer/PS/Stranded = http://crymp.net/maps/hotspot/PS/Stranded.zip =
-Multiplayer/PS/Swamp = http://crymp.net/maps/hotspot/PS/Swamp.zip =
-Multiplayer/PS/Tactical = http://crymp.net/maps/hotspot/PS/Tactical.zip =
-Multiplayer/PS/TAW_BeachHead = http://crymp.net/maps/hotspot/PS/TAW_BeachHead.zip =
-Multiplayer/PS/TAW_Jail = http://crymp.net/maps/hotspot/PS/TAW_Jail.zip =
-Multiplayer/PS/TAW_Vietnam = http://crymp.net/maps/hotspot/PS/TAW_Vietnam.zip =
-Multiplayer/PS/thecanyon = http://crymp.net/maps/hotspot/PS/thecanyon.zip =
-Multiplayer/PS/the_valley = http://crymp.net/maps/hotspot/PS/the_valley.zip =
-Multiplayer/PS/Towers = http://crymp.net/maps/hotspot/PS/Towers.zip =
-Multiplayer/PS/Training = http://crymp.net/maps/hotspot/PS/Training.zip =
-Multiplayer/PS/Training_f = http://crymp.net/maps/hotspot/PS/Training_f.zip =
-Multiplayer/PS/Tremor = http://crymp.net/maps/hotspot/PS/Tremor.zip =
-Multiplayer/PS/Turbine_v1_1 = http://crymp.net/maps/hotspot/PS/Turbine_v1_1.zip =
-Multiplayer/PS/El_Alamein_D1 = http://crymp.net/maps/hotspot/PS/El_Alamein_D1.zip =
-Multiplayer/PS/El_Alamein_D2 = http://crymp.net/maps/hotspot/PS/El_Alamein_D2.zip =
+Multiplayer/IA/Jox = http://crymp.net/maps/hotspot/IA/Jox.zip
+Multiplayer/IA/Jungle = http://crymp.net/maps/hotspot/IA/Jungle.zip
+Multiplayer/IA/JungleNight = http://crymp.net/maps/hotspot/IA/JungleNight.zip
+Multiplayer/IA/KillHouse_Prime = http://crymp.net/maps/hotspot/IA/KillHouse_Prime.zip
+Multiplayer/IA/Kontakt_2 = http://crymp.net/maps/hotspot/IA/Kontakt_2.zip
+Multiplayer/IA/Lowlands = http://crymp.net/maps/hotspot/IA/Lowlands.zip
+Multiplayer/IA/Maze = http://crymp.net/maps/hotspot/IA/Maze.zip
+Multiplayer/IA/MonoX = http://crymp.net/maps/hotspot/IA/MonoX.zip
+Multiplayer/IA/NBtX_TankBattle = http://crymp.net/maps/hotspot/IA/NBtX_TankBattle.zip
+Multiplayer/IA/nouvo = http://crymp.net/maps/hotspot/IA/nouvo.zip
+Multiplayer/IA/NRW_Industrial = http://crymp.net/maps/hotspot/IA/NRW_Industrial.zip
+Multiplayer/IA/Nuke_em_Acid_V2 = http://crymp.net/maps/hotspot/IA/Nuke_em_Acid_V2.zip
+Multiplayer/IA/Old_Mine = http://crymp.net/maps/hotspot/IA/Old_Mine.zip
+Multiplayer/IA/One = http://crymp.net/maps/hotspot/IA/One.zip
+Multiplayer/IA/Orange_Maze = http://crymp.net/maps/hotspot/IA/Orange_Maze.zip
+Multiplayer/IA/Outpost = http://crymp.net/maps/hotspot/IA/Outpost.zip
+Multiplayer/IA/Paramill = http://crymp.net/maps/hotspot/IA/Paramill.zip
+Multiplayer/IA/persuader = http://crymp.net/maps/hotspot/IA/persuader.zip
+Multiplayer/IA/pingbox = http://crymp.net/maps/hotspot/IA/pingbox.zip
+Multiplayer/IA/PitchBlackv2 = http://crymp.net/maps/hotspot/IA/PitchBlackv2.zip
+Multiplayer/IA/PoolDay = http://crymp.net/maps/hotspot/IA/PoolDay.zip
+Multiplayer/IA/PoolDay_v2 = http://crymp.net/maps/hotspot/IA/PoolDay_v2.zip
+Multiplayer/IA/Port = http://crymp.net/maps/hotspot/IA/Port.zip
+Multiplayer/IA/Quarry = http://crymp.net/maps/hotspot/IA/Quarry.zip
+Multiplayer/IA/Resort = http://crymp.net/maps/hotspot/IA/Resort.zip
+Multiplayer/IA/Rooftops = http://crymp.net/maps/hotspot/IA/Rooftops.zip
+Multiplayer/IA/Sahara = http://crymp.net/maps/hotspot/IA/Sahara.zip
+Multiplayer/IA/sAng9_AimGauss = http://crymp.net/maps/hotspot/IA/sAng9_AimGauss.zip
+Multiplayer/IA/Shibuya = http://crymp.net/maps/hotspot/IA/Shibuya.zip
+Multiplayer/IA/shipment = http://crymp.net/maps/hotspot/IA/shipment.zip
+Multiplayer/IA/Showdown = http://crymp.net/maps/hotspot/IA/Showdown.zip
+Multiplayer/IA/Slope = http://crymp.net/maps/hotspot/IA/Slope.zip
+Multiplayer/IA/SmallCompound = http://crymp.net/maps/hotspot/IA/SmallCompound.zip
+Multiplayer/IA/SmallSteelmill = http://crymp.net/maps/hotspot/IA/SmallSteelmill.zip
+Multiplayer/IA/Small_Jungle = http://crymp.net/maps/hotspot/IA/Small_Jungle.zip
+Multiplayer/IA/SnowyVillage = http://crymp.net/maps/hotspot/IA/SnowyVillage.zip
+Multiplayer/IA/Solidv2 = http://crymp.net/maps/hotspot/IA/Solidv2.zip
+Multiplayer/IA/sphere_IA = http://crymp.net/maps/hotspot/IA/sphere_IA.zip
+Multiplayer/IA/Steelmill = http://crymp.net/maps/hotspot/IA/Steelmill.zip
+Multiplayer/IA/stream = http://crymp.net/maps/hotspot/IA/stream.zip
+Multiplayer/IA/Suneara = http://crymp.net/maps/hotspot/IA/Suneara.zip
+Multiplayer/IA/Swamp = http://crymp.net/maps/hotspot/IA/Swamp.zip
+Multiplayer/IA/T-Battle = http://crymp.net/maps/hotspot/IA/T-Battle.zip
+Multiplayer/IA/Teaparty = http://crymp.net/maps/hotspot/IA/Teaparty.zip
+Multiplayer/IA/TekRise = http://crymp.net/maps/hotspot/IA/TekRise.zip
+Multiplayer/IA/Tension = http://crymp.net/maps/hotspot/IA/Tension.zip
+Multiplayer/IA/Tequendama_Falls = http://crymp.net/maps/hotspot/IA/Tequendama_Falls.zip
+Multiplayer/IA/Terminal = http://crymp.net/maps/hotspot/IA/Terminal.zip
+Multiplayer/IA/Terminal_Velocity = http://crymp.net/maps/hotspot/IA/Terminal_Velocity.zip
+Multiplayer/IA/ThePit = http://crymp.net/maps/hotspot/IA/ThePit.zip
+Multiplayer/IA/thewarehouse = http://crymp.net/maps/hotspot/IA/thewarehouse.zip
+Multiplayer/IA/the_compound = http://crymp.net/maps/hotspot/IA/the_compound.zip
+Multiplayer/IA/The_Cubic = http://crymp.net/maps/hotspot/IA/The_Cubic.zip
+Multiplayer/IA/Tomato = http://crymp.net/maps/hotspot/IA/Tomato.zip
+Multiplayer/IA/Train = http://crymp.net/maps/hotspot/IA/Train.zip
+Multiplayer/IA/Tropic = http://crymp.net/maps/hotspot/IA/Tropic.zip
+Multiplayer/IA/Urban_Combat = http://crymp.net/maps/hotspot/IA/Urban_Combat.zip
+Multiplayer/IA/villager = http://crymp.net/maps/hotspot/IA/villager.zip
+Multiplayer/IA/VillagerRevisited = http://crymp.net/maps/hotspot/IA/VillagerRevisited.zip
+Multiplayer/IA/Whitehouse = http://crymp.net/maps/hotspot/IA/Whitehouse.zip
+Multiplayer/IA/x4x10 = http://crymp.net/maps/hotspot/IA/x4x10.zip
+Multiplayer/IA/xs_aimmap = http://crymp.net/maps/hotspot/IA/xs_aimmap.zip
+Multiplayer/IA/Z-Jungle = http://crymp.net/maps/hotspot/IA/Z-Jungle.zip
+Multiplayer/IA/~CoC~S'killer = http://crymp.net/maps/hotspot/IA/~CoC~S'killer.zip
+Multiplayer/IA/Funny_Steelmill = http://crymp.net/maps/hotspot/IA/Funny_Steelmill.zip
+Multiplayer/IA/SteelmillKita = http://crymp.net/maps/hotspot/IA/SteelmillKita.zip
+Multiplayer/PS/actionsector = http://crymp.net/maps/hotspot/PS/actionsector.zip
+Multiplayer/PS/AimElite = http://crymp.net/maps/hotspot/PS/AimElite.zip
+Multiplayer/PS/Air = http://crymp.net/maps/hotspot/PS/Air.zip
+Multiplayer/PS/Airfield = http://crymp.net/maps/hotspot/PS/Airfield.zip
+Multiplayer/PS/Airstrip = http://crymp.net/maps/hotspot/PS/Airstrip.zip
+Multiplayer/PS/Anguish = http://crymp.net/maps/hotspot/PS/Anguish.zip
+Multiplayer/PS/Aquarium = http://crymp.net/maps/hotspot/PS/Aquarium.zip
+Multiplayer/PS/Archipelago = http://crymp.net/maps/hotspot/PS/Archipelago.zip
+Multiplayer/PS/Area52 = http://crymp.net/maps/hotspot/PS/Area52.zip
+Multiplayer/PS/Armada = http://crymp.net/maps/hotspot/PS/Armada.zip
+Multiplayer/PS/ArmadaInvasion = http://crymp.net/maps/hotspot/PS/ArmadaInvasion.zip
+Multiplayer/PS/BattleBulge = http://crymp.net/maps/hotspot/PS/BattleBulge.zip
+Multiplayer/PS/Battlefield = http://crymp.net/maps/hotspot/PS/Battlefield.zip
+Multiplayer/PS/Beach = http://crymp.net/maps/hotspot/PS/Beach.zip
+Multiplayer/PS/Beach_Ice = http://crymp.net/maps/hotspot/PS/Beach_Ice.zip
+Multiplayer/PS/blizzard = http://crymp.net/maps/hotspot/PS/blizzard.zip
+Multiplayer/PS/Bridges = http://crymp.net/maps/hotspot/PS/Bridges.zip
+Multiplayer/PS/Canyon = http://crymp.net/maps/hotspot/PS/Canyon.zip
+Multiplayer/PS/Caribbean = http://crymp.net/maps/hotspot/PS/Caribbean.zip
+Multiplayer/PS/Country = http://crymp.net/maps/hotspot/PS/Country.zip
+Multiplayer/PS/Crossroads = http://crymp.net/maps/hotspot/PS/Crossroads.zip
+Multiplayer/PS/Deadwater = http://crymp.net/maps/hotspot/PS/Deadwater.zip
+Multiplayer/PS/Desert-rivers = http://crymp.net/maps/hotspot/PS/Desert-rivers.zip
+Multiplayer/PS/Desolation = http://crymp.net/maps/hotspot/PS/Desolation.zip
+Multiplayer/PS/Frozen_Mesa = http://crymp.net/maps/hotspot/PS/Frozen_Mesa.zip
+Multiplayer/PS/Frozen_Plantation = http://crymp.net/maps/hotspot/PS/Frozen_Plantation.zip
+Multiplayer/PS/HighPS = http://crymp.net/maps/hotspot/PS/HighPS.zip
+Multiplayer/PS/Highway1.1 = http://crymp.net/maps/hotspot/PS/Highway1.1.zip
+Multiplayer/PS/High_Seas = http://crymp.net/maps/hotspot/PS/High_Seas.zip
+Multiplayer/PS/Hillroads = http://crymp.net/maps/hotspot/PS/Hillroads.zip
+Multiplayer/PS/IA_Illusion = http://crymp.net/maps/hotspot/PS/IA_Illusion.zip
+Multiplayer/PS/IceWorld = http://crymp.net/maps/hotspot/PS/IceWorld.zip
+Multiplayer/PS/Impact = http://crymp.net/maps/hotspot/PS/Impact.zip
+Multiplayer/PS/Inlet = http://crymp.net/maps/hotspot/PS/Inlet.zip
+Multiplayer/PS/Islands = http://crymp.net/maps/hotspot/PS/Islands.zip
+Multiplayer/PS/Island_SE = http://crymp.net/maps/hotspot/PS/Island_SE.zip
+Multiplayer/PS/Jungle = http://crymp.net/maps/hotspot/PS/Jungle.zip
+Multiplayer/PS/KotH_Desolation = http://crymp.net/maps/hotspot/PS/KotH_Desolation.zip
+Multiplayer/PS/KotH_Industrial = http://crymp.net/maps/hotspot/PS/KotH_Industrial.zip
+Multiplayer/PS/KotH_Outpost = http://crymp.net/maps/hotspot/PS/KotH_Outpost.zip
+Multiplayer/PS/KotH_Terminal = http://crymp.net/maps/hotspot/PS/KotH_Terminal.zip
+Multiplayer/PS/Krakatoa = http://crymp.net/maps/hotspot/PS/Krakatoa.zip
+Multiplayer/PS/L'isola = http://crymp.net/maps/hotspot/PS/L'isola.zip
+Multiplayer/PS/Mercy-Island-PS = http://crymp.net/maps/hotspot/PS/Mercy-Island-PS.zip
+Multiplayer/PS/Mesa = http://crymp.net/maps/hotspot/PS/Mesa.zip
+Multiplayer/PS/Onslaught = http://crymp.net/maps/hotspot/PS/Onslaught.zip
+Multiplayer/PS/Orangrey = http://crymp.net/maps/hotspot/PS/Orangrey.zip
+Multiplayer/PS/Outpost = http://crymp.net/maps/hotspot/PS/Outpost.zip
+Multiplayer/PS/Outpost2 = http://crymp.net/maps/hotspot/PS/Outpost2.zip
+Multiplayer/PS/Outrun = http://crymp.net/maps/hotspot/PS/Outrun.zip
+Multiplayer/PS/Plantation = http://crymp.net/maps/hotspot/PS/Plantation.zip
+Multiplayer/PS/Project800 = http://crymp.net/maps/hotspot/PS/Project800.zip
+Multiplayer/PS/PS_NesHem = http://crymp.net/maps/hotspot/PS/PS_NesHem.zip
+Multiplayer/PS/Quarry = http://crymp.net/maps/hotspot/PS/Quarry.zip
+Multiplayer/PS/Quarry_Wars_V2 = http://crymp.net/maps/hotspot/PS/Quarry_Wars_V2.zip
+Multiplayer/PS/Race = http://crymp.net/maps/hotspot/PS/Race.zip
+Multiplayer/PS/Reclamation = http://crymp.net/maps/hotspot/PS/Reclamation.zip
+Multiplayer/PS/Refinery = http://crymp.net/maps/hotspot/PS/Refinery.zip
+Multiplayer/PS/Refinery_light = http://crymp.net/maps/hotspot/PS/Refinery_light.zip
+Multiplayer/PS/Refinery_light_v1.1 = http://crymp.net/maps/hotspot/PS/Refinery_light_v1.1.zip
+Multiplayer/PS/Rock = http://crymp.net/maps/hotspot/PS/Rock.zip
+Multiplayer/PS/sands_tow = http://crymp.net/maps/hotspot/PS/sands_tow.zip
+Multiplayer/PS/Savanna = http://crymp.net/maps/hotspot/PS/Savanna.zip
+Multiplayer/PS/Shore = http://crymp.net/maps/hotspot/PS/Shore.zip
+Multiplayer/PS/Snow-covered = http://crymp.net/maps/hotspot/PS/Snow-covered.zip
+Multiplayer/PS/Steelmill = http://crymp.net/maps/hotspot/PS/Steelmill.zip
+Multiplayer/PS/Stranded = http://crymp.net/maps/hotspot/PS/Stranded.zip
+Multiplayer/PS/Swamp = http://crymp.net/maps/hotspot/PS/Swamp.zip
+Multiplayer/PS/Tactical = http://crymp.net/maps/hotspot/PS/Tactical.zip
+Multiplayer/PS/TAW_BeachHead = http://crymp.net/maps/hotspot/PS/TAW_BeachHead.zip
+Multiplayer/PS/TAW_Jail = http://crymp.net/maps/hotspot/PS/TAW_Jail.zip
+Multiplayer/PS/TAW_Vietnam = http://crymp.net/maps/hotspot/PS/TAW_Vietnam.zip
+Multiplayer/PS/thecanyon = http://crymp.net/maps/hotspot/PS/thecanyon.zip
+Multiplayer/PS/the_valley = http://crymp.net/maps/hotspot/PS/the_valley.zip
+Multiplayer/PS/Towers = http://crymp.net/maps/hotspot/PS/Towers.zip
+Multiplayer/PS/Training = http://crymp.net/maps/hotspot/PS/Training.zip
+Multiplayer/PS/Training_f = http://crymp.net/maps/hotspot/PS/Training_f.zip
+Multiplayer/PS/Tremor = http://crymp.net/maps/hotspot/PS/Tremor.zip
+Multiplayer/PS/Turbine_v1_1 = http://crymp.net/maps/hotspot/PS/Turbine_v1_1.zip
+Multiplayer/PS/El_Alamein_D1 = http://crymp.net/maps/hotspot/PS/El_Alamein_D1.zip
+Multiplayer/PS/El_Alamein_D2 = http://crymp.net/maps/hotspot/PS/El_Alamein_D2.zip

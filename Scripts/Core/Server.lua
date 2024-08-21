@@ -40,6 +40,7 @@ Server.Init = function(self)
         "ServerEvents",
         "ServerPublisher",
         "ServerRPC",
+        "ServerDefense"
     }
 
     -- Unused
@@ -192,6 +193,7 @@ Server.InitCore = function(self)
     ServerPublisher:Init()
     ServerRPC:Init()
     ServerEvents:Init()
+    ServerDefense:Init()
 end
 
 ----------------
@@ -261,6 +263,8 @@ Server.InitInternals = function(self)
     ServerNames:Init()
     ServerChannels:Init()
     ServerItemHandler:Init()
+
+    ServerVoting:Init()
 
     if (ClientMod) then
         ClientMod:Init()
@@ -390,6 +394,9 @@ end
 Server.OnMapReset = function(self)
 
     self:Reset()
+
+    ServerMaps:OnReset()
+
     CallEvent(eServerEvent_MapReset)
 end
 

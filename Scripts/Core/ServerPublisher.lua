@@ -146,6 +146,13 @@ ServerPublisher.OnTick = function(self)
         return
     end
 
+    if (GetCVar("sv_lanOnly") > 0) then
+        self.Exposed = false
+        self.ExposedSuccess = false
+        self.LanEnabled = true
+        return
+    end
+
     -- Expose
     if (not self.Exposed) then
         self:ExposeServer()
@@ -191,7 +198,7 @@ ServerPublisher.OnUpdated = function(self, sError, sResponse, iCode)
 
     self.UpdateFail = timernew(self.ErrorRecovery)
     if (iCode ~= 200) then
-        return self:LogError("Status Update failed with code %d (%s)", checkNumber(iCode), g_ts(sError))
+        return self:LogError("Status Update failed with code %d (%s)", checkNumber(iCode), string.gsub(g_ts(sError),"\n",""))
     end
 
     if (sResponse ~= "OK") then

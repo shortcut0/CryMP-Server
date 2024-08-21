@@ -124,18 +124,22 @@ ServerInjector.Inject = function(aParams, aInfo)
     end
 
     local hClass = _G[sEntity]
-    if (not hClass) then
+    if (hClass == nil and isString(sEntity)) then
 
         -- FIXME: Error Handler
         -- ErrorHandler()
 
-        ServerLogError("Class %s to Inject not found", g_ts(sEntity))
+        HandleError("Class %s to Inject not found.. trying to reload", g_ts(sEntity))
+        local sFile = ServerDLL.GetScriptPath and ServerDLL.GetScriptPath(g_ts(sEntity))
+        if (sFile) then
+            ServerLog("Reloading %s..",sFile)
+            Script.ReloadScript(sFile, 1, 1)
+        end
         --return
     end
 
     local function Replace(sT, c, f)
 
-        --Debug(string.format("replace %s on %s",sT,g_ts(c)))
         local aNest = string.split(sT, ".")
         local iNest = table.size(aNest)
         if (iNest == 1) then
@@ -143,10 +147,9 @@ ServerInjector.Inject = function(aParams, aInfo)
             local o = (sT .. "_ORIGINAL")
             local r = (sT .. "_REPLACED")
             if (iType == eInjection_Replace) then
+                --ServerLog("%s[xyz.%s]=%s",g_ts(sEntity),sT,g_ts(f))
                 c[sT] = f
-
             else
-
                 -- FIXME
                 throw_error("implementation missing")
             end

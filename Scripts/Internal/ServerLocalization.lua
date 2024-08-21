@@ -61,6 +61,9 @@ ServerLocale.LocalizeNestForClient = function(self, hClient, sMsg, ...)
     local iMaxSteps = 10
     while (true) do
 
+        --ServerLog("next stepp..%d",iNextFmt)
+        --ServerLog(debug.traceback())
+
         if (iNextFmt >= iMaxSteps) then
             ServerLogWarning("localization recursion too deep (%d). Input: %s, Result: %s!", iNextFmt, sMsg, sFinalMsg)
             break
@@ -69,14 +72,19 @@ ServerLocale.LocalizeNestForClient = function(self, hClient, sMsg, ...)
         sNextLocale = string.match(sFinalMsg, "(@[%w_]+)")
 
         if (not sNextLocale) then
+            --ServerLog("%s, no next locale found..!",sMsg)
             break
         end
 
         sNextLocalized = Localize(sNextLocale, sLang, bExtended ,true)
         if (not sNextLocalized or sNextLocalized == sNextLocale) then
-            break
+            --ServerLog("failed for %s",sMsg)
+            --break
+            -- dont break, just destroy the current result, so we can try to localize the next one :3
+            sNextLocalized = "{missing_" .. string.gsub(sNextLocale, "@", "") .. "}"
         end
 
+        ServerLog("next: %s === %s",sNextLocale,sNextLocalized)
         -- format next string
         sFinalMsg = sFinalMsg:gsub(sNextLocale, Logger:FormatLocalized(sNextLocalized, (aFmt[iNextFmt] or {})))
         iNextFmt = (iNextFmt + 1)
@@ -118,7 +126,7 @@ ServerLocale.LocalizeText = function(self, sId, sLang, bForceExt, noReturn)
         if (noReturn) then
             return sId--("!{error:missing_" .. string.gsub(sId, "@", "AT") .. "}")
         end
-        return ("@{error:missing_" .. sId .. "}")
+        return ("{error:missing_" .. sId .. "}")
     end
 
     sLang = (sLang or sDefault)
@@ -129,7 +137,7 @@ ServerLocale.LocalizeText = function(self, sId, sLang, bForceExt, noReturn)
     if (not aContent) then
 
         HandleError("Missing Language: " .. g_ts(sLang) .. " for Locale " .. g_ts(sId))
-        return ("@{error:missing_" .. sId .. "_" .. sLang .. "}")
+        return ("{error:missing_" .. sId .. "_" .. sLang .. "}")
     end
 
     local sLocalized = aContent.regular

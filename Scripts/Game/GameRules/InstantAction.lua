@@ -503,12 +503,19 @@ function InstantAction.Server:OnTimer(timerId, msec)
 	if (timerId==self.TICK_TIMERID) then
 		if (self.OnTick) then
 			--pcall(self.OnTick, self);
-			self:OnTick();
-			self:SetTimer(self.TICK_TIMERID, self.TICK_TIME);
+			self:OnTick()
+			self:SetTimer(self.TICK_TIMERID, self.TICK_TIME)
 		end
 	elseif(timerId==self.NEXTLEVEL_TIMERID) then
-		self:GotoState("Reset");
-		self.game:NextLevel();
+
+		if (self.NoMapChange) then
+			self.NoMapChange = nil
+			Debug("DONT change! FUCK")
+			return
+		end
+
+		self:GotoState("Reset")
+		self.game:NextLevel()
 	end
 end
 

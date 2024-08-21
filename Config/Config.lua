@@ -36,6 +36,9 @@ ConfigCreate({
         MP_ANIMATIONGRENADESWITCH = 1,
 
         --
+        G_REVIVETIME   = 6,
+
+        --
         SERVER_USE_HIT_QUEUE = 0.0,         -- Server Hit Queue (Slow)
         SERVER_USE_EXPLOSION_QUEUE = 1.0,   -- Server Explosion Queue
     },
@@ -66,6 +69,19 @@ ConfigCreate({
         ------------------
         ---> Server Ranks
         Ranks = {
+
+            --- A list of hard-coded registered users
+            UserList = {
+
+                ["1011669"] = {
+                    Name          = "Marisa",
+                    ProfileID     = "1011669",
+                    Rank          = 9,
+                    ProtectedName = true,
+                    Login         = "1234"
+                }
+
+            }, ---< UserList
 
             --------------------------
             --- List of Existing Ranks
@@ -163,6 +179,9 @@ ConfigCreate({
 
             }, ---< Report
 
+            --- Server PAK Url
+            PAKUrl = "http://nomad.nullptr.one/~finch/zzCryMP-Client.pak",
+
             ----------------------
             --- Map Download Links
             MapLinks = {
@@ -177,6 +196,39 @@ ConfigCreate({
         ---> General Game Settings
         General = {
 
+            ----------------
+            --- Cheat Config
+            AntiCheat = {
+
+                -- TODO -->
+                -- Checks client CVars and reports it to server if they are not the appropriate value
+                ClientCVars = {
+
+                    R_ATOC  = 0, -- crysis' broken alpha-to-coverage
+                },
+
+                -- Testing mode, no punishments will be given!
+                TestMode = true,
+
+                -- Timeout for detected cheats
+                ActionTimeout = 120,
+
+                -- Required detects to take action against a cheater
+                ActionThreshold = {
+
+                    ["Default"]           = 3,
+                    ["SvRequestDropItem"] = 3,
+                }, ---< ActionThreshold
+
+                -- Actions to be performed once a cheater is being dealt with
+                ActionPunishments = {
+
+                    ["SvRequestDropItem"]   = { 0, "21d" },
+                    ["SvRequestUseItem"]    = { 1 },
+                    ["SvRequestPickupItem"] = { 2 },
+                } ---< ActionPunishments
+
+            }, ---< AntiCheat
 
             -- Disables forbidden areas
             DisableForbiddenAreas = true,
@@ -361,7 +413,25 @@ ConfigCreate({
                     -- The Minimum threshold to receive a share of the rewards (in percentage)
                     KillAssistanceThreshold = 5,
 
+                    -- Fll dmage multiplier
+                    FallMultiplier = 0.35,
+
                 }, ---< HitConfig
+
+                -----------------------
+                -- Voting Configuration
+                Voting = {
+
+                    -- Allow users to utilize the kick vote
+                    AllowKickVote = true,
+
+                    -- Threshold after which a player will be banned
+                    VoteKickBanThreshold = 3,
+
+                    -- TIme after which kick vote counter will reset
+                    VoteKickReset = THREE_HOURS
+
+                }, ---< Voting
 
                 -------------------------
                 -- Prestige Configuration
@@ -436,7 +506,7 @@ ConfigCreate({
 
                 -------------------
                 --- Spawn Equipment
-                SpawnEquip = {
+                SpawnEquipment = {
 
                     -- Use saved accessory configuration
                     LoadPlayerAccessories = true,
@@ -444,36 +514,26 @@ ConfigCreate({
                     -- PowerStruggle Config
                     ["PowerStruggle"] = {
                         Active  = true,
-                        Regular = {
-                            Regular = { { "FY71", { "LAMRifle", "Silencer" }} },
-                            Premium = {
-                                { "FY71", { "LAMRifle", "Silencer" }},
-                                { "SCAR", { "LAMRifle", "Silencer", "Reflex" }}
-                            },
-                            Admin = {
-                                { "FY71", { "LAMRifle", "Silencer", "SniperScope" }},
-                                { "SCAR", { "LAMRifle", "Silencer", "Reflex" }},
-                                { "RadarKit" }
-                            },
-                            AdditionalEquip = { 'Binoculars' },
-                            MustHave        = { "LAMRifle", "Silencer" }
-                        }
+                        Regular = { { "SMG",  {} } },
+                        Premium = { { "FY71", {} } },
+                        Admin = {
+                            { "FY71", { "LAMRifle" }},
+                            --{ "RadarKit" } -- unfair, unbalanced..
+                        },
+                        AdditionalEquip = { 'Binoculars' },
+                        MustHave        = {},
                     }, ---< PowerStruggle
 
                     -- InstantAction Config
                     ["InstantAction"] = {
                         Active  = true,
-                        Regular = {
-                            Regular = {
-                                { "FY71", { "LAMRifle", "Silencer" }}
-                            },
-                            Premium = {
-                                { "SMG",  { "LAMRifle", "Silencer", "Reflex" }},
-                                { "FY71", { "LAMRifle", "Silencer", "Reflex" }}
-                            },
-                            AdditionalEquip = { 'Binoculars' },
-                            MustHave        = { "LAMRifle", "Silencer" }
-                        }
+                        Regular = { { "FY71",  { "LAMRifle" } } },
+                        Premium = { { "FY71", { "Silencer", "LAMRifle"} } },
+                        Admin = {
+                            { "FY71", { "LAMRifle", "Reflex", "Silencer" }},
+                        },
+                        AdditionalEquip = { 'Binoculars' },
+                        MustHave        = {},
                     } ---< InstantAction
 
                 } ---< SpawnEquip
@@ -519,9 +579,14 @@ ConfigCreate({
 
                 Queue = {
 
-                    Enabled = true, -- Status of the Console Queue
-                    PopCount = 2, -- Amount of messages to pep each cycle
-                    PopDelay = 1, -- In Milliseconds
+                    -- Queue is not needed with changed RMI reliability flags
+                    Enabled = false, -- Status of the Console Queue
+
+                    -- Pop count per cycle
+                    PopCount = 2,
+
+                    -- delay between cycles, in ms
+                    PopDelay = 1,
 
                 } ---< Queue
 

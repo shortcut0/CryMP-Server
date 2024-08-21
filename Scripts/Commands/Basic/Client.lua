@@ -20,3 +20,26 @@ AddCommand({
         return true
     end
 })
+
+------------
+AddCommand({
+    Name = "clcvar",
+    Access = GetLowestRank(), -- Must be accessible to all!
+
+    Arguments = {
+        {"",""},
+        {"",""},
+        {"",""}
+    },
+
+    Properties = {
+        Hidden = true,
+        NoChatResponse = true,
+        NoConsoleResponse = true
+    },
+
+    Function = function(self, x, sCVar, sValue)
+        ServerDefense:CheckCVar(self, x, sCVar, sValue)
+        return true
+    end
+})

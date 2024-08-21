@@ -80,7 +80,7 @@ AddCommand({
 
     Function = function(self, hIndex)
 
-        local aList = ErrorHandler:GetErrorList()
+        local aList = table.copy(ErrorHandler:GetErrorList())
         if (table.empty(aList)) then
             return false, self:Localize("@l_ui_ErrorLogEmpty")
         end

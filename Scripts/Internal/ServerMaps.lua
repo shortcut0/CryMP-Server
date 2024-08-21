@@ -319,6 +319,18 @@ end
 ---------------
 ServerMaps.StartMap = function(self, hAdmin, sMap, iTimer)
 
+    local aInfo, sMsg = self:GetMap(sMap)
+    if (not isArray(aInfo)) then
+        return aInfo, sMsg
+    end
+
+    self:StartLevel(table.merge(aInfo[1], { ChangeTimer = iTimer }))
+    Debug("change..")
+end
+
+---------------
+ServerMaps.GetMap = function(self, sMap, hAdmin)
+
     local aInfo = self:FindLevel(sMap)
     if (table.empty(aInfo)) then
         return false, hAdmin:Localize("@l_ui_levelNotFound", { sMap })
@@ -328,14 +340,13 @@ ServerMaps.StartMap = function(self, hAdmin, sMap, iTimer)
         return true
     end
 
-    self:StartLevel(table.merge(aInfo[1], { ChangeTimer = iTimer }))
-    Debug("change..")
+    return aInfo
 end
 
 ---------------
 ServerMaps.SortResults = function(self, aList, sFilter)
 
-    Debug(aList)
+    --Debug(aList)
     local aSorted = {}
     local sType, sRules, sMap
     for _, aInfo in pairs(aList) do
@@ -371,12 +382,29 @@ ServerMaps.FindLevel = function(self, sMap)
 end
 
 ---------------
+ServerMaps.OnReset = function(self, aInfo)
+    self.MapChanged = true
+    self.EndGame = nil
+
+    g_gameRules.QuietGameEnd = false
+    g_gameRules.NoMapChange = false
+    g_gameRules.GameEnded = nil
+
+    if (self.RestartTimer) then
+        Script.KillTimer(self.RestartTimer)
+    end
+    self.RestartCD = nil
+    self.RestartTimer = nil
+end
+
+---------------
 ServerMaps.StartLevel = function(self, aInfo)
 
     local sMap       = aInfo.MapPath
     local sRules     = self:LongRules(aInfo.MapRules)
     local iTimeLimit = (aInfo.TimeLimit or self.DefaultTimeLimit)
     local iTimer     = math.max(5, self.MapChangeTimer or aInfo.ChangeTimer or 0)
+    local bEndGame   = aInfo.EndGame
 
     if (self.LevelChangeTimer) then
         if (aInfo.KeepTimer) then
@@ -385,6 +413,13 @@ ServerMaps.StartLevel = function(self, aInfo)
         Script.KillTimer(self.LevelChangeTimer)
     end
 
+    if (aInfo.Quiet) then
+        g_gameRules.QuietGameEnd = true
+    else
+        g_gameRules.QuietGameEnd = false
+    end
+
+    -- risa risa, dont silence these.. for now!
     if (not g_gameRules.GameEnded) then
         Logger:LogEvent(eLogEvent_Maps, "@l_ui_startingLevel", aInfo.MapName, sRules, (iTimer .. "s"))
         SendMsg(CHAT_SERVER_LOCALE, ALL_PLAYERS, "@l_ui_startingLevel_Chat", aInfo.MapName, sRules, math.calctime(iTimer, nil, 3))
@@ -392,12 +427,28 @@ ServerMaps.StartLevel = function(self, aInfo)
         iTimer = 0
     end
 
+    if (bEndGame) then
+        if (g_gameRules.IS_PS) then
+            g_gameRules:EndGameWithWinner_PS()
+        else
+            g_gameRules:EndGameWithWinner_IA()
+        end
+        g_gameRules.NoMapChange = true
+    end
+
     self.LevelChangeTimer = Script.SetTimer((iTimer * 1000), function()
 
         -- FIXME: EndGame()!
 
+        if (self.RestartTimer) then
+            Script.KillTimer(self.RestartTimer)
+        end
+        self.MapChanged = true
         self.EndGame = nil
+
+        g_gameRules.NoMapChange = false
         g_gameRules.GameEnded = nil
+
         System.SetCVar("g_timeLimit", g_ts(iTimeLimit / 60))
         System.SetCVar("sv_gameRules", sRules)
         System.ExecuteCommand("map " .. sMap)
@@ -498,6 +549,21 @@ ServerMaps.ShortRules = function(self, sRules)
 end
 
 ---------------
+ServerMaps.CreateLevelInfo = function(self, sPath, iTimer)
+
+    --Debug(">",sPath)
+    -- wtf is this.. who made this?
+    return isArray(sPath) and sPath or {
+
+        MapPath = sPath,
+        MapName = string.match(sPath, ".-/../(.*)") or sPath,
+        ChangeTimer = (iTimer or 10)
+
+    }
+
+end
+
+---------------
 ServerMaps.GetDefaultTimeLimit = function(self, sMap)
 
     local sName, sRules, sType = string.matchex(sMap, unpack(self.MapPatterns))
@@ -508,6 +574,42 @@ ServerMaps.GetDefaultTimeLimit = function(self, sMap)
 end
 
 ---------------
+ServerMaps.GetTimeLimit = function(self, hDefault)
+
+    if (g_pGame:IsTimeLimited()) then
+        return g_pGame:GetRemainingGameTime()
+    end
+    return hDefault
+end
+
+---------------
+ServerMaps.RestartMap = function(self, hAdmin, iCountdown)
+
+    if (self.RestartCD) then
+        return false, hAdmin:Localize("@l_ui_mapAlreadyRestarting")
+    end
+    local iTime = math.min(iCountdown, self:GetTimeLimit(70) - 10)
+    if (iTime > 0) then
+        self.RestartCD = true
+        Debug(iTime,iTime*1000)
+        ServerMaps.RestartTimer = Script.SetTimer(iTime * 1000, function()
+
+            self.RestartCD = false
+            self.RestartTimer = nil
+            --if (self.MapChanged) then
+            --    self.MapChanged = false
+            --    return
+            --end
+            System.ExecuteCommand("sv_restart")
+        end)
+        Logger:LogEvent(eLogEvent_Maps, "@l_ui_mapRestartingIn",math.calctime(iTime))
+        return true, Logger:RemoveColors(hAdmin:Localize("@l_ui_mapRestartingIn", {math.calctime(iTime)}))
+    else
+        System.ExecuteCommand("sv_restart")
+    end
+end
+
+---------------
 ServerMaps.SetTimeLimit = function(self, hAdmin, iTime)
 
     local iMinutes = math.max(0, iTime)
@@ -515,4 +617,15 @@ ServerMaps.SetTimeLimit = function(self, hAdmin, iTime)
 
     System.SetCVar("g_timelimit", iMinutes)
     g_pGame:ResetGameTime()
+end
+
+---------------
+ServerMaps.AddTimeLimit = function(self, iTime)
+
+    if (not g_pGame:IsTimeLimited()) then
+        return
+    end
+
+    local iRemaining = g_pGame:GetRemainingGameTime()
+    self:SetTimeLimit(nil, (iTime + iRemaining) / 60)
 end

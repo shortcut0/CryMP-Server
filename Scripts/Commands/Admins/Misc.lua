@@ -1,7 +1,7 @@
 ------------
 AddCommand({
     Name = "getammo",
-    Access = GetLowestRank(), -- Must be accessible to all!
+    Access = RANK_ADMIN, -- Must be accessible to all!
 
     Arguments = {
         {
