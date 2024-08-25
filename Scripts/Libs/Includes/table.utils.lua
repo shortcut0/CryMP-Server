@@ -25,6 +25,28 @@ table.checkM = function(t, m, d)
 	end
 	return t
 end
+---------------------------
+-- table.checkNestedM (finish this)
+
+table.checkNestedM = function(t, nest, d)
+	local h = t
+	local c = string.count(nest, ".")
+	local i = 0
+	for sMember in string.gmatch(nest, "([^%.]+)") do
+		i = i + 1
+		if (i < c) then
+			--Debug("->",sMember)
+			if (i == 1) then
+				if (t[sMember] == nil) then t[sMember] = d end
+			else
+				table.checkM(h, sMember, {})
+			end
+		else
+			table.checkM(h, sMember, d)
+		end
+	end
+	--Debug(t)
+end
 
 ---------------------------
 -- table.getnested (finish this)
@@ -34,7 +56,8 @@ table.getnested = function(t, val, default)
 	for sMember in string.gmatch(val, "([^%.]+)") do
 		h = h[sMember]
 		if (h == nil) then
-			return
+			--Debug("nil at ",sMember)
+			return default
 		end
 	end
 	return h
@@ -482,6 +505,27 @@ table.lasti = function(t, pred)
 end
 
 ---------------------------
+-- table.random
+
+table.random = function(t)
+
+
+
+	local n = table.count(t)
+	local rnd = math.random(1, n)
+	local sel = t[rnd] if (sel ~= nil) then return sel end -- ?? FIXME
+	local c = 0
+	for _, v in pairs(t) do
+		c = c + 1
+		if (c == rnd) then
+			sel = v
+			break
+		end
+	end
+	return sel
+end
+
+---------------------------
 -- table.count
 
 table.count = function(t, pred)
@@ -700,6 +744,16 @@ end
 table.popLast = function(t)
 	local v = t[#t]
 	table.remove(t, #t)
+
+	return v
+end
+
+---------------------------
+-- table.pop
+
+table.pop = function(t, i)
+	local v = t[i]
+	table.remove(t, i)
 
 	return v
 end

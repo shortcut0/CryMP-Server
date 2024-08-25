@@ -370,7 +370,7 @@ Logger.LogChatEvent = function(self, iLogType, iChatType, sMessage, hSender, aCl
 
     local aInfo = self.LOG_EVENTS[iLogType]
     if (not isArray(aInfo)) then
-        return throw_error("info not found?")
+        return throw_error("[chat] info not found?")
     end
 
     if (not sMessage) then

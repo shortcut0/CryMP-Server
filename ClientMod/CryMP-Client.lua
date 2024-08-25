@@ -5,6 +5,8 @@
 --
 ---------------------------------------------------------
 
+if (not g_localActor) then return end
+
 --=========================================================
 -- Hallo
 --=========================================================
@@ -17,17 +19,26 @@ ClientMod = {
     id      = g_localActorId,
     ent     = g_localActor,
     channel = g_localActor.actor:GetChannel(),
+    chan    = g_localActor.actor:GetChannel(),
 
     -- ======================
 
     -- ======================
-    _G              = {},
-    CHAT_EFFECTS    = {},
-    MATERIAL_CACHE  = {},
-    DEBUG           = ClientModX.DEBUG,
-    COUNTER         = ClientModX.COUNTER or 0,
-    DRAW_TOOLS      = ClientModX.DRAW_TOOLS or {},
-    FORCED_CVARS    = {
+    _G                  = {},
+    VM                  = {},
+    WANT_VM             = {},
+    LS                  = {},
+    LA                  = {},
+    FA                  = {},
+    NSS                 = {},
+    PREVIOUS_INV        = {},
+    CHAT_EFFECTS        = {},
+    MATERIAL_CACHE      = {},
+    DEBUG               = ClientModX.DEBUG,
+    COUNTER             = ClientModX.COUNTER or 0,
+    DRAW_TOOLS          = ClientModX.DRAW_TOOLS or {},
+    EXPLOSION_EFFECTS   = {},
+    FORCED_CVARS        = {
         R_ATOC = 0
     },
 
@@ -58,6 +69,7 @@ if (not g_gameRules) then return end
 g_pGame = g_gameRules.game
 GetEntity = function(hId)
     if (hId == nil) then return end
+    if (isNumber(hId)) then return GP(hId) end
     if (isUserdata(hId)) then return System.GetEntity(hId) end
     if (isArray(hId)) then if (hId.id) then return System.GetEntity(hId.id) end return end
     if (isString(hId)) then return System.GetEntityByName(hId) end return
@@ -147,6 +159,26 @@ ClientMod.Init = function(self)
     self:InitCallbacks()
 
     -- ====================
+    VM_TESLA,    VM_AUDI,     VM_DUELER,  VM_FERRARI,  VM_TRAIN,
+    VM_AIRCRAFT, VM_NKPLANE,  VM_USPLANE, VM_CARGOPLANE, VM_TRANSPLANE,
+    VM_PLANE1,   VM_VTOLTRANS, VM_EXCAVATOR, VM_FORKLIFT, VM_MINETRUCK,
+    VM_CRANE,    VM_WAGON,    VM_BAGGAGECART, VM_SHOPPINGCART, VM_AAA,
+    VM_APC,      VM_HELI,     VM_TANK,    VM_TANKHEADLESS, VM_TANKTURRET,
+    VM_TRUCK,    VM_CAR,      VM_LTV,     VM_DAUNTLESS, VM_KUANTI,
+    VM_SPEEDBOAT, VM_DESTROYER, VM_HOVER, VM_SCIENCESHIP, VM_CARGOSHIP,
+    VM_SKYFORGE, VM_NAVYSHIP, VM_TANKER,  VM_SHARK,    VM_PALM,
+    VM_ROCK =
+    1, 2, 3, 4, 5,
+    6, 7, 8, 9, 10,
+    11, 12, 13, 14, 15,
+    16, 17, 18, 19, 20,
+    21, 22, 23, 24, 25,
+    26, 27, 28, 29, 30,
+    31, 32, 33, 34, 35,
+    36, 37, 38, 39, 40,
+    41
+
+    -- ====================
     eTS_Spectator, eTS_Message
     = 0, 1
 
@@ -171,10 +203,21 @@ ClientMod.Init = function(self)
     eCR_ModifiedCVar
     = 40
 
+    eCR_MeleeRelease, eCR_Melee = 60, 61
+
+    eCR_JetpackOn = 66
+    eCR_JetpackOff = 67
+
+    eCR_ChairEffectsOn = 68
+    eCR_ChairEffectsOff = 69
+    eCR_ChairRemove = 70
+
     -------
     self:FixClWork()
     self:PatchGameRules()
     self:PatchLocalActor()
+    self:PatchGUI()
+    self:PatchDoor()
 
     -------
     self.AASearchLasers:Init()
@@ -188,6 +231,11 @@ ClientMod.Init = function(self)
 
     -- =====================
     eEvent_BLE = 0
+
+
+    LAYER_CLOAK = GetCVar("crymp_cloaklayer")
+
+
 
     g_Client = self
     return true
@@ -274,6 +322,11 @@ ClientMod.AddCVars = function(self)
     AddCVar("crymp_animation_handler", "CryMP-Client Mod Animation handler", 1)
     AddCVar("crymp_animation_rate", "CryMP-Client Mod Animation handler", ClientMod.AnimationHandler.UpdateRate, "ClientMod.AnimationHandler.UpdateRate")
 
+    AddCVar("crymp_explosionWeedLifetime", "lalala", 120)
+    AddCVar("crymp_idleanimslot", "lalala", 0)
+    AddCVar("crymp_weapon_cockingalways", "lalala", 0)
+    AddCVar("crymp_cloaklayer", "lalala", 4)
+
     -- Commands
     AddCommand("crymp_loadlocal", "Load local client sources.", [[loadfile("crymp-server\\clientmod\\crymp-client.lua")()]])
     AddCommand("crymp_loadlocalPAK", "Load local client sources.", [[loadfile("crymp-server\\clientmod\\crymp-client\\crymp-client.lua")()]])
@@ -282,6 +335,7 @@ ClientMod.AddCVars = function(self)
     AddCommand("cmp_p","","loadstring(%%)()")
     AddCommand("cmp_ssi","","g_Client:ShowServerInfo(false)")
     AddCommand("cmp_hsi","","g_Client:ShowServerInfo(true)")
+    AddCommand("cmp_jp","","g_Client:Jetpack(g_Client.chan,not g_Client.ent.JETPACK.HAS)")
 end
 
 --=========================================================
@@ -357,6 +411,65 @@ end
 
 --=========================================================
 -- Events
+ClientMod.ExplosionEffect = function(self, pos, norm,count, radius, time_left)
+
+    -- ??
+    -- objects/natural/rocks/explosion_crater/explosion_crater_a.cgf
+
+    count = count or 6
+    radius = radius or 4
+
+    for _,info in pairs(self.EXPLOSION_EFFECTS) do
+        if (vector.distance(info.Pos,pos)<10)then
+            return DebugLog("not spawning gawkers at %s",Vec2Str(pos))
+        end
+    end
+    
+    local n = table.insert(self.EXPLOSION_EFFECTS, { Ents = {}, Pos = pos, Timer = timerinit() - (time_left or 0) })
+    n=self.EXPLOSION_EFFECTS[table.count(self.EXPLOSION_EFFECTS)]
+    n.Main = System.SpawnEntity({class="BasicEntity",position=pos})
+
+    local s = "smoke_and_fire.black_smoke.harbor_smokestack1"
+    local pos_2 = new(pos) pos_2.y = pos_2.y - 2 pos_2.z = pos_2.z + 2.5
+    local pos_3 = new(pos) pos_3.y = pos_2.y - 4 pos_3.z = pos_3.z + 5
+    self:LoadEffectOnEntity(n.Main, "smoke0", {Effect = s,CountScale=1,Scale=1}, true)
+    self:LoadEffectOnEntity(n.Main, "smoke1", {Effect = s,CountScale=1,Scale=1,Pos=pos_2}, true)
+    self:LoadEffectOnEntity(n.Main, "smoke2", {Effect = s,CountScale=1,Scale=1,Pos=pos_3}, true)
+
+    Particle.CreateMatDecal(pos, g_Vectors.up, 3, 30, "Materials/decals/dirty_rust/decal_explo_bright", math.random()*360)
+    Particle.CreateMatDecal(pos, g_Vectors.up, math.frandom(2.5, 3.5), 30, "Materials/Decals/Dirty_rust/decal_explo_2", math.random()*360)
+    Particle.CreateMatDecal(pos, g_Vectors.up, math.frandom(2.5, 3.5), 30, "Materials/Decals/Dirty_rust/decal_explo_3", math.random()*360)
+    Particle.CreateMatDecal(pos, g_Vectors.up, math.frandom(2.5, 3.5), 30, "Materials/Decals/burnt/decal_burned_22", math.random()*360)
+
+    local m = {
+        "Objects/Natural/Rocks/Precipice/street_broken_harbour_big_a.cgf",
+        "objects/natural/rocks/precipice/street_broken_harbour_big_b.cgf"
+    }
+
+    pos.z = pos.z - 0.15
+    for _,info in pairs(vector.gawker(pos,count,radius)) do
+        VecRotate90_Z(info.dir)
+        local crack = System.SpawnEntity({
+            name = "crack-" .. self:Counter(),
+            class = "BasicEntity",
+            position = info.pos,
+            orientation = info.dir,
+            properties = {
+                object_Model = getrandom(m),
+                Physics = { bPhysicalize = 1, bPushableByPlayers = 0, bRigidBody = 1, Density = -1, Mass = -1 }
+            },
+        })
+        crack:SetScale(math.frandom(0.8,1))
+        table.insert(n.Ents, crack)
+    end
+
+    if (self.DEBUG) then
+        System.DeformTerrain(pos, radius,"") -- !!! IRREVERSIBLE !!!
+    end
+end
+
+--=========================================================
+-- Events
 ClientMod.OnAction = function(self, hPlayer, sKey, sMode, iValue)
 
     if (self.DEBUG) then
@@ -365,6 +478,8 @@ ClientMod.OnAction = function(self, hPlayer, sKey, sMode, iValue)
 
     local send
 
+    local c = hPlayer.inventory:GetCurrentItem()
+    local f = hPlayer.inventory:GetItemByClass("Fists") f = f and GetEntity(f)
 
     -- ============
     -- Chat
@@ -376,14 +491,45 @@ ClientMod.OnAction = function(self, hPlayer, sKey, sMode, iValue)
         self:ChatEffect(self.channel,0)
         send = eCR_CloseChat
 
+    elseif (sKey == "special") then
+
+        local aInfo = c and ({
+            ["AVMine"] = { "melee_01" },
+            ["RepairKit"] = { "melee_01" },
+            ["Claymore"] = { "melee_01", 1 },
+        })[c.class]
+        if (aInfo) then
+            if (aInfo[2]) then
+                if (f) then
+                    f.item:PlayAction(aInfo[1],1,1)
+                end
+            else
+                c:StartAnimation(0, aInfo[1], 8)
+            end
+        end
+        send = iValue == 0 and eCR_MeleeRelease or eCR_Melee
+
+    elseif (sKey == "use") then
+        if (self.ent.JETPACK.HAS) then
+            send = self:JetPack_Toggle(sMode=="press")
+        end
+        if (self.ent.FLYING_CHAIR.HAS) then
+            self:FlyingChair_Toggle(sMode=="press", sMode)
+        end
+
     end
+
 
 
     -- ============
     -- etc etc etc
 
     -- ============
-    if (send) then self:ToServer(0,send) end
+    if (send) then
+        if (timerexpired(self.NSS[send],0.4)) then
+            self:ToServer(0,send)self.NSS[send]=timerinit()
+        end
+    end
 end
 
 --=========================================================
@@ -449,6 +595,26 @@ end
 
 --=========================================================
 -- Events
+ClientMod.OnKill = function(self, hPlayer, hShooterID, bMelee, headshot, tpe)
+
+    local shooter = System.GetEntity(hShooterID)
+
+
+    local falling = hPlayer.actor:IsFlying()
+    local fm = falling and 4 or 9
+    local iCM = (hPlayer.CM and hPlayer.CM.ID or CM_NONE)
+    local sDeathSound = "ai_marine_"..math.random(1,3).."/"..(bMelee and ("meleedeath_0" ) or falling and ("fallingdeath_0") or ("death_0")) ..math.random(0,fm)
+    if (iCM == CM_KYONG) then sDeathSound = "ai_kyong/" .. (bMelee and ("meleedeath_0" ) or falling and ("fallingdeath_0") or ("death_0")) .. math.random(0,fm) end
+    if (iCM == CM_KOREANAI) then sDeathSound = "ai_korean_ai_" .. math.random(1,3) .. "/" .. (bMelee and ("meleedeath_0" ) or falling and ("fallingdeath_0") or ("death_0")) .. math.random(0,fm) end
+
+    DebugLog("snd=",sDeathSound)
+    if (sDeathSound) then
+        self:PSE(sDeathSound, hPlayer, "death")
+    end
+end
+
+--=========================================================
+-- Events
 ClientMod.OnHit = function(self, hPlayer, aHitInfo)
 
     local hShooter = aHitInfo.shooter
@@ -456,6 +622,8 @@ ClientMod.OnHit = function(self, hPlayer, aHitInfo)
     if (not hShooter or not hTarget) then
         return
     end
+
+    hTarget.LAST_HIT = aHitInfo
 
     local ht = aHitInfo.type
     if (ht == "lockpick" or ht == "repair") then
@@ -502,7 +670,7 @@ ClientMod.OnHit = function(self, hPlayer, aHitInfo)
 
         local sound;
         local iDist = vector.distance(aHitInfo.pos,hTarget:GetPos())
-        if(aHitInfo.damage > 10) then
+        if(aHitInfo.damage > 10 and not bMelee) then
 
             if (hTarget.id==self.id) then
                 if (bHeadshot) then
@@ -591,19 +759,108 @@ ClientMod.OnHit = function(self, hPlayer, aHitInfo)
     ----------------------------------------------------------------------------------------
 
 
-
 end
 
 --=========================================================
 -- Events
-ClientMod.Update = function(self)
+ClientMod.AddLA = function(self, ent, anim, enable)
+
+    local e = GetEntity(ent)
+    if (not e) then
+        return DebugLog("bad id %s",g_ts(ent))
+    end
+
+    if (enable) then
+        self.FA[e.id] = {
+            ANIM = anim,
+            ENTITY = e
+        }
+        DebugLog("new loopy poopy anim %s", anim)
+    else
+        self.FA[e.id] = nil
+        e:StopAnimation(0,10)
+    end
+end
+
+--=========================================================
+-- Events
+ClientMod.Update = function(self,ft)
+
+    ft = ft or System.GetFrameTime()
 
     -- check the peasants (maybe hook cppapi spawn)
     local aPlayers = System.GetEntitiesByClass("Player")
     for _, hPlayer in pairs(aPlayers) do
+
+      --  hPlayer.LAST_SPEED = hPlayer:GetSpeed()
+        hPlayer.LAST_VELOCITY = hPlayer:GetVelocity()
+       -- hPlayer.SPEED = (hPlayer.LAST_POS and vector.distance(hPlayer:GetPos(), hPlayer.LAST_POS) or 0)
+
         if (not hPlayer.Initialized or RELOAD) then
             hPlayer:ClInit()
         end
+
+        --hPlayer.LAST_POS = hPlayer:GetPos()
+
+        --hmm, sometimes animation FREEZES. fis it PLEASE!
+        if (hPlayer.IDLE.PLAYING) then
+            if (hPlayer.actorStats.stance ~= hPlayer.IDLE.STANCE or DistanceVectors(hPlayer.IDLE.POS,hPlayer:GetPos()) > 0) then
+                self:IDLE(hPlayer.actor:GetChannel(), "stop")
+            elseif (timerexpired(hPlayer.IDLE.TIMER, hPlayer.IDLE.TIME-System.GetFrameTime())) then
+                if (hPlayer.IDLE.QUEUED) then
+                    self:IDLE(hPlayer:GetChannel(), hPlayer.IDLE.QUEUED)
+                    hPlayer.IDLE.QUEUED = nil
+                    DebugLog("playing queued item %s.......","d")
+                elseif (hPlayer.IDLE.LOOP) then
+
+                    hPlayer.IDLE.TIME = 0
+                    hPlayer.IDLE.TIMER = nil
+                    self:IDLE(hPlayer:GetChannel(), hPlayer.IDLE.ANIM, nil, true)
+                    DebugLog("loopy poopy")
+                end
+            end
+        end
+
+        if (hPlayer.JETPACK.HAS) then
+            if (hPlayer:GetSuitMode(NANOMODE_CLOAK)) then
+                if (not hPlayer.JETPACK.CLOAKED) then
+                    for _,id in pairs(hPlayer.JETPACK.PTRS) do
+                        local p = GetEntity(id)
+                        if (p) then p:EnableMaterialLayer(true,LAYER_CLOAK) end
+                    end
+                end
+                hPlayer.JETPACK.CLOAKED = true
+            elseif (hPlayer.JETPACK.CLOAKED) then
+                for _,id in pairs(hPlayer.JETPACK.PTRS) do
+                    local p = GetEntity(id)
+                    if (p) then p:EnableMaterialLayer(false,LAYER_CLOAK) end
+                end
+                hPlayer.JETPACK.CLOAKED = false
+            end
+        end
+
+        local chair = GetEntity(hPlayer.FLYING_CHAIR.ENTITYID)
+        if (chair) then
+            if (not hPlayer:GetVehicle() and hPlayer:IsAlive() and not hPlayer:IsSpectating()) then
+                local p = hPlayer:GetBonePos("Bip01 Pelvis") p.z = p.z - 0.5
+                chair:SetWorldPos(p)
+                local d = hPlayer:GetBoneDir("Bip01 Pelvis")
+                d.z = 0
+                NormalizeVector(d)
+                DebugLog(Vec2Str(d))
+                chair:SetDirectionVector(d,g_Vectors.up)--hPlayer:GetDirectionVector())
+                if (hPlayer.id == self.id) then
+                    self:Update_Chair(ft)
+                end
+                hPlayer:StartAnimation(0,"relaxed_sit_nw_01",9)
+            else
+                if (hPlayer.id == self.id) then self:TS(0,eCR_ChairRemove) end
+                hPlayer:StopAnimation(0,9)
+                self:FlyingChar_Effects(hPlayer:GetChannel(),false)
+                hPlayer.FLYING_CHAIR = {}
+            end
+        end
+     --   DebugLog(hPlayer:GetAnimationLength(0,"relaxed_sit_nw_01"))
     end
 
     RELOAD = false
@@ -612,6 +869,8 @@ ClientMod.Update = function(self)
     --- Needs to be called on frame
     self:UpdateHitMarkers()
     self:UpdateChatEffects()
+
+    self:UpdateFlying(ft)
 
     -- NOTE: we dont need to do this, setting it once overwrites it completely.
     --[[
@@ -646,10 +905,356 @@ ClientMod.Update = function(self)
         self.SecondTick = timerinit()
     end
 
+    for x, y in pairs(self.LS) do
+        if (not Sound.IsPlaying(y.ID)) then
+            -- todo...
+        end
+    end
+
+    for x, y in pairs(self.FA) do
+        if (not GetEntity(x)) then
+            self.FA[x] = nil
+        else
+            if (timerexpired(y.START,y.TIME)) then
+
+                y.ENTITY:StartAnimation(0,y.ANIM or"misc_replaceMe_01",10,1,1,1,1) -- 6th is loop BTW
+                y.START = timerinit()
+                y.TIME = y.ENTITY:GetAnimationLength(0,y.ANIM or "misc_replaceMe_01")
+            end
+        end
+    end
+
     --------------------------------
     --- UPDATE !!
-    self.AASearchLasers:PreUpdateAASearchLaser()
-    self.AnimationHandler:Update()
+    self.AASearchLasers:PreUpdateAASearchLaser(ft)
+    self.AnimationHandler:Update(ft)
+
+end
+
+--=========================================================
+-- Events
+ClientMod.UpdateFlying = function(self,ft)
+    if (self.ent.JETPACK.HAS) then
+        self:Update_JETPACK(ft)
+    elseif (self.ent.FLYING_CHAIR) then
+
+    end
+end
+
+--=========================================================
+-- Events
+ClientMod.CHAIR = function(self, chan, chair, enable)
+
+    local p = GP(chan)
+    if (not p) then return end
+    local c = GetEntity(chair) if (not c) then
+        if (enable) then self.WANT_CHAIR[chan] = { chan,chair,enable } end
+        return
+    end
+
+    local cc = GetEntity(p.FLYING_CHAIR.ENTITYID)
+    if (cc and cc.id ~= c.id) then
+
+        -- this is bad!
+        DebugLog("something BAD happened!!")
+
+        c:Physicalize(0, PE_RIGID, { mass = 300 })
+        c:EnablePhysics(true)
+    end
+
+    p.FLYING_CHAIR.THRUSTERS = nil
+    p.FLYING_CHAIR.HAS = nil
+    p.FLYING_CHAIR.ENTITYID = nil
+
+    if (enable) then
+
+        if (p.id == self.id) then
+        end
+
+        p.FLYING_CHAIR.THRUSTERS = nil
+        p.FLYING_CHAIR.HAS = true
+        p.FLYING_CHAIR.ENTITYID = c.id
+
+        c:EnablePhysics(false)
+        c:DestroyPhysics()
+        c.Properties.bUsable = (p.id == self.id)
+
+        DebugLog("now has chair!!")
+    else
+
+        c:Physicalize(0, PE_RIGID, { mass = 300 })
+        c:EnablePhysics(true)
+
+        MakeUsable(c)
+        c.Properties.UseText = "Sit"
+        c.Properties.bUsable = 1
+    end
+end
+
+--=========================================================
+-- Events
+ClientMod.Update_Chair = function(self, ft)
+    local c = self.ent.FLYING_CHAIR
+    local gl = self.ent
+
+    if (not c.THRUSTERS) then
+        return
+    elseif (gl:IsDead() or gl:IsSpectating() or gl:GetVehicle() or not gl.actor:IsFlying()) then
+        c.THRUSTERS = false
+        self:TS(0, eCR_ChairEffectsOff)
+        return
+    end
+
+    c.THROTTLE = (c.THROTTLE or 1) + 1
+
+    local i1 = math.min(30, c.THROTTLE)
+    local i2 = math.min(20, c.THROTTLE)
+
+    local la = g_localActor
+    la:AddImpulse( -1, la:GetCenterOfMassPos(), g_Vectors.up, ft * i1 * 40, 1)
+    la:AddImpulse( -1, la:GetCenterOfMassPos(), System.GetViewCameraDir(), ft * i2 * 40 * 1, 1)
+end
+
+--=========================================================
+-- Events
+ClientMod.Update_JETPACK = function(self, ft)
+
+    local jp = self.ent.JETPACK
+    local gl = self.ent
+
+    if (not jp.THRUSTERS) then
+        return
+    elseif (gl:IsDead() or gl:IsSpectating() or gl:GetVehicle() or not gl.actor:IsFlying()) then
+        jp.THRUSTERS = false
+        self:TS(0, eCR_JetpackOff)
+        return
+    end
+
+    jp.THROTTLE = (jp.THROTTLE or 1) + 1
+
+    local i1 = math.min(30, jp.THROTTLE)
+    local i2 = math.min(20, jp.THROTTLE)
+
+    local la = g_localActor
+
+    local ff = (la.actorStats.inFreeFall == 1)
+    local p = (la.actorStats.stance == STANCE_PRONE)
+
+    if (not ff and not p) then
+
+        -- normal air control
+        la:AddImpulse( -1, la:GetCenterOfMassPos(), g_Vectors.up, ft * i1 * 40, 1)
+        if (jp.SUPER_SPEED) then
+            jp.SUPER_SPEED = false -- to server? more e-e-ffects?
+        --    DebugLog("ss off")
+        end
+    else
+        if (not jp.SUPER_SPEED) then
+            jp.SUPER_SPEED = true
+        --    DebugLog("ss on")
+        end
+
+    end
+
+    la:AddImpulse( -1, la:GetCenterOfMassPos(), System.GetViewCameraDir(), ft * i2 * 40 * ((ff or p) and 3 or 1), 1)
+end
+
+--=========================================================
+-- Events
+ClientMod.JetPack_Toggle = function(self, enable)
+    local send
+    if (enable and g_localActor.actor:IsFlying()) then
+        send = eCR_JetpackOn
+        self.ent.JETPACK.THRUSTERS = true
+        self:Jetpack_Effects(self.chan,true) -- effects should be instant on client
+
+        DebugLog("now ON!")
+
+    elseif (self.ent.JETPACK.THRUSTERS) then
+        self.ent.JETPACK.THRUSTERS = false
+        send = eCR_JetpackOff
+        self:Jetpack_Effects(self.chan,false) -- effects should be instant on client
+
+        DebugLog("Now OFF!")
+    end
+    return send
+end
+
+--=========================================================
+-- Events
+ClientMod.FlyingChair_Toggle = function(self, enable, sMode)
+    local send
+    if (enable and g_localActor.actor:IsFlying()) then
+        send = eCR_ChairEffectsOn
+        self.ent.FLYING_CHAIR.THRUSTERS = true
+        self:FlyingChar_Effects(self.chan,true) -- effects should be instant on client
+
+        DebugLog("now ON!")
+
+    elseif (self.ent.FLYING_CHAIR.THRUSTERS) then
+        self.ent.FLYING_CHAIR.THRUSTERS = false
+        send = eCR_ChairEffectsOff
+        self:FlyingChar_Effects(self.chan,false) -- effects should be instant on client
+
+        DebugLog("Now OFF!")
+    elseif (not g_localActor.actor:IsFlying() and sMode ~= "release") then
+        send = eCR_ChairRemove
+    end
+
+    DebugLog("el modo es %s",sMode)
+    if (send) then self:TS(0,send) end
+end
+
+--=========================================================
+-- Events
+ClientMod.FlyingChar_Effects = function(self, chan, enable)
+
+    local p = GP(chan) if (not p) then return end
+    local c = GetEntity(p.FLYING_CHAIR.ENTITYID) if (not c) then return end
+
+    self:LoadEffectOnEntity(c, "f0", { Effect = "misc.signal_flare.on_ground_purple", Dir = g_Vectors.down, Pos = c:GetPos(), Scale = 1 }, enable)
+    self:LoadEffectOnEntity(c, "f1", { Effect = "misc.signal_flare.on_ground_green",  Dir = g_Vectors.down, Pos = c:GetPos(), Scale = 2 }, enable)
+    self:LoadEffectOnEntity(c, "f2", { Effect = "misc.signal_flare.on_ground",        Dir = g_Vectors.down, Pos = c:GetPos(), Scale = 2 }, enable)
+end
+
+--=========================================================
+-- Events
+ClientMod.Jetpack_Effects = function(self, chan, enable)
+
+    local p = GP(chan)
+    if (not p) then
+        return
+    end
+    local jp = p.JETPACK
+    if (not jp.HAS) then
+        return DebugLog("dont have!")
+    end
+
+    local e0 = jp.EXHAUST0
+    local e1 = jp.EXHAUST1
+
+    local rnd = {
+        [1] = "misc.signal_flare.on_ground_green",
+        [2] = "misc.signal_flare.on_ground",
+        [3] = "misc.signal_flare.on_ground_purple"
+    }
+
+   -- self:LoadEffectOnEntity() --"smoke_and_fire.pipe_steam_a.steam"
+   -- self:LoadEffectOnEntity() --"smoke_and_fire.pipe_steam_a.steam"
+
+    self:LoadEffectOnEntity(e0, "jpt0", { Effect = "smoke_and_fire.pipe_steam_a.steam" }, enable)
+    self:LoadEffectOnEntity(e1, "jpt0", { Effect = "smoke_and_fire.pipe_steam_a.steam" }, enable)
+
+    self:LoadEffectOnEntity(e0, "jpt1", { Effect = getrandom(rnd) }, enable)
+    self:LoadEffectOnEntity(e1, "jpt1", { Effect = getrandom(rnd) }, enable)
+
+    -- Sowwy chris
+    if (enable) then
+        if (p.id == self.id) then
+            self:PSE("sounds/interface:suit:thrusters_use",nil,"thrusters_use")
+        end
+        self:PSE("sounds/interface:suit:thrusters_use",jp.MAIN,"thrusters", nil, true)
+    else
+        self:StopSound(jp.MAIN,"thrusters")
+    end
+
+    jp.EFFECTS = true
+end
+
+--=========================================================
+-- Events
+ClientMod.Jetpack = function(self, chan, enable)
+
+    local p = GP(chan)
+    if (not p) then
+        -- self:SCHEDULE()--todo fixme
+        return
+    end
+
+    if (p.JETPACK.HAS and enable) then
+        DebugLog("has.. one..")
+        return
+    end
+
+    if (not p.JETPACK.HAS and not enable) then
+        DebugLog("has nOT!")
+        return
+    end
+
+    if (not enable) then
+        p.JETPACK.HAS = false
+        p.JETPACK.VISIBLE = false
+        for _,e in pairs(
+                p.JETPACK.PTRS) do
+            System.RemoveEntity(e)
+        end
+        p.JETPACK.PARTS = {}
+        p.JETPACK.PTRS = {}
+        return
+    end
+
+    p.JETPACK.VISIBLE = true
+    p.JETPACK.HAS = true
+    p.JETPACK.PARTS = {}
+    p.JETPACK.PTRS = {}
+
+    local v0 = p:GetPos() v0.z=v0.z+0.5                  -- dp1
+    local v1 = p:GetPos() v1.x=v1.x+0.1 v1.z=v1.z+0.2    -- dp
+
+    local s = System.SpawnEntity
+    local spawn_class = "BasicEntity"
+
+    local main = s({ class = spawn_class, position = v0, orientation = { x = 0.5, y = 0, z = -1}, name = "JetPackPart_" .. chan .. "_0"})
+    local exhaust0 = s({ class = spawn_class, position = { x = v1.x - 0.15, y = v1.y, z = v1.z - 0.2 }, orientation = g_Vectors.down, name = "JetPackExhause_"..chan.."_0" })
+    local exhaust1 = s({ class = spawn_class, position = { x = v1.x + 0.15, y = v1.y, z = v1.z - 0.2 }, orientation = g_Vectors.down, name = "JetPackExhause_"..chan.."_1"  })
+    local info = {
+        { Scale = 0.2, Pos = { x = v1.x, y = v1.y, z = v1.z + 0.01 }, Dir = { x = 0, y = 1, z = 0 }, File = "objects/library/installations/electric/electrical_cabinets/electrical_cabinet1.cgf" },
+        { Pos = { x = v1.x - 0.15, y = v1.y, z = v1.z }, Dir = { x = 0, y = 0, z = -1 }, File = "objects/library/props/gasstation/funnel.cgf" },
+        { Pos = { x = v1.x + 0.15, y = v1.y, z = v1.z }, Dir = { x = 0, y = 0, z = -1 }, File = "objects/library/props/gasstation/funnel.cgf" },
+        { Pos = { x = v1.x - 0.15, y = v1.y, z = v1.z }, Dir = { x = 1, y = 0, z = 0 }, File = "objects/library/props/gasstation/can_a.cgf", Scale = 3 },
+        { Pos = { x = v1.x + 0.15, y = v1.y, z = v1.z }, Dir = { x = 1, y = 0, z = 0 }, File = "objects/library/props/gasstation/can_a.cgf", Scale = 3 },
+        { Pos = { x = v1.x - 0.15, y = v1.y, z = v1.z - 0.03 }, Dir = { x = 1, y = 0, z = 0 }, File = "objects/library/props/gasstation/tire_rim.cgf", Scale = 0.25 },
+        { Pos = { x = v1.x + 0.15, y = v1.y, z = v1.z - 0.03 }, Dir = { x = 1, y = 0, z = 0 }, File = "objects/library/props/gasstation/tire_rim.cgf", Scale = 0.25 },
+        { Pos = { x = v1.x - 0.15, y = v1.y, z = v1.z + 0.1 }, Dir = { x = 0, y = 0, z = 0 }, File = "objects/library/props/household/windchimes/windchime1/tube06.cgf" },
+        { Pos = { x = v1.x + 0.15, y = v1.y, z = v1.z + 0.1 }, Dir = { x = 0, y = 0, z = 0 }, File = "objects/library/props/household/windchimes/windchime1/tube06.cgf" },
+        { Pos = { x = v1.x - 0.15, y = v1.y, z = v1.z }, Dir = { x = 0, y = 1, z = 1 }, File = "objects/library/props/household/windchimes/windchime1/tube06.cgf" },
+        { Pos = { x = v1.x + 0.15, y = v1.y, z = v1.z }, Dir = { x = 0, y = 1, z = 1 }, File = "objects/library/props/household/windchimes/windchime1/tube06.cgf" },
+        { Pos = { x = v1.x, y = v1.y, z = v1.z + 0.2 }, Dir = { x = 0.001, y = 0, z = 1 }, File = "objects/library/props/building material/wodden_support_beam_plank_2_b.cgf", Scale = 0.2 },
+        { Pos = { x = v1.x, y = v1.y, z = v1.z + 0.1 }, Dir = { x = 0.001, y = 0, z = 1 }, File = "objects/library/props/building material/wodden_support_beam_plank_2_b.cgf", Scale = 0.2 },
+        { Pos = { x = v1.x - 0.075, y = v1.y, z = v1.z }, Dir = { x = 0, y = 0, z = 0 }, File = "objects/library/installations/electric/power_pole/power_pole_wood_700_b.cgf", Scale = 0.3 },
+        { Pos = { x = v1.x + 0.15, y = v1.y, z = v1.z }, Dir = { x = 0, y = 0, z = 0 }, File = "objects/library/props/flags/northkorean_flagpole_b.cgf", Scale = 0.1 }
+    }
+
+    local n
+    for _, a in pairs(info) do
+        n = s({
+            class = spawn_class,
+            properties = { object_Model = a.File },
+            position = a.Pos,
+            orientation = a.Dir,
+            name = string.format("JetPackPart_%d_%d", chan, _)
+        })
+        n:SetScale(a.Scale or 1)
+        n:EnablePhysics(false)
+        n:DestroyPhysics()
+        main:AttachChild(n.id,-1)
+        table.insert(p.JETPACK.PTRS, n.id)
+    end
+
+    p.JETPACK.MAIN = main
+
+    p.JETPACK.EXHAUST0 = exhaust0
+    p.JETPACK.EXHAUST1 = exhaust1
+
+    main:AttachChild(exhaust0.id,-1)
+    main:AttachChild(exhaust1.id,-1)
+
+    table.insert(p.JETPACK.PTRS, main.id)
+    table.insert(p.JETPACK.PTRS, exhaust0.id)
+    table.insert(p.JETPACK.PTRS, exhaust0.id)
+    p:CreateBoneAttachment(0, "weaponPos_rifle01","JetPack")
+    p:SetAttachmentObject(0, "JetPack", main.id, -1, 0)
+
 
 end
 
@@ -657,6 +1262,7 @@ end
 -- Events
 ClientMod.TIMER_SECOND = function(self)
 
+    if (self.REMOTE_SECOND) then self:REMOTE_SECOND() end
     self:UpdateVoteMenu()
 
     local G = System.GetCVar
@@ -669,6 +1275,88 @@ ClientMod.TIMER_SECOND = function(self)
         end
     end
 
+    for x, y in pairs(self.VM) do
+        local ent = System.GetEntity(x)
+        if (ent == nil) then
+            self.VM[x] = nil
+        elseif (System.GetEntity(y.EntityID) == nil) then
+            System.RemoveEntity(x)
+            self.VM[x] = nil
+        else
+
+          --  DebugLog(y.ID)
+            if (y.ID == VM_CRANE) then
+                self:Update_V_ANIM(ent.CM,{FWD= { "crane_wheelforward" },BACK= { "crane_wheelbackward" }})
+            end
+
+            ent.LAST_POS = ent:GetPos()
+        end
+    end
+
+    for x, y in pairs(self.WANT_VM) do
+        if (System.GetEntityByName(x)) then
+            self:V_MODEL(unpack(y))
+            self.WANT_VM[x] = nil
+        end
+    end
+
+    self:UpdateExplosionEffects()
+end
+
+--=========================================================
+-- Events
+ClientMod.Update_V_ANIM = function(self, id, info)
+
+    local v = GetEntity(id)
+    if (not v) then
+        return
+    end
+
+    local anim
+    local bFwd = true
+    local dirLp={x=0,y=0,z=0}
+    local dirNow=v:GetDirectionVector()
+    if (v.LAST_POS and DistanceVectors(v:GetPos(),v.LAST_POS)>0.1) then
+        SubVectors(dirLp,v:GetPos(),v.LAST_POS)
+        NormalizeVector(dirLp)
+        if (dirLp.x * dirNow.x + dirLp.y * dirNow.y + dirLp.z * dirNow.z) > 0 then
+            DebugLog("The vehiclePosLast is in front of the vehicle.")
+            anim=getrandom(info.FWD)
+        else
+            DebugLog("The vehiclePosLast is behind the vehicle.")
+            anim=getrandom(info.BACK)
+        end
+    end
+
+    if (anim) then
+
+        self:AddLA(v.CM,anim,true)
+       -- if (timerexpired(v.ANIM_TIMER,v.ANIM_TIME) or anim~= v.ANIM) then
+
+         --   v:StartAnimation(0,anim)
+       --     v.ANIM_TIME=v:GetAnimationLength(0,anim)
+       --     v.ANIM_TIMER=timerinit()
+       --     v.ANIM=anim
+       -- end
+     else
+        self:AddLA(v.id,"anim",false)
+    end
+end
+
+--=========================================================
+-- Events
+ClientMod.UpdateExplosionEffects = function(self)
+    for _, aInfo in pairs(self.EXPLOSION_EFFECTS) do
+        if (timerexpired(aInfo.Timer, GetCVar("crymp_explosionWeedLifetime"))) then
+            self:UnloadEffectAll(aInfo.Main)
+            System.RemoveEntity(aInfo.Main.id)
+            for __, hWeed in pairs(aInfo.Ents) do
+                System.RemoveEntity(hWeed.id)
+            end
+            table.remove(self.EXPLOSION_EFFECTS, _)
+            return self:UpdateExplosionEffects()
+        end
+    end
 end
 
 --=========================================================
@@ -745,7 +1433,8 @@ ClientMod.ReEnterVehicle = function(self, chan, seat, cm)
     local v = (cm and GetEntity(p.CM.Vehicle) or p:GetVehicle())
     if (not v) then return DebugLog("no V") end
     v.vehicle:ExitVehicle(p.id,true)
-    Script.SetTimer(1,function()
+    Script.SetTimer(2,function()
+        DebugLog("nter %d",seat)
         v.vehicle:EnterVehicle(p.id,seat,true)end)
 end
 
@@ -935,7 +1624,7 @@ ClientMod.UpdateVoteMenu = function(self)
     local menu = self:GetMenu("voting").IDS
     if (ended) then
         menu[-4] = menu[-4] or  _time
-        DebugLog(_time- menu[-4])
+      --  DebugLog(_time- menu[-4])
         if (_time- menu[-4] > 5) then
             show=false
         end
@@ -946,7 +1635,7 @@ ClientMod.UpdateVoteMenu = function(self)
     if (not show) then
       --  menu[-1]=nil menu[-2]=nil
        -- self:FadeMenu("vote",1)
-        DebugLog("hide?")
+      --  DebugLog("hide?")
         self:HideMenu("voting")
         return
     end
@@ -1169,6 +1858,199 @@ ClientMod.HideMenu = function(self, id)
     self.DRAW_TOOLS[id].Visible = false
 end
 
+--[[
+
+['objects/vehicles/us_vtol_transport/us_vtol_transport.cga'] = {
+        [0] = 'vtol_transport_engfront_to_flying',
+        [1] = 'vtol_transport_engfront_to_hovering',
+        [2] = 'vtol_transport_lg_close',
+        [3] = 'vtol_transport_lg_open',
+    };
+
+
+           [0] = 'Default',
+        [1] = 'tank_cannon_recoil',
+        [2] = 'tank_cineharboropenhatch_01',
+        [3] = 'tank_cineharboropenhatchidle_01',
+
+
+            ['objects/vehicles/us_cargoplane/us_cargoplane.cga'] = {
+        [0] = 'cargoplane_backdoor_close',
+        [1] = 'cargoplane_backdoor_open',
+        [2] = 'cargoplane_land',
+        [3] = 'cargoplane_rotor',
+        [4] = 'cargoplane_takeoff',
+    };
+    ['objects/vehicles/us_destroyer/us_destroyer_mp.cga'] = {
+        [0] = 'Default',
+    };
+    ['objects/vehicles/us_fighter_b/us_fighter.cga'] = {
+        [0] = 'Default',
+        [1] = 'fighter_canopy_open',
+        [2] = 'fighter_landing',
+        [3] = 'fighter_landing_gear_close',
+        [4] = 'fighter_landing_idle',
+        [5] = 'fighter_wing_close',
+        [6] = 'fighter_wing_open',
+
+
+    ['objects/vehicles/asian_tank/asian_tank.cga'] = {
+        [0] = 'tank_cannon_recoil',
+        [1] = 'tank_closehatch',
+        [2] = 'tank_enterclosedhatch',
+        [3] = 'tank_toopenhatch',
+    };
+    ['objects/vehicles/asian_tank/asian_tank_low.cga'] = {
+        [0] = 'tank_cannon_recoil',
+        [1] = 'tank_closehatch',
+        [2] = 'tank_enterclosedhatch',
+        [3] = 'tank_toopenhatch',
+    };
+    ['objects/vehicles/asian_tank/tread_left.chr'] = {
+        [0] = 'null',
+    };
+    ['objects/vehicles/asian_tank/tread_right.chr'] = {
+        [0] = 'null',
+    };
+    ['objects/vehicles/asian_truck_b/asian_truck_b.cga'] = {
+        [0] = 'truck_b_door1_enter',
+        [1] = 'truck_b_door1_exit',
+        [2] = 'truck_b_door2_enter',
+        [3] = 'truck_b_door2_exit',
+        [4] = 'truck_b_gunner_pitch',
+        [5] = 'truck_b_gunner_yaw',
+        [6] = 'truck_b_steeringwheel',
+    };
+    ['objects/vehicles/civ_car1/civ_car.cga'] = {
+        [0] = 'car_door1_exit',
+        [1] = 'car_door1_open',
+        [2] = 'car_door2_exit',
+        [3] = 'car_door2_open',
+        [4] = 'car_steeringwheel',
+    };
+    ['objects/vehicles/kuanti/kuanti_radarjammer.cga'] = {
+        [0] = 'Default',
+    };
+    ['objects/vehicles/ltv/ltv.cga'] = {
+        [0] = 'door_left_front_enter',
+        [1] = 'door_left_front_exit',
+        [2] = 'door_left_rear_enter',
+        [3] = 'door_left_rear_exit',
+        [4] = 'door_right_front_enter',
+        [5] = 'door_right_front_exit',
+        [6] = 'door_right_rear_enter',
+        [7] = 'door_right_rear_exit',
+
+           };
+    ['objects/library/vehicles/mobile_crane/mobile_crane.cga'] = {
+        [0] = 'Default',
+        [1] = 'crane_cinematic',
+        [2] = 'crane_cinematic_freakout',
+        [3] = 'crane_cinematic_wheelbackward',
+        [4] = 'crane_turnleft',
+        [5] = 'crane_turnright',
+        [6] = 'crane_wheelbackward',
+        [7] = 'crane_wheelforward',
+    };
+
+
+            [1] = 'crane_cinematic',
+        [2] = 'crane_cinematic_freakout',
+        [3] = 'crane_cinematic_wheelbackward',
+        [4] = 'crane_turnleft',
+        [5] = 'crane_turnright',
+        [6] = 'crane_wheelbackward',
+        [7] = 'crane_wheelforward',
+]]
+--=========================================================
+-- Events
+ClientMod.V_MODEL = function(self, name, model, id, p, d, s, ht)
+
+    local vehicle = GetEntity(name)
+    if (not vehicle) then
+        self.WANT_VM[name] = { name, model, id, p, d, s, ht } -- lag can cause RPC code to be recieved before entity gets initialized! WHAAAT
+        return
+    end
+
+    if (not vehicle.vehicle) then return end
+
+    if (vehicle and model) then
+
+
+        --[[
+        if (false and self.DEBUG) then
+
+            vehicle:LoadObject(0, model)
+            vehicle:DrawSlot(0,1)
+
+
+          --  vehicle:SetSlotWorldTM(10,p,d)
+            local rp=vehicle:GetPos()
+            p = {
+                x = (p and p.x or 0) + 0 or rp.x,
+                y = (p and p.y or 0) + 0 or rp.y,
+                z= (p and p.z or 0) + 0 or rp.z,
+            }
+            DebugLog(Vec2Str(p))
+            vehicle:SetSlotPos(0,p)
+
+            local rd=vehicle:GetAngles()
+            d = {
+                x = (d and d.x or 0) +0 or rd.x,
+                y = (d and d.y or 0) +0 or rd.y,
+                z= (d and d.z or 0) +0 or rd.z,
+            }
+            vehicle:SetSlotAngles(0,d)
+
+            DebugLog(self:GetObjMaterial(model))
+            vehicle:SetMaterial(self:GetObjMaterial(model))
+        else]]
+            if (vehicle.CM) then System.RemoveEntity(vehicle.CM) end
+            local CM = System.SpawnEntity({ class = "BasicEntity", position = vehicle:GetPos(), orientation = vehicle:GetDirectionVector(), name = vehicle:GetName() .. "_cm", properties = { object_Model = model }})
+
+            local e=model:sub(-3)
+            --crysis geometry animated
+            if (e=="cga"or e=="chr")then
+                CM:LoadCharacter(0, model)
+            else -- crysis geometry file
+                CM:LoadObject(0, model)
+            end
+            --[[if (id == VM_USPLANE) then -- for collision
+                model = string.sub(model, 1, string.len(model) - 4) .. ".cga"
+                DebugLog("load clollision fix %s",model)
+                CM:LoadObject(1, model)
+                CM:DrawSlot(1, 1)
+                CM:DrawSlot(0, 0)
+            end]]
+
+            CM:PhysicalizeSlot(0, { flags = 1.8537e+008 }) -- special flags for correct collision.
+            CM.Parent = vehicle.id
+
+            self.VM[CM.id] = { EntityID = vehicle.id, ID = id }
+
+            vehicle:DrawSlot(0, 0)
+            vehicle:AttachChild(CM.id, PHYSICPARAM_SIMULATION)
+
+
+            vehicle.CM = CM.id
+            vehicle.CMID = id
+
+            if (p) then CM:SetLocalPos(p) end
+            if (d) then CM:SetLocalAngles(d) end
+            if (s) then CM:SetScale(s) end
+            if (ht) then for i = 1, 4 do vehicle:DrawSlot(i, 0) end end
+
+            local anim=({
+                [VM_HELI]="helicopter_rotate_mainrotor",
+                [VM_AAA]="aaa_radar_rotate",
+            })[id]
+            self:AddLA(CM.id,anim,anim~=nil)
+            DebugLog("anim=%s",anim or "null")
+        --end
+    end
+
+end
+
 --=========================================================
 -- Events
 ClientMod.RequestModel = function(self, channelId, modelId, modelPath, soundPath, seatFixId)
@@ -1261,6 +2143,11 @@ ClientMod.RequestModel = function(self, channelId, modelId, modelPath, soundPath
     --hPlayer:SetMaterial(hPlayer.CMMaterial)
     --hPlayer:UpdateAttachedItems()
     --hPlayer:ResetMaterial(0)
+    if (hPlayer.JETPACK.HAS) then
+        -- need to re-attach!
+        self:Jetpack(hPlayer:GetChannel(),false)
+        self:Jetpack(hPlayer:GetChannel(),true)
+    end
 end
 
 --=========================================================
@@ -1383,6 +2270,22 @@ end
 
 --=========================================================
 -- Events
+ClientMod.StartBurn = function(self, ent,effect,enable)
+
+    local hEntity = GetEntity(ent)
+    if (not hEntity) then
+        return ClientLog("<entity not found >%s",g_ts(ent))
+    end
+
+    hEntity.Burning = self:LoadEffectOnEntity(hEntity, "burn", {
+        Effect = effect or "explosions.barrel.burning",
+        Speed  = 1,
+        Pulse = 5,
+    }, true)
+end
+
+--=========================================================
+-- Events
 ClientMod.DissolveVehicle = function(self, id, enable)
 
     local hEntity = GetEntity(id)
@@ -1399,8 +2302,193 @@ ClientMod.DissolveVehicle = function(self, id, enable)
         Type   = "Render",
         Form   = "Surface",
         Speed  = 0.5,
-        UnitScale = 5
+        UnitScale = 3.881
     }, enable)
+end
+
+-- PICKUP:
+-- clay pick_up_claymore_left_01
+
+-- PLACE
+-- av
+
+--=========================================================
+ClientMod.ItemChanged = function(self, p, n, o)
+
+    local pick
+    if ( n) then
+
+    local a={["AVMine"]="arm_01",}
+     pick = (self.PREVIOUS_INV[n.id] == nil or (n.class~="GaussRifle" and timerexpired(self.PREVIOUS_INV[n.id],math.random(45,72))))
+    if (GetCVar("crymp_weapon_cockingalways") >0 or pick)then
+        a["DSG1"]="cock_right_01"
+        a["GaussRifle"]=getrandom({"cock_right_akimbo_01","cock_right_01"})
+        a["SMG"]="select_cock_01"
+        a["Shotgun"]=getrandom({"post_reload_01","post_reload_02"})
+       -- a["SCAR"]="fire_tactical_right_akimbo_01"
+       --a["LAW"]="idle_01"
+    end
+    if (p.id==self.id)then
+        if (n) then
+            local an=a[n.class]
+            if (an) then n:StartAnimation(0,an,8)end
+        end
+        if (o) then
+            o.FPARM = nil
+        end
+    end
+    end
+
+    local new={}
+    for _,y in pairs(self.ent.inventory:GetInventoryTable()or{}) do
+        new[y]=not pick and self.PREVIOUS_INV[y] or timerinit()
+    end
+    self.PREVIOUS_INV = new
+end
+
+--=========================================================
+ClientMod.IDLEFP = function(self, chan, anim, speed, all)
+
+    -- !! melee_01 >
+
+    local p = GP(chan)
+    if (not p) then
+        return
+    end
+    if (p.id == self.id) then
+        local hFists = g_localActor.inventory:GetCurrentItem()
+        if (not hFists or (not all and hFists.class ~= "Fists")) then
+            return
+        end
+        hFists:StartAnimation(0, anim, 8)
+
+        hFists.animtimer = timerinit()
+        hFists.animtime  = hFists:GetAnimationLength(0, anim, 8, 0, speed or 1)
+
+        DebugLog("len=%f",hFists.animtime or -6969)
+        DebugLog("fp=%s",hFists.fpanim or -6969)
+        --end
+    end
+end
+
+--=========================================================
+ClientMod.ANIM = function(self, chan, anim, freeze)
+
+    local p = GP(chan)
+    if (not p) then
+        return
+    end
+
+    p:StartAnimation(0, anim, 8) -- server SCHLOTT
+    local iAnimTime = p:GetAnimationLength(0, anim)
+
+    p.ANIM_TIME = iAnimTime
+    p.ANIM_TIMER = timerinit()
+
+    if (freeze and p.id==self.id) then
+        g_pGame:FreezeInput(true)
+        Script.SetTimer(iAnimTime * 1000, function() g_pGame:FreezeInput(false)  end)
+    end
+
+end
+
+--=========================================================
+ClientMod.IDLE = function(self, chan, anim, fpanim, loop, reset)
+
+
+    local speed = 1
+    local slot = GetCVar("crymp_idleanimslot")
+
+    local p = GP(chan)
+    if (not p or p:GetVehicle() or p:IsDead() or p:IsSpectating() or p.actorStats.stance == STANCE_SWIM) then
+        return
+    end
+
+    if (p.ANIM_TIMER ~= nil and not timerexpired(p.ANIM_TIMER, p.ANIM_TIME)) then
+        p.IDLE.QUEUED = anim
+        return
+    end
+
+    p.ANIM_TIME = nil
+    p.ANIM_TIMER = nil
+
+    p.IDLE.STANCE = p.actorStats.stance
+    p.IDLE.POS = p:GetPos()
+
+    if (anim == "stop" or (p.LAST_VELOCITY and LengthVector(p.LAST_VELOCITY) > 0)) then
+        if (p.IDLE.PLAYING and not timerexpired(p.IDLE.TIMER, p.IDLE.TIME - 0.1)) then -- try to not call this if IDLE is no longer playing.. else FREEZING MODEL
+            p:StopAnimation(0,slot)
+            p:StartAnimation(0, "Default" ,slot)
+            p:ForceCharacterUpdate(0, true) -- what this
+            DebugLog("mierda")
+        end
+
+        p.IDLE.QUEUED = nil
+        p.IDLE.PLAYING = false
+        return
+    end
+
+
+    DebugLog("ULTRA IMMERSIVE IDLE RECEIVED %s",anim)
+
+    --7 slot 7 slot 7 77
+    if (anim ~= "none") then -- for fp only (salute etc)
+
+        p.IDLE.PLAYING = true
+        p.IDLE.LOOP = loop
+        p.IDLE.ANIM = anim
+
+        if (not reset and p.IDLE.TIME and not timerexpired(p.IDLE.TIMER, p.IDLE.TIME)) then
+            p.IDLE.QUEUED = anim
+            DebugLog("added to QUEUE!")
+            return
+        end
+
+        p:StopAnimation(0,slot)
+        p:StartAnimation(0, anim, slot, 0, speed)
+        p:ForceCharacterUpdate(0, true) -- what this
+
+        --self:StartAnimation( 0,self.Properties.Animation.Animation,0,0,1,self.Properties.Animation.bLoop,1 );
+
+        p.IDLE.TIMER = timerinit()
+        p.IDLE.TIME = p:GetAnimationLength(0, anim)
+    end
+    if (fpanim and p.id == self.id) then
+        local hFists = g_localActor.inventory:GetCurrentItem()
+        if (not hFists or hFists.class ~= "Fists") then
+            return
+        end
+
+        if (timerexpired(hFists.animtimer, hFists.animtime)) then
+            hFists:StartAnimation(0, fpanim, 8)
+
+            hFists.animtimer = timerinit()
+            hFists.animtime = hFists:GetAnimationLength(0,fpanim)+7
+
+            DebugLog("len=%f",hFists.animtime or -6969)
+            DebugLog("fp=%s",hFists.fpanim or -6969)
+        end
+    end
+end
+
+--=========================================================
+-- PLAY SOUND EVENT
+ClientMod.StopSound = function(self, entity, id, slot)
+
+    id = id or "generic"
+
+    entity = (entity or self.ent)
+    entity.SoundSlots = entity.SoundSlots or {}
+    entity.SoundSlots[id] = entity.SoundSlots[id] or {}
+
+    slot = slot or -1
+
+    local sslot = entity.SoundSlots[id][slot]
+    if (sslot and Sound.IsPlaying(sslot)) then
+        entity:StopSound(sslot)
+    end
+
+    entity.SoundSlots[id][slot] = nil
 end
 
 --=========================================================
@@ -1432,10 +2520,30 @@ ClientMod.PSE = function(self, sound, entity, id, slot, loop, force_restart, ove
     end
 
     ClientLog("->play%s",sound)
+    if (entity.actor and string.find(sound,"dialog")) then
+        TD = bor(bor(SOUND_EVENT, SOUND_VOICE), SOUND_DEFAULT_3D)
+      --  TD = bor(bor(bor(SOUND_EVENT, SOUND_VOICE), SOUND_DEFAULT_3D), SOUND_RADIUS)
+      --  entity.SoundSlots[id][slot] = entity:PlaySoundEventEx(sound, TD, 3, vc, 15, 35, fol)
+   --     Sound.SetSoundVolume(entity.SoundSlots[id][slot], 10)
+   -- else
+    end
     entity.SoundSlots[id][slot] = entity:PlaySoundEvent(sound, vc, vc2, TD, fol)
     if (loop) then
         Sound.SetSoundLoop(entity.SoundSlots[id][slot], 1)
     end
+end
+
+--=========================================================
+-- Events
+ClientMod.UnloadEffectAll = function(self, hEntity)
+    if (not hEntity.EffectSlots) then return end
+    for _, aIDs in pairs(hEntity.EffectSlots) do
+        for __, hSlot in pairs(aIDs) do
+            DebugLog("brutally unloaded %s",g_ts(hSlot))
+            hEntity:FreeSlot(hSlot)
+        end
+    end
+    hEntity.EffectSlots = nil
 end
 
 --=========================================================
@@ -1467,19 +2575,22 @@ ClientMod.LoadEffectOnEntity = function(self, entity, id, params, enable)
 
     local hSlot = hEntity.EffectSlots[id][iSlot]
     if (hSlot) then
-        if (enable) then return true, ClientLog("already") end -- on?
+        if (enable) then return true, DebugLog("already") end -- on?
         hEntity:FreeSlot(hSlot)
         hEntity.EffectSlots[id][iSlot] = nil
-        ClientLog("Disable")
+        DebugLog("Disable eff")
         return false -- off
 
     elseif (enable) then
         hEntity.EffectSlots[id][iSlot] = hEntity:LoadParticleEffect(iSlot, sEffect, aParams)
-        ClientLog("Enable")
+        if (params.Pos) then
+            hEntity:SetSlotWorldTM(hEntity.EffectSlots[id][iSlot], params.Pos, params.Dir or g_Vectors.up)
+        end
+        DebugLog("Enable eff")
         return true -- on
     end
 
-    ClientLog("F > %s", g_ts(enable))
+    DebugLog("F > %s", g_ts(enable))
     return false -- off?
 end
 
@@ -1532,6 +2643,8 @@ ClientMod.ToServer = function(self, hType, hMessage)
 
 end
 
+ClientMod.TS=ClientMod.ToServer
+
 --=========================================================
 -- Inject
 ClientMod.Inject = function(self, aParams)
@@ -1547,12 +2660,32 @@ ClientMod.Inject = function(self, aParams)
     end
 
     local hClass = _G[sEntity]
+    local sScriptPath
+    if (CPPAPI.GetEntityScriptPath) then
+        sScriptPath = CPPAPI.GetEntityScriptPath(sEntity)
+    else
+        sScriptPath = ({
+            ["GUI"] = "Scripts/Entities/Others/GUI.lua",
+            ["Door"] = "Scripts/Entities/Doors/Door.lua",
+        })[sEntity]
+    end
+
     if (not hClass) then
-        ClientLog("Class %s to Inject not found", sEntity)
-        return
+        DebugLog("Class %s to Inject not found", sEntity)
+        if (not sScriptPath) then
+            return
+        end
+        DebugLog("Loding %s",sScriptPath)
+        Script.ReloadScript(sScriptPath)
+    else
+        DebugLog("%s OK",sEntity)
     end
 
     local function Replace(sT, c, f)
+        if (not c) then
+            ClientLog("%s not found",g_ts(sT))
+            return
+        end
         local aNest = string.split(sT, ".")
         local iNest = table.size(aNest)
         if (iNest == 1) then
@@ -1579,6 +2712,10 @@ ClientMod.Inject = function(self, aParams)
             else
                 Replace(sTarget, hEnt, fFunction)
             end
+
+            if (aParams.Call) then
+                fFunction(hEnt)
+            end
         end
     end
 end
@@ -1597,6 +2734,45 @@ end
 --=========================================================
 -- Patch player
 ClientMod.PatchLocalActor = function(client)
+
+
+    client:Inject({
+        Class    = "g_localActor",
+        Target   = "CurrentItemChanged",
+        PatchEntities = true,
+        Function = function(self, newItemId, lastItemId)
+
+            --
+            g_Client:ItemChanged(self,GetEntity(newItemId),GetEntity(lastItemId))
+
+            local item = System.GetEntity(newItemId);
+            if(item) then
+                -- notify squadmates about the attachments on new weapon
+                local weapon = item.weapon;
+                local entityAccessoryTable = SafeTableGet(self.AI, "WeaponAccessoryTable");
+                if(weapon and entityAccessoryTable) then
+                    if(weapon:GetAccessory("Silencer") or item.class == "Fists") then
+                        entityAccessoryTable["Silencer"] = 1;
+                        self.AI.Silencer = true;
+                    else
+                        entityAccessoryTable["Silencer"] = 0;
+                        self.AI.Silencer = false;
+                    end
+
+                    if(weapon:GetAccessory("SCARIncendiaryAmmo")) then
+                        entityAccessoryTable["SCARIncendiaryAmmo"] = 2;
+                        entityAccessoryTable["SCARNormalAmmo"] = 0;
+                    elseif(weapon:GetAccessory("SCARNormalAmmo")) then
+                        entityAccessoryTable["SCARIncendiaryAmmo"] = 0;
+                        entityAccessoryTable["SCARNormalAmmo"] = 2;
+                    end
+                    -- use a timer to avoid repeated spamming notifications
+                    self:SetTimer(SWITCH_WEAPON_TIMER,2000);
+                end
+            end
+        end
+    })
+
     client:Inject({
         Class    = "g_localActor",
         Target   = "UpdateDraw",
@@ -1842,8 +3018,17 @@ ClientMod.PatchLocalActor = function(client)
         PatchEntities = true,
         Function = function(self)
 
+            self.FLYING_CHAIR = self.FLYING_CHAIR or { ENTITYID = nil }
+            self.JETPACK = self.JETPACK or { HAS = false, VISIBLE = false, PARTS = {}, MAIN = nil, EXHAUST0 = nil, EXHAUST1 = nil }
             self.CM = self.CM or { ID = 0, File = "" }
+            self.IDLE = self.IDLE or {
+                PLAYING  = false,
+                POS      = self:GetPos(),
+                TIMER    = timerinit() - 9999,
+                QUEUED   = nil,
+            }
 
+            self.actor:GetCurrentAnimationState()
             -- Shorts
             self.IsDead       = function(this) return (this.actor:GetHealth() <= 0) end
             self.IsAlive      = function(this) return (this.actor:GetHealth() >  0) end
@@ -1875,8 +3060,161 @@ ClientMod.PatchLocalActor = function(client)
 end
 
 --=========================================================
+-- guiguiguiguig
+ClientMod.PatchGUI = function(client)
+
+
+    -- =========================================================================================================
+    client:Inject({
+        Class    = "GUI",
+        Target   = "OnSpawn",
+        PatchEntities = true,
+        Function = function(self)
+            self:OnReset()
+        end
+
+    })
+
+    -- =========================================================================================================
+    client:Inject({
+        Class    = "GUI",
+        Target   = "OnReset",
+        PatchEntities = true,
+        Call          = true,
+        Function = function(self)
+
+            local sName = self:GetName()
+            local function g(s,m,n)
+                local x = string.match(sName, s .. "={(" .. (m or ".-") .. ")}")
+                --ClientLog("%s=%s",s,g_ts(x))
+                if (n) then
+                    return tonumber(x)
+                end
+                return x
+            end
+
+            local sObj 		= (g("Model") or self.Properties.objModel)
+            local iPhysics 	= (g("Physics", "%d+", 1) or self.Properties.bPhysicalized)
+            local fMass 	= (g("Mass", "%d*", 1) or self.Properties.fMass)
+            local fRigid 	= (g("Rigid", "%d", 1) or self.Properties.bRigidBody)
+            local fResting 	= (g("Resting", "%d", 1) or self.Properties.bResting)
+            local fUsable 	= (g("Use", "%d", 1) or 0)
+            local fPickable	= (g("Pick", "%d", 1) or 0)
+            local fScale	= (g("Scale", ".-", 1) or 0)
+            local sEffect   = g("PProps" or "") -- client only
+            local sSound	= g("Sound" or "") -- client only
+
+            DebugLog("s=%s",sSound)
+            if (CryAction.IsClient()) then
+                if (sSound and sSound ~="") then
+                    local sndFlags = SOUND_DEFAULT_3D
+                    if (string.match(sSound, "&loop$")) then
+                        sndFlags = bor(sndFlags, SOUND_LOOP)
+                    end
+                    DebugLog("s=%s",string.gsub(sSound, "&loop$", ""))
+                    self.SndSlot = self:PlaySoundEvent(string.gsub(sSound, "&loop$", ""), g_Vectors.v000, g_Vectors.v010, sndFlags, SOUND_SEMANTIC_PLAYER_FOLEY)
+                end
+
+                if (sEffect and sEffect~="") then
+                    if (g_Client) then
+                        g_Client:LoadEffectOnEntity(self, "generic0", {Effect = sEffect,CountScale=1,Scale=1}, true)
+                    end
+                end
+            end
+
+            if (fUsable ~= 0) then MakeUsable(self) end
+            if (fPickable ~= 0) then MakePickable(self) end
+            if (fScale > 0) then self:SetScale(fScale) end
+
+            self:Activate(1)
+            self:SetUpdatePolicy(ENTITY_UPDATE_VISIBLE)
+            self:SetViewDistRatio(450)
+
+            if (sObj ~= "") then
+                self:LoadObject(0, sObj)
+                DebugLog("load %s",sObj)
+            end
+
+            --ClientLog(sObj)
+            --(fMass)
+            ----ClientLog(type(fMass))
+            --ClientLog("%s",Vec2Str(self:GetPos()))
+
+            self:DrawSlot(0, 1)
+
+            if (iPhysics ~= 0) then
+
+                local iPhysType   = PE_STATIC
+                local aPhysParams = { mass = fMass, }
+                if (fRigid ~= 0) then iPhysType = PE_RIGID end
+
+                self:Physicalize(0, iPhysType, aPhysParams)
+                if (fResting ~= 0) then
+                    self:AwakePhysics(0)
+                else
+                    self:AwakePhysics(1)
+                end
+            end
+
+            DebugLog("GUI Spawned. Name is %s", sName)
+        end
+    })
+
+
+end
+
+--=========================================================
+-- Patch Game rules (and flags..)
+ClientMod.PatchDoor = function(client)
+
+    client:Inject({
+        Class    = "Door",
+        Target   = {"OnUsed"},
+        Function = function(self, hUser)
+
+            if (not hUser or hUser.id ~= g_localActor.id) then -- Possible manipulation
+                g_Client:TS(0,eAC_Door)
+                return
+            end
+
+            if (hUser.id == g_Client.id and self.action ~= DOOR_OPEN) then
+                local iSpeed = 1
+                if (hUser:GetSuitMode(NANOMODE_SPEED)) then
+                    iSpeed = 2.5
+                end
+                g_Client:IDLEFP(hUser:GetChannel(), "melee_01", iSpeed, 1)
+            end
+
+            DebugLog("%s is using door %s", hUser:GetName(), self:GetName())
+            self.server:SvRequestOpen(hUser.id, self.action ~= DOOR_OPEN)
+        end
+    })
+
+end
+
+--=========================================================
 -- Patch Game rules (and flags..)
 ClientMod.PatchGameRules = function(self)
+
+
+    -- =========================================================================================================
+    self:Inject({
+        Class    = "g_gameRules",
+        Target   = {"Client.InGame.OnKill"},
+        Function = function(this, playerId, shooterId, weapon, dmg, material, tpe)
+            tpe = this.game:GetHitType(tpe) or ""
+
+            local mat = this.game:GetHitMaterialName(material) or ""
+            local headshot = mat:find("head")
+            local melee = tpe:find("melee")
+            local player = playerId and System.GetEntity(playerId)
+
+            if(playerId == self.id) then
+                HUD.ShowDeathFX(headshot and 2 or melee and 3 or 5)
+            end
+            g_Client:OnKill(player,shooterId,melee,headshot,tpe)
+        end
+    })
 
 
     -- =========================================================================================================
@@ -2001,6 +3339,9 @@ ClientMod.InitLibs = function()
     timerdiff=function(t)return os.clock()-t  end
     timerexpired=function(t,e) return t==nil or timerdiff(t)>=e  end
 
+    --- MATH ---
+    math.frandom=function(x,y)return x+math.random()*((y or 1)-x)end
+
     --- LUA ---
     isArray=function(h)return type(h)=="table" end
     isNumber=function(h)return type(h)=="number" end
@@ -2043,8 +3384,16 @@ ClientMod.InitLibs = function()
 
     --- VECTOR ---
     vector=(vector or {})
+    vector.gawker=function(center,num,rad)local p={}for i=0,360,360/(num or 10)do local x,y,z=center.x+math.sin(math.rad(i))*rad,center.y+math.cos(math.rad(i))*rad,center.z local d={x=center.x-x,y=center.y-y,z=center.z-z}p[#p+1]={pos={x=x,y=y,z=z},dir=d}end return p end
     vector.distance=function(a,b)local dx=b.x-a.x local dy=b.y-a.y local dz=b.z-a.z return math.sqrt(dx * dx + dy * dy + dz * dz)end
     vector.scale=function(a,b)return{x=a.x*b,y=a.y*b,z=a.z*b}end
+    vector.getang = function(v1, v2) local iX, iY, iZ = v1.x - v2.x, v1.y - v2.y, v1.z - v2.z local iDist = math.sqrt(iX * iX + iY * iY + iZ * iZ) return {x = math.atan2(iZ, iDist), y = 0, z = math.atan2(-iX, iY)} end
+    vector.toang=function(v) return{
+        x = math.deg(math.atan2(v.z, math.sqrt(v.x * v.x + v.y * v.y))),
+        y = 0,
+        z = math.deg(math.atan2(-v.x, v.y))
+    }  end
+
 end
 
 --=========================================================
@@ -2103,13 +3452,13 @@ ClientMod.AnimationHandler = {
         CM_WORKER, CM_ALIEN, CM_HUNTER, CM_SCOUT,
         CM_SHARK, CM_DOG, CM_TROOPER, CM_CHICKEN,
         CM_TURTLE, CM_CRAB, CM_FINCH, CM_TERN,
-        CM_FROG, CM_ALIENWORK, CM_HEADLESS =
+        CM_FROG, CM_ALIENWORK, CM_BUTTERFLY, CM_HEADLESS =
         0, 1, 2, 3, 4, 5, 6, 7,
         8, 9, 10, 11, 12, 13, 14, 15,
         16, 17, 18, 19, 20, 21, 22, 23,
         24, 25, 26, 27, 28, 29, 30, 31,
         32, 33, 34, 35, 36, 37, 38, 39,
-        40, 41, 1000
+        40, 41, 42, 1000
 
 
         -- Client Event Cases
@@ -2377,7 +3726,14 @@ ClientMod.AnimationHandler = {
                 aAnimation.SoundEvents = nil
                 aAnimation.SoundVolume = nil
 
-                if (hClient.CM.ID == CM_FROG) then
+                if (hClient.CM.ID == CM_BUTTERFLY) then
+                    sAnim = "fly_loop"
+                    if (iClientSpeed < 0.1) then
+                        sAnim = "landing"
+                    end
+                    return true, sAnim, iSpeed, iTime
+
+                elseif (hClient.CM.ID == CM_FROG) then
                     sAnim = "frog_idle_01"
                     if (iClientSpeed > 0.5) then
                         sAnim = "frog_walk_01"

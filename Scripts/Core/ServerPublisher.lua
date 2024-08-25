@@ -332,12 +332,13 @@ ServerPublisher.GetServerReport = function(self, iType)
     if (SERVER_DEBUG_MODE) then
         iPlayerCount = (iPlayerCount + getrandom(1, 2))
         hPlayerList     = self:GetPlayers(iPlayerCount)
-    end
 
-    -- TEST TEST
-   -- Debug("sPass:",sPass)
-  --  Debug("count:",table.count(hPlayerList))
-  --  Debug("iPlayerCount:",iPlayerCount)
+        -- TEST TEST
+        -- Debug("sPass:",sPass)
+        Debug("count:",table.count(hPlayerList))
+        Debug("iPlayerCount:",iPlayerCount)
+        Debug(hPlayerList)
+    end
 
     local aBody = {
         cookie       = nil,
@@ -348,6 +349,7 @@ ServerPublisher.GetServerReport = function(self, iType)
         timel        = iTimeLeft,
         name         = sName,
         numPlayers   = iPlayerCount,
+        numpl        = iPlayerCount,
         maxpl        = iMaxPlayers,
         pak          = sPakLink,
         map          = sMapName,
@@ -418,8 +420,8 @@ ServerPublisher.GetPlayers = function(self, iPopulate)
 
         sName    = ServerNames:RemoveCrypt(hClient:GetName())
         sRank    = hClient:GetRank()
-        sKills   = hClient:GetKills()
-        sDeaths  = hClient:GetDeaths()
+        sKills   = hClient:GetKills() if (sKills < 0) then sKills = 0 end
+        sDeaths  = hClient:GetDeaths()  if (sDeaths < 0) then sDeaths = 0 end
         sProfile = hClient:GetProfileID()
 
         -- FIXME: In IA games, Make it team 0 if spectator?

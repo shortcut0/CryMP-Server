@@ -84,7 +84,7 @@ ServerLocale.LocalizeNestForClient = function(self, hClient, sMsg, ...)
             sNextLocalized = "{missing_" .. string.gsub(sNextLocale, "@", "") .. "}"
         end
 
-        ServerLog("next: %s === %s",sNextLocale,sNextLocalized)
+        --ServerLog("next: %s === %s",sNextLocale,sNextLocalized)
         -- format next string
         sFinalMsg = sFinalMsg:gsub(sNextLocale, Logger:FormatLocalized(sNextLocalized, (aFmt[iNextFmt] or {})))
         iNextFmt = (iNextFmt + 1)

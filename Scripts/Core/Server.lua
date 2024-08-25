@@ -157,6 +157,9 @@ end
 ----------------
 Server.OnReload = function(self)
 
+    if (PlayerHandler) then
+        PlayerHandler:SavePlayerData()
+    end
     EventCall(eServerEvent_OnScriptReload)
 end
 
@@ -403,7 +406,8 @@ end
 ----------------
 Server.OnBeforeSpawn = function(self, aParams)
 
-    if (aParams.class == "Civ_car1") then
+    if (aParams.class == "GUI") then
+    --    aParams.name = GUI.PrepareName(aParams)
     end
     return aParams
 end

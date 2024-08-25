@@ -654,6 +654,9 @@ CreateLocalization("l_commandresp_notAlive", {
 CreateLocalization("l_commandresp_onlyAlive", {
     english = "Only usable while being Alive"
 })
+CreateLocalization("l_commandresp_onlyWhenValidated", {
+    english = "You must be validated to use this Command"
+})
 
 
 CreateLocalization("l_ui_prestigeReceived", {
@@ -670,6 +673,9 @@ CreateLocalization("l_ui_prestigeTransferredC", {
 })
 CreateLocalization("l_ui_projectileEleminated", {
     english = "${1}Projectile Eliminated"
+})
+CreateLocalization("l_ui_Eliminated", {
+    english = "Eliminated"
 })
 CreateLocalization("l_ui_friendly", {
     english = "Friendly"
@@ -781,6 +787,43 @@ CreateLocalization("l_ui_voteNotFound", {
 
 
 
+CreateLocalization("l_ui_repaired", {
+    english = "Repaired"
+})
+CreateLocalization("l_ui_turret", {
+    english = "Turret"
+})
+CreateLocalization("l_ui_stolen", {
+    english = "Stolen"
+})
+CreateLocalization("l_ui_hq", {
+    english = "HQ"
+})
+CreateLocalization("l_ui_disarmed", {
+    english = "Disarmed"
+})
+CreateLocalization("l_ui_disarmed_u", {
+    english = "DISARMED"
+})
+CreateLocalization("l_ui_suicide", {
+    english = "Suicide"
+})
+CreateLocalization("l_ui_explosive", {
+    english = "Explosive"
+})
+
+
+
+
+
+
+CreateLocalization("l_ui_scoreSaved", { english = "Score Saved for ${red}${1}"})
+CreateLocalization("l_ui_scoreRestored", { english = "(SCORE: Restored!)"})
+CreateLocalization("l_ui_scoreRestoredC", { english = "Score Restored for ${red}${1}"})
+CreateLocalization("l_ui_scoreResetC", { english = "Score Reset for ${red}${1}"})
+CreateLocalization("l_ui_scoreReset", { english = "(SCORE: Reset!)"})
+
+
 
 
 
@@ -806,7 +849,44 @@ CreateLocalization("l_ui_our", {
     english = "Our"
 })
 CreateLocalization("l_ui_enemy", {
-    english = "Our"
+    english = "Enemy"
+})
+
+
+
+
+
+
+CreateLocalization("l_ui_distance", {
+    english = "Distance"
+})
+CreateLocalization("l_ui_distance_d", {
+    english = "The Distance you wish to apply"
+})
+
+CreateLocalization("l_ui_teleportedFWD", {
+    english = "(Teleported: ${1}m Forward)"
+})
+
+CreateLocalization("l_ui_flying", {
+    english = "Flying"
+})
+
+
+
+
+
+
+
+
+CreateLocalization("l_ui_targetNotAlive", {
+    english = "${1} Is not Alive"
+})
+CreateLocalization("l_ui_jetPackEquipped", {
+    english = "JETPACK :: ${1}"
+})
+CreateLocalization("l_ui_jetPackPlayer", {
+    english = "${1}: JetPack ${2}"
 })
 
 
@@ -1029,8 +1109,14 @@ CreateLocalization("l_ui_CMEquipBlock", {
 CreateLocalization("l_ui_playerCM", {
     english = "(${1}: Selected to Play as - ${3}${2})"
 })
+CreateLocalization("l_ui_playerVM", {
+    english = "(${1}: Model Activated)"
+})
 CreateLocalization("l_ui_CMList", {
     english = "Character List"
+})
+CreateLocalization("l_ui_VMList", {
+    english = "Vehicle List"
 })
 CreateLocalization("l_ui_CMHeadList", {
     english = "Head List"

@@ -1288,14 +1288,17 @@ end
 ---------------------------
 -- string.empty
 
-string.empty = function(sString)
-
-	---------
-	if (isNull(sString)) then
+string.empty = function(s)
+	if (isNull(s)) then
 		return true end
+	return (string.stripws(s) == "")
+end
 
-	---------
-	return (string.stripws(sString) == "")
+---------------------------
+-- string.emptyN
+
+string.emptyN = function(s)
+	return not string.empty(s)
 end
 
 ---------------------------

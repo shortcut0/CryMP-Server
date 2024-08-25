@@ -78,7 +78,10 @@ local ServerPlayer = {
             local died = g_gameRules:ProcessActorDamage(aHitInfo);
 
             if (died and not isPlayer and (aHitInfo.type == "collision" or aHitInfo.explosion == true)) then
-                self:LastHitInfo(self.lastHit, aHitInfo);
+
+                if (self.lastHit and aHitInfo) then
+                    self:LastHitInfo(self.lastHit, aHitInfo);
+                end
             end
 
             if (aHitInfo.damage == 0 or aHitInfo.type == "heal") then return end

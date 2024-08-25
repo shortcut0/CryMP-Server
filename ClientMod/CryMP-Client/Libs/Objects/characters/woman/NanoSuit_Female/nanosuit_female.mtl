@@ -1,0 +1,75 @@
+<Material MtlFlags="256">
+ <SubMaterials>
+  <Material Name="body" MtlFlags="132" Shader="Cloth" GenMask="268435712" SurfaceType="mat_kevlar" Diffuse="0.50196081,0.50196081,0.50196081" Specular="1,1,1" Emissive="0,0,0" Shininess="10" Opacity="1">
+   <Textures>
+    <Texture Map="Diffuse" File="objects/characters/woman/nanosuit_female/texture/nanosuit.dds">
+     <TexMod />
+    </Texture>
+    <Texture Map="Specular" File="objects/characters/woman/nanosuit_female/texture/nanosuit_spec.dds">
+     <TexMod />
+    </Texture>
+    <Texture Map="Normalmap" File="objects/characters/woman/nanosuit_female/texture/nanosuit_bump.dds">
+     <TexMod />
+    </Texture>
+   </Textures>
+   <PublicParams AnimFrequency="0" AnimAmplitudeWav0="0" AnimAmplitudeWav2="0" AnimPhase="1" AnisotropicShape="0.25" DiffuseExponent="1" FuzzynessSmoothness="2" FuzzynessStrength="1" FuzzynessSpread="1" FuzzynessSaturation="1" SpecularMultiplier="0.31400001"/>
+  </Material>
+  <Material Name="helmet" MtlFlags="132" Shader="Cloth" GenMask="268435712" SurfaceType="mat_kevlar" Diffuse="0.50196081,0.50196081,0.50196081" Specular="1,1,1" Emissive="0,0,0" Shininess="10" Opacity="1">
+   <Textures>
+    <Texture Map="Diffuse" File="objects/characters/woman/nanosuit_female/texture/nanosuit_helmet.dds">
+     <TexMod />
+    </Texture>
+    <Texture Map="Specular" File="objects/characters/woman/nanosuit_female/texture/nanosuit_helmet_spec.dds">
+     <TexMod />
+    </Texture>
+    <Texture Map="Normalmap" File="objects/characters/woman/nanosuit_female/texture/nanosuit_helmet_bump.dds">
+     <TexMod />
+    </Texture>
+   </Textures>
+   <PublicParams AnimFrequency="0" AnimAmplitudeWav0="0" AnimAmplitudeWav2="0" AnimPhase="1" AnisotropicShape="0.25" DiffuseExponent="1" FuzzynessSmoothness="2" FuzzynessStrength="1" FuzzynessSpread="1" FuzzynessSaturation="1" SpecularMultiplier="0.31400001"/>
+  </Material>
+  <Material Name="mask" MtlFlags="132" Shader="Cloth" GenMask="268435712" SurfaceType="mat_kevlar" Diffuse="0.50196081,0.50196081,0.50196081" Specular="1,1,1" Emissive="0,0,0" Shininess="10" Opacity="1">
+   <Textures>
+    <Texture Map="Diffuse" File="objects/characters/woman/nanosuit_female/texture/nanosuit_helm_mask.dds">
+     <TexMod />
+    </Texture>
+    <Texture Map="Specular" File="objects/characters/woman/nanosuit_female/texture/nanosuit_helm_mask_spec.dds">
+     <TexMod />
+    </Texture>
+    <Texture Map="Normalmap" File="objects/characters/woman/nanosuit_female/texture/nanosuit_helm_mask_bump.dds">
+     <TexMod />
+    </Texture>
+   </Textures>
+   <PublicParams AnimFrequency="0" AnimAmplitudeWav0="0" AnimAmplitudeWav2="0" AnimPhase="1" AnisotropicShape="0.25" DiffuseExponent="1" FuzzynessSmoothness="2" FuzzynessStrength="1" FuzzynessSpread="1" FuzzynessSaturation="1" SpecularMultiplier="0.31400001"/>
+  </Material>
+  <Material Name="neck" MtlFlags="132" Shader="Cloth" GenMask="268435712" SurfaceType="mat_kevlar" Diffuse="0.50196081,0.50196081,0.50196081" Specular="1,1,1" Emissive="0,0,0" Shininess="10" Opacity="1">
+   <Textures>
+    <Texture Map="Diffuse" File="objects/characters/woman/nanosuit_female/texture/nanosuit_neck.dds">
+     <TexMod />
+    </Texture>
+    <Texture Map="Specular" File="objects/characters/woman/nanosuit_female/texture/nanosuit_neck_spec.dds">
+     <TexMod />
+    </Texture>
+    <Texture Map="Normalmap" File="objects/characters/woman/nanosuit_female/texture/nanosuit_neck_bump.dds">
+     <TexMod />
+    </Texture>
+   </Textures>
+   <PublicParams AnimFrequency="0" AnimAmplitudeWav0="0" AnimAmplitudeWav2="0" AnimPhase="1" AnisotropicShape="0.25" DiffuseExponent="1" FuzzynessSmoothness="2" FuzzynessStrength="1" FuzzynessSpread="1" FuzzynessSaturation="1" SpecularMultiplier="0.31400001"/>
+  </Material>
+  <Material Name="visir" MtlFlags="128" Shader="Metal" GenMask="268435472" SurfaceType="" Diffuse="0.086274512,0.086274512,0.086274512" Specular="0.050980397,0.050980397,0.043137256" Emissive="0,0,0" Shininess="10" Opacity="1" GlowAmount="10">
+   <Textures>
+    <Texture Map="Diffuse" File="objects/characters/woman/nanosuit_female/texture/nanosuit_visir.dds">
+     <TexMod />
+    </Texture>
+    <Texture Map="Normalmap" File="objects/characters/human/us/nanosuit/nanosuit_helm _glasses_mask_ddn.tif">
+     <TexMod />
+    </Texture>
+    <Texture Map="Environment" File="textures/cubemaps/camera_river_cubemap.dds">
+     <TexMod />
+    </Texture>
+   </Textures>
+   <PublicParams SpecularMultiplier="0.1" Glossiness="0.94999999" ReflectionAmount="10" FresnelBias="0.34999999" FresnelScale="3"/>
+  </Material>
+ </SubMaterials>
+ <PublicParams AmbientMultiplier="1"/>
+</Material>

@@ -1,6 +1,8 @@
 --------------
 ClientMod = (ClientMod or {
 
+    JETPACKS_ENABLED = false,
+
     ModURL = "http://nomad.nullptr.one/~finch/CryMP-Client.lua",
     DevURL = "http://nomad.nullptr.one/~finch/CryMP-Developer.lua",
 
@@ -42,6 +44,18 @@ eClientResp_CloseChat = 21
 eClientResp_WantEnterLastVehicle = 30
 
 eClientResp_ModifiedCVars = { 40, 50 }
+
+eClientResp_MeleeAttack = 60
+eClientResp_StopMelee = 61
+
+
+eClientResp_JetpackOn = 66
+eClientResp_JetpackOff = 67
+
+eClientResp_ChairEffectsOn = 68
+eClientResp_ChairEffectsOff = 69
+eClientResp_ChairRemove = 70
+
 ---------------
 
 CM_NONE         = 0
@@ -86,15 +100,75 @@ CM_FINCH        = 38
 CM_TERN         = 39
 CM_FROG         = 40
 CM_ALIENWORK    = 41
+CM_BUTTERFLY    = 42
 CM_HEADLESS     = 1000
 
 HEAD_NONE = 0
 HEAD_HELENA = 1
 HEAD_CHICKEN = 2
 
+
+VM_TESLA      = 1
+VM_AUDI       = 2
+VM_DUELER     = 3
+VM_FERRARI    = 4
+VM_TRAIN      = 5
+VM_AIRCRAFT   = 6
+VM_NKPLANE    = 7
+VM_USPLANE    = 8
+VM_CARGOPLANE = 9
+VM_TRANSPLANE = 10
+VM_PLANE1     = 11
+VM_VTOLTRANS  = 12
+VM_EXCAVATOR  = 13
+VM_FORKLIFT   = 14
+VM_MINETRUCK  = 15
+VM_CRANE      = 16
+VM_WAGON      = 17
+VM_BAGGAGECART = 18
+VM_SHOPPINGCART = 19
+VM_AAA        = 20
+VM_APC        = 21
+VM_HELI       = 22
+VM_TANK       = 23
+VM_TANKHEADLESS = 24
+VM_TANKTURRET = 25
+VM_TRUCK      = 26
+VM_CAR        = 27
+VM_LTV        = 28
+VM_DAUNTLESS  = 29
+VM_KUANTI     = 30
+VM_SPEEDBOAT  = 31
+VM_DESTROYER  = 32
+VM_HOVER      = 33
+VM_SCIENCESHIP = 34
+VM_CARGOSHIP  = 35
+VM_SKYFORGE   = 36
+VM_NAVYSHIP   = 37
+VM_TANKER     = 38
+VM_SHARK      = 39
+VM_PALM       = 40
+VM_ROCK       = 41
+
+
 ---------------
 ClientMod.Init = function(self)
     RegisterReset("ClientMod", function() ClientMod.SynchedStorage = {} end)
+end
+
+---------------
+ClientMod.UpdateClient = function(self, hClient)
+
+    local hVehicle = hClient:GetVehicle()
+    local bDead = hClient:IsDead()
+    local bSpec = hClient:IsSpectating()
+
+    if (hVehicle or bDead or bSpec) then
+        if (hClient.Chair) then
+            hClient.Chair:SvPickup(hClient, true)
+        end
+        hClient.Chair = nil
+    end
 end
 
 ---------------
@@ -116,6 +190,7 @@ ClientMod.InitClient = function(self, hClient)
 
     -------
     table.checkM(hClient, "CM", { Restored = false, ID = CM_NONE, File = "" })
+    table.checkM(hClient, "ClientTemp", {  })
 
     -------
     ServerLog("ClientMod.InitClient")
@@ -123,10 +198,12 @@ ClientMod.InitClient = function(self, hClient)
 end
 
 ---------------
-ClientMod.StopSync = function(self, hEntityID, sID)
+ClientMod.StopSync = function(self, hID, sID)
 
-    table.checkM(self.SynchedStorage, hEntityID, {})
-    self.SynchedStorage[hEntityID][sID] = nil
+    local hEnt = GetEntity(hID) and GetEntity(hID).id or hID
+
+    table.checkM(self.SynchedStorage, hEnt, {})
+    self.SynchedStorage[hEnt][sID] = nil
 end
 
 
@@ -172,13 +249,11 @@ end
 ClientMod.SyncPart = function(self, hClient, sCode, bForce)
 
 
-
     local sPart = hClient.SyncStep
-    if (sPart and (bForce or string.len(sPart) > 1024)) then
+    if (string.emptyN(sPart) and (bForce or string.len(sPart) > 512)) then
         hClient.SyncStep = nil
         self.ExecuteOn({ hClient }, sPart)
     end
-
     hClient.SyncStep = ((hClient.SyncStep or "") .. " " .. sCode)
 end
 
@@ -193,7 +268,6 @@ ClientMod.SyncAll = function(self, hClient)
     for _, aInfo in pairs(aSS) do
         if (_ == NULL_ENTITY or self:CheckSyncBind(_)) then
             for __, aCode in pairs(aInfo) do
-                Debug("sync id ",__,aCode.Code.Check)
                 if ((aCode.Code.Check == nil or aCode.Code.Check(hClient) == true) and (table.empty(aCode.Dependencies) or self:DependenciesOk(aCode.Dependencies))) then
                     if (not aCode.Code.Client._S[hClient.id]) then
                         iOk = iOk + 1
@@ -213,16 +287,16 @@ ClientMod.SyncAll = function(self, hClient)
                     end
                 else
                     iDeleted = (iDeleted + 1)
-                    Debug("xyz Deleted Entity (dependencies not ok)",_)
-                    Debug(aCode.Code.Client._C)
                 end
             end
         else
             iDeleted = (iDeleted + 1)
-            Debug("Deleted Entity (bind not found) ",_)
         end
     end
 
+    if (self.JETPACKS_ENABLED) then
+        self:SyncPart(hClient, "g_Client:Jetpack("..hClient:GetChannel()..",true)")
+    end
     self:SyncPart(hClient, "", true)
     Logger:LogEventTo(RANK_ADMIN, eLogEvent_ClientMod, "@l_ui_clm_syncFinished", hClient:GetName(), iDeleted, iOk)
 end
@@ -349,6 +423,14 @@ end
 ---------------
 ClientMod.DecodeSpecRequest = function(self, hClient, iMessage)
     local bResolved = true
+    local hWeapon = hClient:GetCurrentItem()
+    local hFists = hClient:GetItemByClass("Fists")
+    local sWeapon = hWeapon and hWeapon.class or ""
+    local hRHEntity, aRH
+    local bMeleeFix = IsAny(sWeapon,
+        "RadarKit", "RepairKit", "Lockpick",
+            "AVMine", "Claymore", "C4"
+    )
 
     if (iMessage == eClientResp_OnInstalled) then
         self:OnInstalled(hClient)
@@ -376,12 +458,103 @@ ClientMod.DecodeSpecRequest = function(self, hClient, iMessage)
     elseif (iMessage > eClientResp_ModifiedCVars[1] and iMessage < eClientResp_ModifiedCVars[2]) then
         self:OnModifiedCVar(hClient, iMessage)
 
+    elseif (iMessage == eClientResp_MeleeAttack or iMessage == eClientResp_StopMelee) then
+        if (iMessage == eClientResp_MeleeAttack) then
+            if (bMeleeFix) then
+                Debug("melee on otehrs")
+                ClientMod:OnAll(string.format([[g_Client:ANIM(%d,"combat_weaponPunchUB_dualpistol_01")]], hClient:GetChannel()))
+            end
+            if (hFists) then
+                aRH = hClient:GetHitPos(2)
+                hRHEntity = aRH and aRH.entity
+                if (hRHEntity) then
+                    hClient:CreateHit({
+                        Pos = aRH.pos,
+                        Dir = aRH.dir,
+                        Normal = aRH.normal,
+                        Type = "melee",
+                        Shooter = hClient,
+                        Target = hRHEntity,
+                        Material = "mat_torso",
+                        Damage = 90,
+                        Radius = 0,
+                        Part = 23,
+                    })
+                end
+                hFists.weapon:Sv_Melee()
+            end
+        end
+
+    elseif (iMessage == eClientResp_JetpackOn or iMessage == eClientResp_JetpackOff) then
+        self:JetPackEffects(hClient, (iMessage == eClientResp_JetpackOn))
+
+    elseif (iMessage == eClientResp_ChairRemove) then
+        if (hClient.Chair) then
+            hClient.Chair:SvPickup(hClient, true)
+        end
+
+    elseif (iMessage == eClientResp_ChairEffectsOn or iMessage == eClientResp_ChairEffectsOff) then
+        self:ChairEffects(hClient, iMessage == eClientResp_ChairEffectsOn)
+
     else
         Logger:LogEventTo(RANK_DEVELOPER, eLogEvent_ClientMod, "@l_ui_clm_invalidResponse", hClient:GetName(),g_tn(iMessage or 0))
         bResolved = false
     end
 
     return (bResolved == true)
+end
+
+---------------
+ClientMod.JetPackEffects = function(self, hClient, enable)
+    ClientMod:OnAll(string.format([[g_Client:Jetpack_Effects(%d,%s)]], hClient:GetChannel(),g_ts(enable)), {
+        Sync = true,
+        SyncID = "jetpack_effects",
+        BindID = hClient.id,
+        Check = function() return hClient.HasJetPack  end
+    })
+end
+
+
+---------------
+ClientMod.ChairEffects = function(self, hClient, enable)
+
+    if (enable and not hClient.Chair) then
+        return
+    end
+
+    ClientMod:OnAll(string.format([[g_Client:FlyingChar_Effects(%d,%s)]], hClient:GetChannel(),g_ts(enable)), {
+        Sync = true,
+        SyncID = "chair_effects",
+        BindID = hClient.id,
+        Check = function() return hClient.Chair ~= nil  end
+    })
+end
+
+---------------
+ClientMod.RemoveJetpack = function(self, hClient)
+    if (not hClient.HasJetPack) then
+        return
+    end
+
+    self:OnAll(string.format([[g_Client:Jetpack(%d,false)]], hClient:GetChannel()))
+    self:StopSync(hClient, "jetpack")
+    self:StopSync(hClient, "jetpack_effects")
+    hClient.HasJetPack = false
+end
+
+---------------
+ClientMod.EquipJetpack = function(self, hClient)
+    if (hClient.HasJetPack) then
+        return
+    end
+
+    self:OnAll(string.format([[g_Client:Jetpack(%d,true)]], hClient:GetChannel()), {
+        Sync = true,
+        SyncID = "jetpack",
+        BindID = hClient.id,
+        Check = function() return hClient.HasJetPack  end
+    })
+    hClient.HasJetPack = true
 end
 
 ---------------
@@ -416,7 +589,7 @@ ClientMod.GetModels = function()
         [CM_JESTER]     = {"Jester", "objects/characters/human/story/Martin_Hawker/Martin_Hawker.cdf", 1},
         [CM_SYKES]      = {"Sykes", "objects/characters/human/story/Michael_Sykes/Michael_Sykes.cdf", 1},
         [CM_PROPHET]    = {"Prophet", "objects/characters/human/story/Laurence_Barnes/Laurence_Barnes.cdf", 1},
-        [CM_PSYCHO]     = {"Psycho", "objects/characters/human/story/Laurence_Barnes/Laurence_Barnes.cdf", 1},
+        [CM_PSYCHO]     = {"Psycho", "objects/characters/human/story/michael_sykes/Michael_Sykes.cdf", 1},
         [CM_BADOWSKY]   = {"Badowsky", "objects/characters/human/story/badowsky/Badowsky.cdf"},
         [CM_SCIENTIST]  = {"Scientist", "objects/characters/human/story/female_scientist/female_scientist.cdf"},
         [CM_KEEGAN]     = {"Keegan", "Objects/characters/human/story/keegan/keegan.cdf"},
@@ -450,6 +623,7 @@ ClientMod.GetModels = function()
         [CM_FINCH]      = {"Finch", "objects/characters/animals/birds/plover/plover.cdf" },
         [CM_TERN]       = {"Tern", "Objects/characters/animals/birds/tern/tern.chr" },
         [CM_FROG]       = {"Frog", "objects/characters/animals/frog/frog.chr" },
+        [CM_BUTTERFLY]  = {"Butterfly", "objects/characters/animals/insects/butterfly/butterfly_brown.chr" },
         [CM_HEADLESS]   = { "Headless", "MODEL_NOMAD_HEADLESS" }, --"CryMP-Objects/characters/nomad/headless.cdf" }
     }
     return aModels
@@ -466,6 +640,7 @@ ClientMod.GetCharacters = function(self)
         { "Finch", 	        CM_FINCH,   { "Fists" } },
         { "Tern", 	        CM_TERN,    { "Fists" } },
         { "Frog", 	        CM_FROG,    { "Fists" } },
+        { "Butterfly", 	        CM_BUTTERFLY,    { "Fists" } },
     }
     return aCharacters
 end
@@ -682,7 +857,7 @@ ClientMod.RequestModel = function(self, hClient, iModel, bQuiet, bIsChar)
     end
 
     if (not bQuiet) then
-        SendMsg(CHAT_SERVER_LOCALE, ALL_PLAYERS, "@l_ui_playerCM", hClient:GetName(), sName)
+        SendMsg(CHAT_SERVER_LOCALE, ALL_PLAYERS, "@l_ui_playerCM", hClient:GetName(), sName, "")
     end
 end
 
@@ -729,20 +904,178 @@ end
 ---------------
 ClientMod.OnModifiedCVar = function(self, hClient, iCVar)
 
+    local iStart = eClientResp_ModifiedCVars[1]
     local aList = {
-        { "R_ATOC" }
+        [iStart + 1] = { "R_ATOC" }
     }
 
-    Logger:LogEventTo(GetPlayers({ Access = hClient:GetElevatedAccess(RANK_MODERATOR) }, eLogEvent_ClientMod, "modified"..aList[iCVar]))
+    --FIXME: Locale
+    Logger:LogEventTo(GetPlayers({ Access = hClient:GetElevatedAccess(RANK_MODERATOR) }), eLogEvent_ClientMod, "Illegal CVar " .. (aList[g_tn(iCVar)] or {"Unknown"})[1])
 end
 
 ---------------
 ClientMod.OnMelee = function(self, hClient)
-
     if (hClient.CM.ID ~= CM_NONE) then
-        self:OnAll("local p=GP("..hClient:GetChannel()..")if(not p)then return end g_Client.AnimationHandler:OnAnimationEvent(p,eCE_AnimMelee)")
+        if (not hClient.MeleeTimer or hClient.MeleeTimer.expired(2)) then
+            self:OnAll("local p=GP("..hClient:GetChannel()..")if(not p)then return end g_Client.AnimationHandler:OnAnimationEvent(p,eCE_AnimMelee)")
+            hClient.MeleeTimer = timernew()
+        end
+    end
+end
+
+---------------
+ClientMod.GetVehicleModels = function(self)
+
+    local makeVec = vector.make
+
+    local aList = {
+        [VM_TESLA]      = { "Tesla",            { "objects/library/vehicles/cars/car_b_chassi.cgf", 							{ x = 0, y = 0.350, z = 0.30 }, makeVec(0,0,0),			false,		 nil }},
+        [VM_AUDI]       = { "Audi R8",			{ "objects/library/vehicles/cars/car_a.cgf", 									{ x = 0, y = 0.350, z = 0.50 }, makeVec(0,0,0),			false,		  }},
+        [VM_DUELER]     = { "Düler",         { "objects/library/vehicles/mining_train/mining_locomotive.cgf",				{ x = 0, y = 0.0, z = 0.2 }, makeVec(0,0,-1.5727),			false,		  }},
+        [VM_FERRARI]    = { "Ferrari",			{ "objects/library/vehicles/ship/roofed_rowing_boat/ship.cgf",				    { x = 0, y = 0.8, z = -0.1 }, makeVec(0,0,0),			false,		  }},
+        [VM_TRAIN]      = { "Disel Train",		{ "objects/library/vehicles/diesel_train_engine/diesel_train_engine.cgf",		{ x = 0, y = 0.350, z = 0.10 }, makeVec(0,0,-1.5727),			false,		  }},
+        [VM_AIRCRAFT]   = { "Aircraft",			{ "Objects/library/vehicles/aircraft/aircraft.cgf", 							{ x = 0, y = -0.00, z = -0.00 }, makeVec(0,0,0),			false, 		  }},
+        [VM_NKPLANE]    = { "NK Fighter",       { "objects/vehicles/asian_fighter/asian_fighter.cgf",							{ x = 0, y = -1, z = 1 }, makeVec(0,0,0),			false, 		  }},
+        [VM_USPLANE]    = { "US Fighter",       { "objects/vehicles/us_fighter_b/us_fighter.cgf",								{ x = 0, y = -1, z = -1.4 }, makeVec(0,0,3.14),			false, 		  }},
+        [VM_CARGOPLANE] = { "Cargo Plane",		{ "objects/vehicles/us_cargoplane/us_cargoplane_open.cgf", 						{ x = 0, y = -21.0, z = -5.8 }, makeVec(0,0,-1.5727), 	false,		  }},
+        [VM_TRANSPLANE] = { "Transport Plane",	{ "objects/library/vehicles/asian_transport_plane/asian_transport_plane.cgf",	{ x = 0, y = -10.40, z = -2.0 }, makeVec(0,0,-1.5727),			false,		  }},
+        [VM_PLANE1]     = { "AWACS",            { "objects/library/vehicles/north_korean_awacs/nk_awacs.cgf",					{ x = 0, y = 00000, z = 5 }, makeVec(0,0,-1.5727),			false,		  }},
+        [VM_VTOLTRANS]  = { "Transport VTOL",   { "objects/vehicles/us_vtol_transport/us_vtol_transport.cga",					{ x = 0, y = 0.0000, z = -4.10 }, makeVec(0,0,0),			false,		 nil }},
+
+
+        [VM_EXCAVATOR]      = { "Excavator",		{ "objects/library/vehicles/excavator/excavator.cgf",							{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,-1.5727),			false,		  }},
+        [VM_FORKLIFT]       = { "Forklift",			{ "objects/library/vehicles/forklift/forklift.cgf",								{ x = 0, y = 1.2, z = 0.0 }, makeVec(0,0,-1.5727),			false,		  }},
+        [VM_MINETRUCK]      = { "Mine Truck",	    { "objects/library/vehicles/mine_truck/mine_truck.cgf",							{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,-1.5727),			false,		  }},
+        [VM_CRANE]          = { "Crane",			{ "objects/library/vehicles/mobile_crane/mobile_crane.cga",						{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_WAGON]          = { "Wagon",			{ "objects/library/vehicles/rail_trailer/trans_wagon_4_wheel.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_BAGGAGECART]    = { "Cart",				{ "objects/library/vehicles/baggage_truck/baggage_cart.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_SHOPPINGCART]   = { "Shopping Cart",	{ "objects/library/props/misc/shopping_cart/shopping_cart.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_AAA]            = { "AAA",				{ "Objects/Vehicles/asian_aaa/asian_aaa.cga",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_APC]            = { "APC",				{ "objects/vehicles/asian_apc/asian_apc.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,-1.574),			false,		  }},
+        [VM_HELI]           = { "Heli",				{ "objects/vehicles/asian_helicopter/asian_helicopter.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_TANK]           = { "Tank",				{ "objects/vehicles/asian_tank/asian_tank.cga",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_TANKHEADLESS]   = { "Headless Tank ",	{ "objects/vehicles/asian_tank/frozen_asian_tank_chassis.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,-1.5727),			false,		  }},
+        [VM_TANKTURRET]     = { "Tank Turret ",		{ "objects/vehicles/asian_tank/frozen_asian_tank_turret.cgf",		{ x = 0, y = 1.0, z = 0.2 }, makeVec(0,0,-1.5727),			false,		  }},
+        [VM_TRUCK]          = { "Truck",			{ "objects/vehicles/asian_truck_b/asian_truck_b.cga",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_CAR]            = { "Car",				{ "objects/vehicles/civ_car1/civ_car.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_LTV]            = { "LTV",				{ "objects/vehicles/ltv/asian_ltv.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_DAUNTLESS]      = { "Dauntless",        { "objects/vehicles/dauntless/dauntless.cga",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_KUANTI]         = { "Kuanti",			{ "objects/vehicles/kuanti/kuanti.cga",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_SPEEDBOAT]      = { "Speedboat",        { "objects/vehicles/speedboat/speedboat.cga",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_DESTROYER]      = { "Destroyer",        { "objects/vehicles/us_destroyer/us_destroyer_mp.cga",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_HOVER]          = { "Hovercraft",       { "objects/vehicles/us_hovercraft_b/us_hovercraft_b.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_SCIENCESHIP]    = { "Scientist Ship",   { "objects/library/vehicles/ship/cargo_ship/cargo_ship.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_CARGOSHIP]      = { "Cargo Ship",       { "objects/library/vehicles/diesel_train_engine/diesel_train_engine.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_SKYFORGE]       = { "Skyforge ",        { "objects/library/vehicles/ship/valley_forge_placeholder/valley_forge.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_NAVYSHIP]       = { "Navy Ship ",       { "objects/library/vehicles/ship/us_navy_ship_placeholder/us_navy_ship.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_TANKER]         = { "Tanker ",          { "objects/library/vehicles/tanker_truck/tanker_truck_trailer.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_SHARK]          = { "Shark ",		    { "objects/characters/animals/whiteshark/greatwhiteshark.chr",		{ x = 0, y = 0.0, z = 0.8 }, makeVec(0,0,3.1),			false,		  }},
+        [VM_PALM]           = { "Palm ",			{ "Objects/natural/trees/palm_tree/palm_tree_large_b.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_ROCK]           = { "Rock ",			{ "objects/natural/rocks/suitjump_rocks/cliff_rock_cover_a.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+    }
+
+    return aList
+end
+
+---------------
+ClientMod.ChangeVehicleModel = function(self, hClient, hVehicle, iModel, bQuiet)
+
+    local aList = self:GetVehicleModels()
+    local aInfo = iModel and aList[iModel]
+
+    if (not aInfo) then
+        ListToConsole({
+            Client      = hClient,
+            List        = table.sortI(aList),
+            Title       = hClient:Localize("@l_ui_VMList"),
+            ItemWidth   = 15,
+            PerLine     = 5,
+            PrintIndex  = true,
+            Index       = 1
+        })
+        return true, hClient:LocalizeNest("@l_ui_CMListedInConsole", { table.count(aList) })
     end
 
+    local function f()
+        hVehicle = hVehicle or hClient:GetVehicle() or SvSpawnEntity({
+            Class = "Civ_car1",
+            Pos = hClient:GetFacingPos(eFacing_Front, 7.5, eFollow_Auto, 1),
+            Dir = hClient:SmartGetDir(1),
+
+            Instant = true,
+        })
+
+
+        local sModel = aInfo[2][1]
+        local iScale = 1
+        local bHideTires = false
+        local vPos = aInfo[2][2]
+        local vDir = aInfo[2][3]
+
+
+        local vehicle = GetEntity(hVehicle:GetName())
+        if (not vehicle or not vehicle.vehicle) then
+            return
+        end
+
+        if (vehicle.CM) then
+            System.RemoveEntity(vehicle.CM)
+        end
+
+        local CM = System.SpawnEntity({ class = "BasicEntity", position = vehicle:GetPos(), orientation = vehicle:GetDirectionVector(), name = vehicle:GetName() .. "_cm", properties = { object_Model = sModel }})
+        CM:LoadObject(0, sModel)
+        CM:PhysicalizeSlot(0, { flags = 1.8537e+008 }) -- special flags for correct collision.
+
+        vehicle:DrawSlot(0, 0)
+        --vehicle:EnablePhysics(0)
+        vehicle:AttachChild(CM.id, PHYSICPARAM_SIMULATION)
+        vehicle.CM = CM.id
+
+        if (vPos) then CM:SetLocalPos(vPos) end
+        if (vDir) then CM:SetLocalAngles(vDir) end
+        if (iScale) then CM:SetScale(iScale) end
+        if (bHideTires) then for i = 1, 4 do vehicle:DrawSlot(i, 0) end end
+
+        self:OnAll(string.format([[g_Client:V_MODEL('%s','%s',%d,{x=%f,y=%f,z=%f},{x=%f,y=%f,z=%f},%f,%s)]],
+                hVehicle:GetName(),
+                sModel,
+                iModel,
+                vPos.x, vPos.y, vPos.z,
+                vDir.x, vDir.y, vDir.z,
+                iScale, g_ts(bHideTires)
+        ), {
+            Sync = true,
+            SyncID = "model",
+            BindID = hVehicle.id,
+            Check  = function() return (hVehicle and hVehicle.CM ~= nil)  end
+        })
+
+        SpawnEffect(ePE_Light, hVehicle:GetPos())
+
+        if (IsAny(iMode,
+                VM_USPLANE, VM_NKPLANE,
+                VM_CARGOPLANE, VM_AIRCRAFT, VM_PLANE1
+        )) then
+            self:CreatePlane(vehicle, IsAny(iMode, VM_USPLANE, VM_NKPLANE))
+        end
+
+        if (not bQuiet) then
+            SendMsg(CHAT_SERVER, hClient, hClient:Localize("@l_ui_playerVM", { aInfo[1] }))
+        end
+
+    end
+
+    Script.SetTimer(1, f)
+end
+
+---------------
+ClientMod.CreatePlane = function(self, hVehicle, bWeapons)
+    Debug("Hello, name request!!")
+end
+
+---------------
+ClientMod.DecodeNameRequest = function(self, hClient, sMessage)
+    Debug("Hello, name request!!")
 end
 
 ---------------

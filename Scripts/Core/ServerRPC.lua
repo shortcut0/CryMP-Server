@@ -114,6 +114,18 @@ end
 
 --------------------------------
 --- Init
+ServerRPC.Callbacks.CanPickObject = function(self, ...)
+
+    -- FIXME: AntiCheat
+    if (ServerItemHandler:CanPickObject(...) == true) then
+        --ServerItemHandler:OnPickedUp(...)-- !!! BAD !!! CRASHES SERVER!!!!
+        return true
+    end
+    return false
+end
+
+--------------------------------
+--- Init
 ServerRPC.Callbacks.CanPickupWeapon = function(self, ...)
 
     -- FIXME: AntiCheat
@@ -207,6 +219,13 @@ ServerRPC.Callbacks.OnMelee = function(self, nPlayer, ...)
     if (ClientMod) then
         ClientMod:OnMelee(GetEntity(nPlayer), ...)
     end
+end
+
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnStartReload = function(self, nPlayer, ...)
+
+    ServerItemHandler:OnStartReload(GetEntity(nPlayer), ...)
 end
 
 

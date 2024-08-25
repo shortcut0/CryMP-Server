@@ -1,16 +1,26 @@
 -------------------
-ServerPlugins = {
+ServerPlugins = (ServerPlugins or {
 
     PluginDir = (SERVER_DIR_PLUGINS),
     Plugins = {},
+    PluginData = {},
     PluginEvents = {},
-}
+})
 
 -------------------
 ServerPlugins.Init = function(self)
 
+    self.Plugins = {}
+    self.PluginEvents = {}
+
     CreatePlugin = function(...)
         return ServerPlugins:CreatePlugin(...)
+    end
+    PluginGetData = function(...)
+        return ServerPlugins:GetPluginData(...)
+    end
+    PluginSaveCall = function(...)
+        return ServerPlugins:PluginSaveCall(...)
     end
 
     self:LoadPlugins()
@@ -42,6 +52,7 @@ end
 
 -------------------
 ServerPlugins.OnEvent = function(self, ...)
+
     local aParams   = { ... }
     local iEvent    = table.popLast(aParams)
 
@@ -56,6 +67,7 @@ ServerPlugins.OnEvent = function(self, ...)
             end
         end
     end
+
 end
 
 -------------------
@@ -64,10 +76,57 @@ ServerPlugins.GetPlugin = function(self, sID)
 end
 
 -------------------
-ServerPlugins.CreatePlugin = function(self, aPlugin)
+ServerPlugins.PluginSaveCall = function(self, sID, sCall, ...)
+
+    local hPlugin = self:GetPlugin(sID)
+    if (not hPlugin) then
+        HandleError("Attempt to call function from invalid plugin %s",g_ts(sID))
+        return
+    end
+
+    local hFunc = table.getnested(hPlugin, sCall)
+    if (not isFunc(hFunc)) then
+        HandleError("Attempt to call %s, a non-function (%s) for event %s", g_ts(sCall),g_ts(hFunc),g_ts(sID))
+        return
+    end
+
+    if (SERVER_DEBUG_MODE) then
+        return hFunc(hPlugin, ...)
+    else
+        local bOk, sError = pcall(hFunc, hPlugin, ...)
+        if (not bOk) then
+            HandleError("encountered error %s while trying to safely execute %s for event %s", g_ts(sError), g_ts(sCall), g_ts(sID))
+        end
+
+        return sError
+    end
+end
+
+-------------------
+ServerPlugins.GetPluginData = function(self, sID, sNested, hDefault)
+
+    --Debug(sNested)
+    --Debug("stored:",self.PluginData[sID])
+
+    table.checkM(self.PluginData, sID, {})
+    table.checkNestedM(self.PluginData[sID], sNested, hDefault)
+    local hData = table.getnested(self.PluginData[sID], sNested)
+
+    --if (hData == nil) then
+    --    self.PluginData[sID] = { }
+    --    hData = self.PluginData[sID]
+    --end
+    --Debug("DATA FOUND::",hData)
+
+    -- hData or hDefault -- not working, what if hData it "false"!!
+    return checkVar(hData, hDefault)
+end
+
+-------------------
+ServerPlugins.CreatePlugin = function(self, sID, aPlugin)
 
     local aLinks = aPlugin.Links
-    local sID    = aPlugin.ID
+    --local sID    = aPlugin.ID
     if (not sID) then
         return HandleError("No ID Specified in CreateEvent()")
     elseif (self:GetPlugin(sID)) then
@@ -93,6 +152,8 @@ ServerPlugins.CreatePlugin = function(self, aPlugin)
             if (not self.PluginEvents[iEventID]) then
                 LinkEvent(iEventID, "ServerPlugins", self.OnEvent)
                 self.PluginEvents[iEventID] = {}
+
+                ServerLog("Registered new event %d", iEventID)
             end
             table.insert(self.PluginEvents[iEventID], { sID, aPlugin[sFunc] })
         end

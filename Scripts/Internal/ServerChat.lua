@@ -213,6 +213,11 @@ ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage,
     -- bServerMessage, Was this message sent by the server itself?
     -- iForcedteam,    Was this message forcefully sent to a team?
 
+    local aReturn = {
+        ShowMessage = true,
+        NewMessage  = sMessage
+    }
+
     local hSender = GetEntity(iSenderID)
     local hTarget = GetEntity(iTargetID)
 
@@ -231,7 +236,7 @@ ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage,
     end
 
     if (ServerCommands:OnChatMessage(iType, hSender, hTarget, sMessage)) then
-        return false
+        return { ShowMessage = false }
     end
 
     if (hSender.IsPlayer) then
@@ -240,7 +245,8 @@ ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage,
         if (aMuteInfo) then
             SendMsg(CHAT_SERVER_LOCALE, hSender, "@l_ui_youAreMuted", aMuteInfo:GetReason(), math.calctime(aMuteInfo:GetRemaining(), nil, 3))
             Logger:LogEventTo(GetPlayers({ Access = hSender:GetAuthority(RANK_MODERATOR) }), eLogEvent_Punish, "@l_ui_logMutedMessage", hSender:GetName(), sMessage)
-            return false
+
+            return { ShowMessage = false }
         end
     end
 
@@ -282,11 +288,15 @@ ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage,
     if (iLogType and bLog) then
         --iLogType, sMessage, hSender, aClients, sChatMsg)
         Logger:LogChatEvent(iLogType, iType,"@" .. sMsg, hSender, aClients, sMessage)
-        return true
+        aReturn.ShowMessage = true
+    end
+
+    if (iType == ChatToTeam) then
+        Debug("mdfkn team")
     end
 
     --error("not showing")
-    return (bShow)
+    return aReturn
 end
 
 ----------------
@@ -441,12 +451,12 @@ ServerChat.SendTextMessage = function(self, iType, aTargetList, sMessage, sMessa
             if (iRealType == TextMessageConsole) then
                 if (bUseQueue) then
                     self:QueuePush(sFinalMsg, { ... }, { aTargetList })
-                    ServerLog("ppuuuu")
+                    --ServerLog("ppuuuu")
                 else
                     local sFormatted = aTargetList:LocalizeNest(sFinalMsg, { ... })
                     if (not bConsole) then sFormatted = Logger:RemoveColors(sFormatted) end
                     g_pGame:SendTextMessage(iRealType, sFormatted, TextMessageToClient, aTargetList.id)
-                    ServerLog("ssss")
+                    --ServerLog("ssss")
                 end
             else
                 local sFormatted = aTargetList:LocalizeNest(sFinalMsg, { ... })

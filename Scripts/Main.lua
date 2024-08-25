@@ -25,9 +25,9 @@ ServerInit.Init = function(self)
     if (EarlyInit) then EarlyInit.Init() end
 
     SCRIPT_ERROR = true
+    LOG_STARS    = (string.rep("*", 40))
 
-    LOG_STARS = (string.rep("*", 40))
-
+    -----
     MOD_RAW_NAME = ("CryMP-Server")
     MOD_EXE_NAME = (MOD_RAW_NAME .. ".exe")
     MOD_NAME     = (MOD_RAW_NAME .. " x" .. CRYMP_SERVER_BITS)
@@ -91,10 +91,13 @@ ServerInit.Init = function(self)
 
     -----
     if (not g_gameRules) then
-        error("game rules does not exist")
+        --error("game rules does not exist")
     end
-    g_sGameRules = g_gameRules.class
-    g_pGame = g_gameRules.game
+
+    if (g_gameRules) then
+        g_sGameRules = g_gameRules.class
+        g_pGame = g_gameRules.game
+    end
 
     -----
     GetCVar  = System.GetCVar
@@ -119,11 +122,15 @@ ServerInit.Init = function(self)
         self.LoadLibraries,
         self.LoadGlobals,
         self.InitLogger,
-        self.InitServer
     }) do
         if (not fFunc(self)) then
             return false
         end
+    end
+
+    -- Allow server to load before gamerules exist, this is important for patching entities
+    if (g_gameRules ~= nil) then
+        self:InitServer()
     end
 
     -- Link Some Stuff
@@ -131,7 +138,8 @@ ServerInit.Init = function(self)
 
     ServerLog(LOG_STARS .. LOG_STARS)
     SCRIPT_ERROR = false
-    FIRST_RELOAD_FINISHED = true
+    FIRST_RELOAD_FINISHED = (g_gameRules ~= nil)
+
     return true
 end
 

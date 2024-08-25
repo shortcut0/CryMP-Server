@@ -104,7 +104,7 @@ local ServerGameRules = {
                 return
             end
 
-            if ((iMode < -1 or iMode > 3)) then
+            if ((iMode < -3 or iMode > 3)) then
                 local bResp = ClientMod:DecodeResponse(hPlayer, eCM_Spectator, iMode)
                 --Debug(bResp)
                 if (bResp == true) then
@@ -187,7 +187,7 @@ local ServerGameRules = {
 
         ------------------------
         -- Self is the entity!
-        Function = function(self, hShooterID, hTargetID)
+        Function = function(self, hShooterID, hTargetID, sClass)
 
            -- Debug("C")
 
@@ -195,46 +195,58 @@ local ServerGameRules = {
             local iTeam_S = self.game:GetTeam(hShooterID)
             local iTeam_T = self.game:GetTeam(hTargetID)
 
+            local hTarget = System.GetEntity(hTargetID)
+            local hShooter = System.GetEntity(hShooterID)
+
+            local bTesting = hShooter.IsPlayer and hShooter:IsTesting()
+
+            hShooter.TagAward.Num = (hShooter.TagAward.Num) + 1
+
             if ((iTeam_S ~= iTeam_T)) then
-                local hTarget = System.GetEntity(hTargetID)
-                local hShooter = System.GetEntity(hShooterID)
                 if (hTarget) then
                     if ((hShooter:IsTesting() or not hTarget.last_scanned) or (_time - hTarget.last_scanned > 16)) then
 
-                        if (hTarget.IsPlayer) then
+                        if ((hTarget and hTarget.IsPlayer) or bTesting) then
                             if (hShooter.TagPlayerAlert.expired()) then
                                 hShooter.TagPlayerAlert.refresh()
                                 self.onClient:ClMDAlert(hShooter:GetChannel(), "")
                             end
                         end
 
-                        hShooter.TagAward.Num = (hShooter.TagAward.Num) + 1
                         hShooter.TagAward.PP  = (hShooter.TagAward.PP) + self.ppList.TAG_ENEMY
                         hShooter.TagAward.CP  = (hShooter.TagAward.CP) + self.cpList.TAG_ENEMY
-
-                        if (hShooter.TagAward.Timer) then
-                            Script.KillTimer(hShooter.TagAward.Timer)
-                        end
-                        hShooter.TagAward.Timer = Script.SetTimer(125, function()
-
-                            -- YES! This, indeed, is horrible. But it will stay like this for now.
-                            hShooter:Execute(string.format(
-                                    [[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( +%d PP, +%d CP )")]],
-                                    hShooter:Localize("@l_ui_entitiesTagged",{hShooter.TagAward.Num.." "}),
-                                    hShooter.TagAward.PP,
-                                    hShooter.TagAward.CP
-                            ))
-                            self:AwardPPCount(hShooterID, self.ppList.TAG_ENEMY, nil, hShooter:HasClientMod())
-                            self:AwardCPCount(hShooterID, self.cpList.TAG_ENEMY, nil, hShooter:HasClientMod())
-
-                            hShooter.TagAward = {
-                                CP = 0, PP = 0, Num = 0
-                            }
-                        end)
 
                         hTarget.last_scanned = _time
                     end
                 end
+
+                if (IsAny(sClass, "c4explosive", "avexplosive", "claymoreexplosive")) then
+                    hShooter.TagAward.PP  = (hShooter.TagAward.PP) + 15
+                    hShooter.TagAward.CP  = (hShooter.TagAward.CP) + self.cpList.TAG_ENEMY
+                    self.TaggedExplosives[hTargetID] = { Timer = timernew() }
+                end
+            end
+
+            if (hShooter) then
+                if (hShooter.TagAward.Timer) then
+                    Script.KillTimer(hShooter.TagAward.Timer)
+                end
+                hShooter.TagAward.Timer = Script.SetTimer(125, function()
+
+                    -- YES! This, indeed, is horrible. But it will stay like this for now.
+                    hShooter:Execute(string.format(
+                            [[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( +%d PP, +%d CP )")]],
+                            hShooter:Localize("@l_ui_entitiesTagged",{hShooter.TagAward.Num.." "}),
+                            hShooter.TagAward.PP,
+                            hShooter.TagAward.CP
+                    ))
+                    self:AwardPPCount(hShooterID, self.ppList.TAG_ENEMY, nil, hShooter:HasClientMod())
+                    self:AwardCPCount(hShooterID, self.cpList.TAG_ENEMY, nil, hShooter:HasClientMod())
+
+                    hShooter.TagAward = {
+                        CP = 0, PP = 0, Num = 0
+                    }
+                end)
             end
         end
     },
@@ -511,7 +523,7 @@ local ServerGameRules = {
     ---------------------------------------------
     {
         Class = "g_gameRules",
-        Target = { "Server.OnClientConnect" },
+        Target = { "Server.OnClientConnect", "Server.InGame.OnClientConnect", "Server.PreGame.OnClientConnect", "Server.PostGame.OnClientConnect" },
         Type = eInjection_Replace,
 
         ------------------------
@@ -529,6 +541,7 @@ local ServerGameRules = {
             --end
 
             local bOnHold = CryAction.IsChannelOnHold(iChannel)
+
             if (not bReset) then
                 g_pGame:ChangeSpectatorMode(hClient.id, 2, NULL_ENTITY)
             else
@@ -796,6 +809,24 @@ local ServerGameRules = {
                 return 1
             end
             return (g_pGame:GetSynchedEntityValue(iClientID, self.RANK_KEY) or 1)
+        end
+    },
+
+    ---------------------------------------------
+    --- SetPlayerRank
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "SetPlayerRank" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, iClientID, iRank)
+            if (self.IS_IA) then
+                return
+            end
+            return (g_pGame:SetSynchedEntityValue(iClientID, self.RANK_KEY, iRank))
         end
     },
 
@@ -1126,8 +1157,12 @@ local ServerGameRules = {
 
             elseif (self.USE_SPAWN_GROUPS) then
 
-                ServerLogError("Failed to spawn %s! teamId: %d  groupId: %s  groupTeamId: %d", hPlayer:GetName(), self.game:GetTeam(hPlayer.id), tostring(iGroup), self.game:GetTeam(iGroup or NULL_ENTITY))
-                return false
+                ServerLogError("[group] Failed to spawn %s! teamId: %d  groupId: %s  groupTeamId: %d", hPlayer:GetName(), self.game:GetTeam(hPlayer.id), tostring(iGroup), self.game:GetTeam(iGroup or NULL_ENTITY))
+                if (hPlayer:GetTeam() == TEAM_NEUTRAL and self.IS_PS) then
+                    return self.Server.RequestSpectatorTarget(self, hPlayer.id, 0)
+                else
+                    return false
+                end
             end
 
 
@@ -1216,7 +1251,7 @@ local ServerGameRules = {
             end
 
             if (not bResult) then
-                ServerLogError("Failed to spawn %s! teamId: %d  groupId: %s  groupTeamId: %d", hPlayer:GetName(), hPlayer:GetTeam(), tostring(iGroup), self.game:GetTeam(iGroup or NULL_ENTITY))
+                ServerLogError("[result] Failed to spawn %s! teamId: %d  groupId: %s  groupTeamId: %d", hPlayer:GetName(), hPlayer:GetTeam(), tostring(iGroup), self.game:GetTeam(iGroup or NULL_ENTITY))
             end
             -- IA part end
 
@@ -1315,6 +1350,9 @@ local ServerGameRules = {
             self:ProcessScores(aHitInfo, bTeamKill)
             self:AwardAssistPPAndCP(aHitInfo)
             self:OnKilled(aHitInfo)
+
+
+            ServerItemHandler:OnPlayerKilled(hShooter, hTarget, aHitInfo)
         end
     },
 
@@ -1408,6 +1446,7 @@ local ServerGameRules = {
 
                 hShooter:RefreshHitAccuracy()
             end
+
         end
     },
 
@@ -1443,6 +1482,91 @@ local ServerGameRules = {
 
                 else
                     KickPlayer(hPlayer, "Team Killing", nil, "Server")
+                end
+            end
+        end
+
+    },
+
+    ---------------------------------------------
+    --- OnShoot
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "AwardKillPP" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, aHitInfo)
+
+            local hPlayer = aHitInfo.shooter
+            if (not hPlayer or not hPlayer.IsPlayer) then
+                return
+            end
+
+            local iPP = self:CalcKillPP(aHitInfo)
+            local hPlayerID = hPlayer.id
+
+            local sType = "@l_ui_enemy @l_ui_eliminated"
+            if (aHitInfo.shooterId == aHitInfo.targetId) then
+                sType = "@l_ui_suicide"
+            end
+
+            if (iPP > 0) then
+                self:AwardPPCount(hPlayerID, iPP, nil, hPlayer:HasClientMod())
+                hPlayer:Execute(string.format([[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( +%d PP )")]],
+                        hPlayer:LocalizeNest(sType .. " "),
+                        iPP
+                ))
+            end
+
+            if (iPP < 0) then -- negative points are assumed to be a teamkill here
+                local revive = self.reviveQueue[hPlayerID]
+                if (revive) then
+                    revive.tk = true
+                end
+            end
+        end
+
+    },
+
+    ---------------------------------------------
+    --- OnShoot
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "ProcessVehicleScores" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, aHitInfo)
+            local target = aHitInfo.target
+            local shooter = aHitInfo.shooter
+
+            if (shooter and shooter.actor) then
+                local vTeam = self.game:GetTeam(target.id)
+                local sTeam = self.game:GetTeam(aHitInfo.shooterId)
+
+                if ((vTeam~=0) and (vTeam~=sTeam)) then
+                    local pp = self.ppList.VEHICLE_KILL_MIN
+                    local cp = self.cpList.VEHICLE_KILL_MIN
+
+                    if (target.builtas) then
+                        local def = self:GetItemDef(target.builtas)
+                        if (def) then
+                            pp = math.max(pp, math.floor(def.price*self.ppList.VEHICLE_KILL_MULT))
+                            cp = math.max(cp, math.floor(def.price*self.cpList.VEHICLE_KILL_MULT))
+                        end
+                    end
+
+                    shooter:Execute(string.format([[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( +%d PP )")]],
+                            shooter:LocalizeNest("@l_ui_vehicle @l_ui_eliminated"),
+                            pp
+                    ))
+                    self:AwardPPCount(aHitInfo.shooterId, pp, nil, shooter:HasClientMod())
+                    self:AwardCPCount(aHitInfo.shooterId, cp)
                 end
             end
         end
@@ -1941,6 +2065,643 @@ local ServerGameRules = {
             self.game:EndGame()
             self:GotoState("PostGame")
             self.GameEnded = true
+        end
+    },
+
+    ---------------------------------------------
+    --- OnTurretHit
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "Server.OnTurretHit" },
+        Type = eInjection_Replace,
+        ------------------------
+        Function = function(self, hTurret, aHitInfo)
+
+            if (hTurret and self:GetState() == "InGame") then
+                local teamId = (self.game:GetTeam(hTurret.id) or 0)
+                hTurret.LastHitTimer = timernew()
+
+                if (teamId ~= 0) then
+                    if (_time - self.lastTurretHit[teamId] >= 5) then
+                        self.lastTurretHit[teamId] = _time
+                        local players = self.game:GetTeamPlayers(teamId, true)
+                        if (players) then
+                            for i, p in pairs(players) do
+                                local channel = p.actor:GetChannel()
+                                if (channel > 0) then
+                                    self.onClient:ClTurretHit(channel, hTurret.id)
+                                    if (hTurret.item:IsDestroyed()) then
+                                        self.onClient:ClTurretDestroyed(channel, hTurret.id)
+                                    end
+                                end
+                            end
+                        end
+                    end
+
+                    if ((teamId == 0 or (teamId ~= self.game:GetTeam(aHitInfo.shooterId))) and hTurret.item:IsDestroyed()) then
+
+                        local iPP = self.ppList.TURRETKILL
+                        local hShooter = aHitInfo.shooter
+                        hShooter:Execute(string.format([[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( +%d PP )")]],
+                            hShooter:LocalizeNest("@l_ui_turret @l_ui_eliminated"),
+                            iPP
+                        ))
+                        self:AwardPPCount(aHitInfo.shooterId, iPP, nil, hShooter:HasClientMod())
+                        self:AwardCPCount(aHitInfo.shooterId, self.cpList.TURRETKILL)
+                        hTurret.DestroyedTimer = timernew()
+
+                    end
+                end
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- CanHackTurret
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "CanHackTurret" },
+        Type = eInjection_Replace,
+        ------------------------
+        Function = function(self, hEntity, hPlayerID)
+
+            if (((hEntity.class == "AutoTurret") or (hEntity.class == "AutoTurretAA"))) then
+                local turretTeam = g_pGame:GetTeam(hEntity.id)
+                local playerTeam = g_pGame:GetTeam(hPlayerID)
+                return turretTeam ~= 0 and turretTeam ~= playerTeam
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- CanRepairTurret
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "CanRepairTurret" },
+        Type = eInjection_Replace,
+        ------------------------
+        Function = function(self, hEntity, hPlayerID)
+            if (((hEntity.class == "AutoTurret") or (hEntity.class == "AutoTurretAA"))) then
+                local health = hEntity.item:GetHealth()
+                local maxhealth = hEntity.item:GetMaxHealth()
+                if ((health < maxhealth)) then
+                    return true
+                end
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- CanRepairHQ
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "CanRepairHQ" },
+        Type = eInjection_Replace,
+        ------------------------
+        Function = function(self, hEntity, hPlayerID)
+            local iRepairable = hEntity.Properties.nHitPoints - hEntity:GetHealth()
+            if (self.game:IsSameTeam(hEntity.id, hPlayerID)) then
+                if ((iRepairable > 0) and (not hEntity.HQDestroyed)) then
+                    return true
+                end
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- CanRepairTurret
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "CanLockpickVehicle" },
+        Type = eInjection_Replace,
+        ------------------------
+        Function = function(self, hEntity, hPlayerID)
+            if ((not self.game:IsSameTeam(hEntity.id, hPlayerID)) and (not self.game:IsNeutral(hEntity.id))) then
+                local v = hEntity.vehicle
+
+                -- FIXME: COnfig
+                if ((v:IsEmpty() or true) and (not v:IsDestroyed())) then
+                    return true
+                end
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- CanRepairTurret
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "CanRepairVehicle" },
+        Type = eInjection_Replace,
+        ------------------------
+        Function = function(self, hEntity, hEntityID, hPlayerID)
+            local dmgratio = hEntity.vehicle:GetRepairableDamage()
+            if (self.game:IsSameTeam(hEntityID, hPlayerID) or self.game:IsNeutral(hEntityID)) then
+                if ((dmgratio>0) and (not hEntity.vehicle:IsSubmerged())) then
+                    return true
+                end
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- IsTurret
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "IsTurret" },
+        Type = eInjection_Replace,
+        ------------------------
+        Function = function(self, hID)
+            local hEntity = GetEntity(hID) or {class = hID}
+
+            local sClass = hEntity.class
+            Debug("sClass",sClass)
+            return (sClass == "AutoTurret" or sClass == "AutoTurretAA")
+        end
+    },
+
+    ---------------------------------------------
+    --- OnTurretRepaired
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "OnTurretRepaired" },
+        Type = eInjection_Replace,
+        ------------------------
+        Function = function(self, player, turret)
+
+            local iReward = ConfigGet("General.GameRules.TurretConfig.RepairReward", 100, eConfigGet_Number)
+            if (ConfigGet("General.GameRules.TurretConfig.HitPointBasedReward", false, eConfigGet_Boolean)) then
+                iReward = player.LastWorkCount or 10
+            end
+
+            Debug("iReward",iReward)
+            if (iReward > 0) then
+                self:AwardPPCount(player.id, iReward, nil, player:HasClientMod())
+                player:Execute(string.format(
+                        [[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( +%d PP )")]],
+                        player:LocalizeNest("@l_ui_turret @l_ui_repaired"),
+                        iReward
+                ))
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- CanRepairTurret
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "CanRepairTurret" },
+        Type = eInjection_Replace,
+        ------------------------
+        Function = function(self, hEntity, hPlayerID, sType)
+
+            if (((hEntity.class == "AutoTurret") or (hEntity.class == "AutoTurretAA"))) then
+                local iHP = hEntity.item:GetHealth()
+                local iMaxHP = hEntity.item:GetMaxHealth()
+                if ((iHP < iMaxHP)) then
+                    return true
+                end
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- HackTurret
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "HackTurret" },
+        Type = eInjection_Replace,
+        ------------------------
+        Function = function(self, player, turret, work, workamount)
+
+            --todo
+        end
+    },
+
+    ---------------------------------------------
+    --- Work
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "Work" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, playerId, amount, frameTime)
+
+            local work = self.works[playerId]
+            if (work and work.active) then
+                --Log("%s doing '%s' work on %s for %.3fs...", EntityName(playerId), work.type, EntityName(work.entityId), frameTime);
+
+                local entity = System.GetEntity(work.entityId)
+                local player = System.GetEntity(playerId)
+                if (entity) then
+                    local workamount = amount * frameTime
+                    if (player:IsTesting()) then
+                        workamount = workamount*100
+                    end
+
+                    player.LastWorkCount = (player.LastWorkCount + workamount)
+
+                    if (work.type == "repair") then
+                        if (entity.actor) then
+                            return self:RebootSuit(GetEnt(playerId), entity, work, workamount)
+                        end
+
+                        if (not self.repairHit) then
+                            self.repairHit = {
+                                typeId	    = self.game:GetHitTypeId("repair"),
+                                type		= "repair",
+                                material    = 0,
+                                materialId  = 0,
+                                dir			= g_Vectors.up,
+                                radius	    = 0,
+                                partId	    = -1,
+                            }
+                        end
+
+                        local hit = self.repairHit
+                        hit.shooter     = System.GetEntity(playerId)
+                        hit.shooterId   = playerId
+                        hit.target      = entity
+                        hit.targetId    = work.entityId
+                        hit.pos         = entity:GetWorldPos(hit.pos)
+                        hit.damage      = workamount
+                        work.amount     = work.amount+workamount
+
+                        if (entity.vehicle) then
+                            entity.Server.OnHit(entity, hit)
+                            work.complete = entity.vehicle:GetRepairableDamage() <= 0 -- keep working?
+
+                            local progress = math.floor(0.5+(1.0-entity.vehicle:GetRepairableDamage())*100)
+                            self.onClient:ClStepWorking(self.game:GetChannelId(playerId), progress)
+                            return (not work.complete)
+
+                        elseif (entity.item and (entity.class == "AutoTurret" or entity.class == "AutoTurretAA") ) then
+                            entity.Server.OnHit(entity, hit);
+                            work.complete=entity.item:GetHealth()>=entity.item:GetMaxHealth();
+
+                            local progress=math.floor(0.5+(100*entity.item:GetHealth()/entity.item:GetMaxHealth()));
+                            self.onClient:ClStepWorking(self.game:GetChannelId(playerId), progress);
+                            return (not work.complete)
+
+                        elseif (entity.class == "HQ") then
+
+                            workamount = 0.5
+                            if (player and player.megaGod) then
+                                workamount = workamount * 100
+                            end
+                            hit.damage = workamount
+                            work.amount = work.amount+workamount
+
+                            player.HQRepairAmount = (player.HQRepairAmount or 0) + (hit.damage * 0.1)
+                            entity:SetHealth(entity:GetHealth() + hit.damage)
+                            work.complete = entity:GetHealth() >= entity.Properties.nHitPoints
+
+                            local progress = math.floor(0.5+(100*entity:GetHealth()/entity.Properties.nHitPoints))
+                            self.onClient:ClStepWorking(self.game:GetChannelId(playerId), progress)
+
+                            return (not work.complete)
+                        end
+                    elseif (work.type=="lockpick") then
+                        if (entity.actor) then
+                            return self:RebootSuit(GetEntity(playerId), entity, work, workamount)
+                        end
+
+                        if (entity.item and self:IsTurret(entity)) then
+                            return self:HackTurret(GetEntity(playerId), entity, work, workamount)
+                        end
+
+                        if (true) then
+                            work.amount = work.amount + workamount
+                            if (work.amount > 100) then
+                                self.game:SetTeam(self.game:GetTeam(playerId), entity.id)
+                                entity.vehicle:SetOwnerId(NULL_ENTITY)
+                                work.complete = true
+                            end
+                        end
+                        self.onClient:ClStepWorking(self.game:GetChannelId(playerId), math.floor(work.amount+0.5));
+                        return (not work.complete)
+
+                    elseif (work.type == "disarm") then
+                        if ((entity.CanDisarm and entity:CanDisarm(playerId)) or (entity.class == "Claymore" or entity.class == "AVMine" or entity.class == "c4explosive")) then
+                            work.amount = work.amount+(100/4)*frameTime
+
+                            if (work.amount>100) then
+                                work.complete = true
+                                if (self.OnExplosiveDisarmed) then
+                                    self:OnExplosiveDisarmed(work.entityId, playerId)
+                                end
+                            end
+
+                            self.onClient:ClStepWorking(self.game:GetChannelId(playerId), math.floor(work.amount+0.5));
+
+                            return (not work.complete);
+                        end
+                    end
+                end
+            end
+
+            return false;
+        end
+
+    },
+
+    ---------------------------------------------
+    --- StopWork
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "StopWork" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, playerId)
+
+            local work = self.works[playerId]
+            if (work and work.active) then
+                work.active = false
+
+                self.onClient:ClStopWorking(self.game:GetChannelId(playerId), work.entityId, work.complete or false)
+                local entity = System.GetEntity(work.entityId)
+                local player = System.GetEntity(playerId)
+
+
+                if (work.complete) then
+                    self.allClients:ClWorkComplete(work.entityId, work.type)
+                    if (entity and self:IsTurret(entity)) then
+                        if (work.type == "repair") then
+                            self:OnTurretRepaired(player, entity)
+                        else
+                            self:OnTurretHacked(player, entity)
+                        end
+                    end
+
+                    if (work.type == "lockpick") then
+                        if (entity.vehicle) then
+                            self:AwardVehicleTheftPP(player)
+                        end
+                    elseif (work.type == "repair") then
+                        if (entity.vehicle) then
+                            self:AwardVehicleRepairPP(player)
+                        end
+
+                        if (entity.class == "HQ") then
+                            self:AwardHQRepairPP(player)
+                        end
+                    end
+               end
+
+
+                if (player) then
+                    player.LastWorkCount = nil
+                    if (player.LastWorkID and player.LastWorkID ~= work.entityId) then
+                        player.HQRepairAmount = 0
+                    end
+
+                    player.LastWorkID = work.entityId
+                end
+            end
+        end
+
+    },
+
+    ---------------------------------------------
+    --- AwardHQRepairPP
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "AwardHQRepairPP" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hPlayer)
+
+            --local iReward = ConfigGet("General.GameRules.WorkingConfig.VehicleTheftReward", 50, eConfigGet_Number)
+            local iReward = hPlayer.HQRepairAmount
+            self:AwardPPCount(hPlayer.id, iReward, nil, hPlayer:HasClientMod())
+            hPlayer:Execute(string.format(
+                    [[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( +%d PP )")]],
+                    hPlayer:LocalizeNest("@l_ui_hq @l_ui_repaired"),
+                    iReward
+            ))
+        end
+    },
+
+    ---------------------------------------------
+    --- OnExplosiveDisarmed
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "OnExplosiveDisarmed" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hEntityID, hPlayerID)
+
+            local hEntity = System.GetEntity(hEntityID)
+            local hPlayer = System.GetEntity(hPlayerID)
+
+            -- WHAT IS THIS OMG
+            local sClass = hEntity and hEntity.class
+            sClass = sClass == "claymoreexplosive" and "Claymore" or
+                    sClass == "c4explosive" and "C4" or
+                    sClass == "avexplosive" and "AVMine"
+
+            if (hEntity and hPlayer and sClass) then
+                hPlayer:GiveItem(sClass)
+                hPlayer:SelectItem(sClass)
+            end
+
+            hEntity.DISARMED = true
+            hEntity.WAS_DISARMED = true
+
+            local iPP = 0
+            if (hPlayer:IsTesting() or self.game:GetTeam(hEntityID) ~= self.game:GetTeam(hPlayerID)) then
+
+                -- give the player some PP
+                iPP = self.ppList.DISARM
+                self:AwardPPCount(hPlayerID, iPP, nil, hPlayer:HasClientMod())
+                hPlayer:Execute(string.format(
+                        [[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( +%d PP )")]],
+                        hPlayer:LocalizeNest((sClass or "@l_ui_explosive") .. " @l_ui_disarmed"),
+                        iPP
+                ))
+            end
+
+            if (not hPlayer:IsTesting()) then
+                Script.SetTimer(1, function()
+                    System.RemoveEntity(hEntityID)
+                end)
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- StartWork
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "AwardVehicleTheftPP" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hPlayer)
+
+            local iReward = ConfigGet("General.GameRules.WorkingConfig.VehicleTheftReward", 50, eConfigGet_Number)
+            self:AwardPPCount(hPlayer.id, iReward, nil, hPlayer:HasClientMod())
+            hPlayer:Execute(string.format(
+                    [[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( +%d PP )")]],
+                    hPlayer:LocalizeNest("@l_ui_vehicle @l_ui_stolen"),
+                    iReward
+            ))
+        end
+    },
+
+    ---------------------------------------------
+    --- StartWork
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "AwardVehicleRepairPP" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hPlayer)
+
+            local iReward = ConfigGet("General.GameRules.WorkingConfig.VehicleRepairReward", 50, eConfigGet_Number)
+            self:AwardPPCount(hPlayer.id, iReward, nil, hPlayer:HasClientMod())
+            hPlayer:Execute(string.format(
+                    [[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( +%d PP )")]],
+                    hPlayer:LocalizeNest("@l_ui_vehicle @l_ui_repaired"),
+                    iReward
+            ))
+        end
+
+    },
+
+    ---------------------------------------------
+    --- StartWork
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "StartWork" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, entityId, playerId, sType)
+
+            local work = self.works[playerId]
+            if (not work) then
+                work = {}
+                self.works[playerId] = work
+            end
+
+            work.active     = true
+            work.entityId   = entityId
+            work.playerId   = playerId
+            work.type       = sType
+            work.amount     = 0
+            work.complete   = nil
+
+            --Log("%s starting '%s' work on %s...", EntityName(playerId), work_type, EntityName(entityId));
+
+            -- HAX
+            local entity = System.GetEntity(entityId)
+            if (entity) then
+                if (entity.CanDisarm and entity:CanDisarm(playerId)) then
+                    sType = "disarm"
+                    work.type = sType
+                end
+            end
+            local player = System.GetEntity(playerId)
+            player.LastWorkCount = 0
+
+            if (entity.actor) then
+                self:OnSuitReboot(player, entity)
+                if (self.class == "PowerStruggle" and self:IsInReviveQueue(entity.id)) then
+                    self:ResetRevive(entity.id)
+                    Debug("start reboot, STOP revive")
+                end
+            else
+                self.onClient:ClStartWorking(self.game:GetChannelId(playerId), entityId, sType)
+                if (self:IsTurret(entity) and sType == "lockpick") then
+                    -- FIXME
+                end
+            end
+        end
+
+    },
+
+    ---------------------------------------------
+    --- CanWork
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "CanWork" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hEntityID, hPlayerID, sType)
+
+            ---------
+            local hEntity = GetEntity(hEntityID)
+            local hPlayer = GetEntity(hPlayerID)
+
+            if (self.isServer) then
+                local work = self.works[hPlayerID]
+                if (work) then
+                    if (work.active and (work.entityId ~= hEntityID)) then -- disarming explosives will change work.type, but the weapon will keep reporting a different work_type
+                        return false
+                    end
+                end
+            end
+
+            if (sType == "repair") then
+                if (hEntity.actor) then
+                    return self:CanRebootNanosuit(hPlayerID, hEntityID)
+
+                elseif (hEntity.vehicle) then
+                    return self:CanRepairVehicle(hEntity, hEntityID, hPlayerID) -- DONE !!
+
+                elseif (hEntity.item) then
+                    return self:CanRepairTurret(hEntity, hPlayerID)  -- DONE !!
+
+                elseif (hEntity.CanDisarm and hEntity:CanDisarm(hPlayerID)) then
+                    return true
+
+                elseif (hEntity.class == "HQ") then
+                    return self:CanRepairHQ(hEntity, hPlayerID)
+
+                end
+
+            elseif (sType == "lockpick") then
+                if (hEntity.vehicle) then
+                    return self:CanLockpickVehicle(hEntity, hPlayerID)
+
+                elseif (hEntity.item and false) then
+                    return self:CanHackTurret(hEntity, hPlayerID)
+
+                end
+            end
         end
     },
 }

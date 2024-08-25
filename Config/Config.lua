@@ -38,6 +38,9 @@ ConfigCreate({
         --
         G_REVIVETIME   = 6,
 
+        G_SUITSPEEDMULTMULTIPLAYER = 1.0,
+        G_SUITSPEEDENERGYCONSUMPTIONMULTIPLAYER = 35,
+
         --
         SERVER_USE_HIT_QUEUE = 0.0,         -- Server Hit Queue (Slow)
         SERVER_USE_EXPLOSION_QUEUE = 1.0,   -- Server Explosion Queue
@@ -77,6 +80,14 @@ ConfigCreate({
                     Name          = "Marisa",
                     ProfileID     = "1011669",
                     Rank          = 9,
+                    ProtectedName = true,
+                    Login         = "1234"
+                },
+
+                ["1005711"] = {
+                    Name          = "Andrey",
+                    ProfileID     = "1005711",
+                    Rank          = 6,
                     ProtectedName = true,
                     Login         = "1234"
                 }
@@ -180,7 +191,7 @@ ConfigCreate({
             }, ---< Report
 
             --- Server PAK Url
-            PAKUrl = "http://nomad.nullptr.one/~finch/zzCryMP-Client.pak",
+            PAKUrl = "http://nomad.nullptr.one/~finch/CryMP-Client-v0.pak",
 
             ----------------------
             --- Map Download Links
@@ -195,6 +206,24 @@ ConfigCreate({
         --------------------------
         ---> General Game Settings
         General = {
+
+            ----------------
+            --- Item Config
+            Weapons = {
+
+                -- Use client side enhanced explosion effects
+                CreateExplosionEffects = true,
+
+                -- Use improved weapon effects
+                UseWeaponEffects = true,
+
+                -- Use special RPG ground effects
+                RPGGroundEffects = true,
+
+                -- Enhance underwater explosions
+                EnhanceUWExplosions = true
+
+            }, ---< Weapons
 
             ----------------
             --- Cheat Config
@@ -333,6 +362,30 @@ ConfigCreate({
             -----------------------
             ---> Game Rule Specific
             GameRules = {
+
+                ----------------------
+                --- Work Configuration
+                WorkingConfig = {
+
+                    -- Reward upon stealing a vehicle
+                    VehicleTheftReward = 25,
+
+                    -- Reward upon reparing a vehicle
+                    VehicleRepairReward = 25,
+
+                }, ---< WorkingConfig
+
+                ------------------------
+                --- Turret Configuration
+                TurretConfig = {
+
+                    -- Calculate rewards based of points repaired
+                    HitPointBasedReward = false,
+
+                    -- Repair upon repairing a turret
+                    RepairReward = 100,
+
+                }, ---< TurretConfig
 
                 ----------------------
                 --- Hit Configuration
@@ -520,7 +573,7 @@ ConfigCreate({
                             { "FY71", { "LAMRifle" }},
                             --{ "RadarKit" } -- unfair, unbalanced..
                         },
-                        AdditionalEquip = { 'Binoculars' },
+                        AdditionalEquip = { 'Binoculars', 'Parachute' },
                         MustHave        = {},
                     }, ---< PowerStruggle
 

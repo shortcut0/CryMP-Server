@@ -1,5 +1,8 @@
 ----------------------
 ServerItemHandler = {
+
+    ProjectileMap = {},
+
     Equipment = {
         ["PowerStruggle"] = {
             Active = true,
@@ -72,7 +75,7 @@ ServerItemHandler = {
         }, WaterSound = "sounds/physics:explosions:sphere_cafe_explo_3", SoundVol = 0.90, NoWaterExplosion = true, WaterRemoveProjectile = true },
 
         -- TAC Tank
-        { Class = "TACCannon", Projectile = true, Requires = nil, Name = "ATOM_Effects.Explosions.Nuke", Scale = 0.25, WaterEffect = {
+        { Class = "TACCannon", Projectile = true, Requires = nil, Name = "ATOM_Effects.Explosions.Nuke", Scale = 0.1, WaterEffect = {
             { "explosions.warrior.water_wake_sphere", 0.10 },
             { "explosions.mine.seamine", 5.0 },
             { "explosions.Grenade_SCAR.water", 5.0 },
@@ -104,6 +107,7 @@ eKillType_BotDeath  = 5
 ----------------------
 ServerItemHandler.Init = function(self)
 
+    self.ExplosionEffects    = ConfigGet("General.Weapons.CreateExplosionEffects", false, eConfigGet_Boolean)
     self.UseWeaponEffects    = ConfigGet("General.Weapons.UseWeaponEffects", true, eConfigGet_Boolean)
     self.RPGGroundEffects    = ConfigGet("General.Weapons.RPGGroundEffects", true, eConfigGet_Boolean)
     self.EnhanceUWExplosions = ConfigGet("General.Weapons.EnhanceUWExplosions", true, eConfigGet_Boolean)
@@ -289,14 +293,13 @@ end
 ----------------------
 ServerItemHandler.Equip = function(self, hPlayer, aEquipment)
 
-    Debug(aEquipment)
     local hWeapon, aStored
     for _, aInfo in pairs(aEquipment) do
-        Debug(aInfo[1])
+        --Debug(aInfo[1])
         hWeapon = GetEntity(hPlayer:GiveItem(aInfo[1]))
         if (hWeapon) then
-            for __, sAttach in pairs(aInfo[2]) do
-                hPlayer:GiveItem(sAttach) -- give the player the spawn attachment regardless of stored data...
+            for __, sAttach in pairs((aInfo[2] or {})) do
+                hPlayer:GiveItem(isArray(sAttach) and sAttach.class or sAttach) -- give the player the spawn attachment regardless of stored data...
             end
 
             aStored = (checkArray(hPlayer:GetData(ePlayerData_Equipment))[hWeapon.class])
@@ -424,6 +427,27 @@ ServerItemHandler.OnLeaveWeaponModify = function(self, hWeapon, hOwner)
 end
 
 ----------------------
+ServerItemHandler.CanPickObject = function(self, hPlayerID, hItemID)
+
+    local hPlayer = GetEntity(hPlayerID)
+    if (not hPlayer or not hPlayer.IsPlayer) then
+        return true
+    end
+
+    local hItem = GetEntity(hItemID)
+    if (not hItem) then
+        return true
+    end
+
+    if (hItem.SvPickup) then
+        hItem:SvPickup(hPlayer)
+        return false
+    end
+
+    return true
+end
+
+----------------------
 ServerItemHandler.CanPickupWeapon = function(self, hPlayerID, hItemID)
 
     local hPlayer = GetEntity(hPlayerID)
@@ -477,6 +501,7 @@ ServerItemHandler.CanUseWeapon = function(self, hPlayerID, hItemID)
     end
 
     local hItem = GetEntity(hItemID)
+    PluginSaveCall("PlayerVoices", "ProcessEvent", hPlayer, eVE_UseMG)
 
     return true
 end
@@ -506,12 +531,137 @@ ServerItemHandler.OnPickedUp = function(self, hPlayerID, hItemID)
 end
 
 ----------------------
+ServerItemHandler.OnItemHit = function(self, hItem, aHitInfo)
+
+    local aCfg = hItem.HitConfig
+    if (aCfg) then
+        hItem.HP = (hItem.HP or aCfg.HP) - aHitInfo.damage
+        if (hItem.HP <= 0) then
+            if (aCfg.Explosion.Effect) then
+
+                local sEffect = aCfg.Explosion.Effect
+                local vPos = hItem:GetPos()
+                local iRadius = aCfg.Explosion.Radius or 5
+                local iDamage = aCfg.Explosion.Damage or 300
+                local iScale = aCfg.Explosion.Scale or 1
+                SpawnExplosion(sEffect, vPos, iRadius, iDamage, aHitInfo.normal or aHitInfo.dir or g_Vectors.up, aHitInfo.shooterId, aHitInfo.weaponId, iScale)
+
+                System.RemoveEntity(hItem.id)
+            end
+        elseif (aCfg.Burning) then
+            if (not hItem.IsBurning and aHitInfo.damage > 0 and aHitInfo.type ~= "collision") then
+                ClientMod:OnAll(string.format([[g_Client:StartBurn(GetEntity("%s","%s",true))]],
+                    hItem:GetName(), (aCfg.Burning.Effect or "explosions.barrel.burn")
+                ), {
+                    Sync = true,
+                    SyncID = "burn",
+                    BindID = hItem.id,
+                    Check = function() return hItem.HP > 0 end
+                })
+                hItem.IsBurning = true
+                hItem.BurnHit = table.copy(aHitInfo)
+                hItem.BurnHit.damage = 9999
+                if (aCfg.Burning.BurnTime) then
+                    Script.SetTimer(aCfg.Burning.BurnTime*1000, function()
+                        if (GetEntity(hItem) and hItem.HP > 0) then
+                            ServerItemHandler:OnItemHit(hItem, hItem.BurnHit)
+                        end
+                    end)
+                end
+            end
+        end
+    end
+end
+
+----------------------
+ServerItemHandler.OnStartReload = function(self, hPlayer, hWeapon)
+    PluginSaveCall("PlayerVoices", "ProcessEvent", hPlayer, eVE_ReloadWeapon)
+end
+
+----------------------
+ServerItemHandler.OnPlayerKilled = function(self, hShooter, hTarget, aHitInfo)
+
+    if (hShooter and hTarget) then
+        if (hTarget.IsPlayer and (aHitInfo.melee or (aHitInfo.weapon and aHitInfo.weapon.class == "Fists"))) then
+        --    PluginSaveCall("PlayerVoices", "ProcessEvent", hTarget, eVE_MeleeDeath)
+        end
+
+        local aNearby = GetPlayers({
+            Pos = aHitInfo.pos,
+            Range = 35.0
+        })
+
+        local bAllKilled = false
+        local aNearbyEnemies = {}
+        local aNearbyAllies  = {}
+        local aNearbyAny     = {}
+
+        for _, hNearby in pairs(aNearby) do
+
+            if (hNearby:IsAlive() and not hNearby:IsSpectating()) then
+                if (g_gameRules.IS_PS) then
+                    if (hNearby.id ~= hShooter.id) then
+                        if (hNearby:GetTeam() ~= hShooter:GetTeam()) then
+                            if (hNearby:GetTeam() == hTarget:GetTeam()) then
+                                table.insert(aNearbyEnemies, hNearby)
+                            end
+                        else
+                            table.insert(aNearbyAllies, hNearby)
+                        end
+                    end
+                end
+                table.insert(aNearbyAny, hNearby)
+            end
+        end
+
+        if (table.count(aNearbyAny) <= 1) then -- all dead
+            --Debug("alone..")
+            PluginSaveCall("PlayerVoices", "ProcessEvent", hShooter, eVE_AllEliminated)
+        else -- one dead
+            PluginSaveCall("PlayerVoices", "ProcessEvent", hShooter, eVE_OneEliminated)
+        end
+
+        if (table.count(aNearbyAllies) > 0) then -- ally down..
+            Script.SetTimer(math.random(800, 1200) + 250, function()
+                PluginSaveCall("PlayerVoices", "ProcessEvent", table.random(aNearbyAllies), eVE_OneEliminatedReply)
+            end)
+        end
+        if (table.count(aNearbyEnemies) > 0) then -- wohoo. enemy down!
+            Script.SetTimer(math.random(800, 1200) + 250, function()
+                PluginSaveCall("PlayerVoices", "ProcessEvent", table.random(aNearbyEnemies), eVE_AllyEliminated)
+            end)
+        end
+    end
+end
+
+----------------------
 ServerItemHandler.CheckHit = function(self, aHitInfo)
 
     -----------
     local hShooter = GetEntity(aHitInfo.shooterId)
-    if (hShooter and hShooter.id ~= aHitInfo.targetId and aHitInfo.target and not aHitInfo.explosion and not ServerDefense:CheckDistance(hShooter, aHitInfo.target:GetPos(), aHitInfo.pos)) then
+    local hTarget = GetEntity(aHitInfo.targetId)
+    if (hShooter and hShooter.IsPlayer and hShooter.id ~= aHitInfo.targetId and aHitInfo.target and not aHitInfo.explosion and not ServerDefense:CheckDistance(hShooter, aHitInfo.target:GetPos(), aHitInfo.pos)) then
         return false
+    end
+
+    if (hShooter) then
+
+        -- we need extended god mode to kill in god mode..
+        if (hShooter.IsPlayer and hShooter:HasGodMode(1) and not hShooter:HasGodMode(2)) then
+            aHitInfo.damage = 0
+        end
+
+        if (hTarget.IsPlayer and hTarget:HasGodMode()) then
+            aHitInfo.damage = 0
+        end
+
+        if (hShooter.DamageMultiplier) then
+            aHitInfo.damage = aHitInfo.damage * hShooter.DamageMultiplier
+        end
+
+        if (hShooter.IsPlayer and hTarget and hTarget.id ~= hShooter.id and hTarget.IsPlayer and (hTarget:GetTeam() == hShooter:GetTeam()) and (hShooter:IsTesting() or g_gameRules.IS_PS)) then
+            PluginSaveCall("PlayerVoices", "ProcessEvent", hTarget, eVE_FriendlyFire)
+        end
     end
 
     local hObject = GetEntity(aHitInfo.shooterId)
@@ -569,13 +719,15 @@ end
 
 
 ----------------------
-ServerItemHandler.OnProjectileExplosion = function(self, pWeapon, sWeapon, nProjectile, sEffect, vPos, vDir, vNormal)
+---  pWeaponLua, pWeapon ? pWeapon->GetClass()->GetName() : "", sClassName, ScriptHandle(GetEntityId()), effectName, epos, dir, normal) && mods.GetPtr()
+ServerItemHandler.OnProjectileExplosion = function(self, pWeapon, sWeapon, sProjectile, nProjectile, sEffect, vPos, vDir, vNormal)
 
     local sEffect_New  = sEffect
     local bDelete      = false
     local bNoExplosion = false
 
-    if (self.EnhanceUWExplosions and (string.matchex(sWeapon, "C4", "explosivegrenade")) and IsPointUnderwater(vPos)) then
+    sProjectile = sProjectile or (GetEntity(nProjectile) and GetEntity(nProjectile).class or "")
+    if (self.EnhanceUWExplosions and (string.matchex(sProjectile, "C4", "explosivegrenade")) and IsPointUnderwater(vector.modifyz(vPos, -1))) then
         SpawnEffect("explosions.Grenade_SCAR.water", FollowWater(vPos), g_Vectors.up)
     end
 
@@ -654,7 +806,12 @@ ServerItemHandler.OnProjectileExplosion = function(self, pWeapon, sWeapon, nProj
                         if (isArray(sWaterSound)) then
                             sWaterSound = getrandom(sWaterSound)
                         end
-                        PlaySound((sWaterSound or aEffect.Sound), vPos, aEffect.SoundVol)
+                        Debug("play ",sWaterSound or aEffect.Sound)
+                        PlaySound({
+                            File = (sWaterSound or aEffect.Sound),
+                            Pos = vPos,
+                            Vol = aEffect.SoundVol
+                        })
                         bWaterSoundPlayed = true
                     end
                 end
@@ -663,12 +820,18 @@ ServerItemHandler.OnProjectileExplosion = function(self, pWeapon, sWeapon, nProj
                 if (aEffect.Sound and not bWaterSoundPlayed) then
                     if (not aEffect.Delay or timerexpired(aEffect.Last, aEffect.Delay)) then
                         aEffect.Last = timerinit()
-                        PlaySound((type(aEffect.Sound) == "table" and getrandom(aEffect.Sound) or aEffect.Sound), vPos, aEffect.SoundVol)
+                        PlaySound({
+                            File = (type(aEffect.Sound) == "table" and getrandom(aEffect.Sound) or aEffect.Sound),
+                            Pos = vPos,
+                            Vol = aEffect.SoundVol
+                        })
                     end
                 end
             end
         end
     end
+
+    self:UpdateExplosionEffects(sWeapon, sProjectile, vPos, vNormal)
 
     local aReturn = {
         RemoveProjectile = bDelete,
@@ -680,17 +843,91 @@ end
 
 
 ----------------------
+ServerItemHandler.UpdateExplosionEffects = function(self, sWeapon, sProjectile, vPos, vNormal)
+
+    if (not self.ExplosionEffects) then
+        return
+    end
+
+    local aHit = RWI_GetHit(vPos, g_Vectors.down, 5)
+    if (not aHit) then
+        return
+    end
+
+    local iSurface = aHit.surface
+    if (iSurface == 210) then -- rocks
+
+        local aObjects = {
+            --"objects/natural/rocks/vulkan_rocks/small_vulkan_rock_a.cgf",
+            --"objects/natural/rocks/vulkan_rocks/small_vulkan_rock_b.cgf",
+            --"objects/natural/rocks/vulkan_rocks/small_vulkan_rock_c.cgf",
+            "objects/natural/rocks/vulkan_rocks/vulkan_rock_a.cgf",
+            "objects/natural/rocks/vulkan_rocks/vulkan_rock_b.cgf",
+            "objects/natural/rocks/vulkan_rocks/vulkan_rock_c.cgf",
+        }
+        for i = 1, math.random(7, 11) do
+            Script.SetTimer(i * 15, function()
+
+                local vRock = table.copy(vPos)
+                vRock.z = vRock.z + math.frandom(0, 1.15)
+                local hRock = SpawnGUI({
+                    Model = getrandom(aObjects),
+                    Physics = true,
+                    Resting = false,
+                    Ridig = true,
+                    Mass = 100,
+                    Pos = vRock,
+                    Dir = aHit.normal,
+                    Mass = 30,
+                    Scale = math.frandom(0.2,0.75),
+                    Network = true,
+                })
+
+                hRock:AddImpulse(-1, hRock:GetPos(), vector.randomize(table.copy(vNormal), 0.2, false), 100, 1)
+                hRock.DamageMultiplier = 50
+                g_pGame:ScheduleEntityRemoval(hRock.id, math.random(8,14), false)
+            end)
+        end
+
+    elseif (iSurface == 140) then -- concrete
+
+        --angle threshold
+        if (vNormal.z < math.cos(math.rad(25))) then
+            return
+        end
+
+        local aClasses = {
+            "rocket",
+            "LAW",
+            "Hellfire",
+            "SideWinder",
+            "scargrenade"
+        }
+
+        if ((table.findv(aClasses, sWeapon) or table.findv(aClasses, sProjectile)) and not IsPointUnderwater(vPos)) then
+            ClientMod:OnAll(string.format([[g_Client:ExplosionEffect({x=%f,y=%f,z=%f},{x=%f,y=%f,z=%f})]],
+                    vPos.x, vPos.y, vPos.z,
+                    vNormal.x, vNormal.y, vNormal.z
+            ))
+        end
+    end
+end
+
+----------------------
 ServerItemHandler.OnProjectileHit = function(self, nShooter, nProjectile, bDead, iDamage, nWeapon, vPos, vNormal)
 
     local hShooter = GetEntity(nShooter)
     local hProjectile = GetEntity(nProjectile)
     if (not hShooter) then return end
 
+    -----------------------
+    -- Fixed!!
+    -- <>  BUG BUG IN C++!! LAWAYS CALLED FOR ALL ENTITIES!!
+
     local iBonus = ConfigGet("General.GameRules.Prestige.ProjectileEliminationAward", 50, eConfigGet_Number)
     if (g_gameRules.IS_PS) then
         if (hShooter.IsPlayer) then
 
-            Debug(hProjectile)
             if (ServerDLL.GetProjectileOwnerId(nProjectile) ~= nShooter) then
                 if (hShooter:GetTeam() == g_pGame:GetTeam(nProjectile)) then
                     if (not bDead) then
@@ -753,6 +990,10 @@ ServerItemHandler.OnExplosivePlaced = function(self, nPlayer, nExplosive, iType,
     -- FIXME: AntiCheat()
     -- Check distance!!!
 
+    -- Plugin
+    PluginSaveCall("PlayerVoices", "ProcessEvent", hPlayer, eVE_PlaceExplosive)
+    --
+
     if (iType == 2) then
         if (hPlayer.actor:GetNanoSuitMode() == NANOMODE_STRENGTH) then
             local iImpulse = 500 * (hPlayer:HasGodMode() and 1 or (hPlayer.actor:GetNanoSuitEnergy() / 200)) * (hPlayer:HasGodMode(2) and 10 or 1)
@@ -784,16 +1025,21 @@ end
 
 
 ----------------------
-ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, vPos, vHit, vDir)
+ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, hAmmo, sAmmo, vPos, vHit, vDir)
+
+    if (hShooter and hShooter.IsPlayer) then
+        hShooter.Info.FiringTimer.refresh()
+    end
 
     -----------
     --- check only weapons
     local aIgnore = {
-        ["RadarKit"] = true,
-        ["RepairKit"] = true,
-        ["Lockpick"] = true,
+        ["radarkit"] = true,
+        ["repairkit"] = true,
+        ["lockpick"] = true,
+        ["detonator"] = true,
     }
-    if (not aIgnore[hWeapon.class] and not ServerDefense:CheckDistance(hShooter, hShooter:GetPos(), vPos)) then
+    if (not aIgnore[string.lower(hWeapon.class)] and not ServerDefense:CheckDistance(hShooter, hShooter:GetPos(), vPos)) then
         return false
     end
 
@@ -801,6 +1047,7 @@ ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, vPos, vHit, vDir)
     local aShotInfo = {
 
         -- New Style
+        Ammo    = sAmmo,
         Shooter = hShooter,
         Weapon  = hWeapon,
         Hit     = vHit,
@@ -808,6 +1055,7 @@ ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, vPos, vHit, vDir)
         Dir     = vDir,
 
         -- Old Style (get rid of this)
+        ammo    = sAmmo,
         shooter = hShooter,
         weapon  = hWeapon,
         hit     = vHit,
@@ -816,8 +1064,21 @@ ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, vPos, vHit, vDir)
     }
 
     --------------------------------
+    local bIsExplosive = IsAny(sAmmo, "explosivegrenade", "c4explosive", "scargrenade")
+    if (hAmmo and bIsExplosive) then
+        self.ProjectileMap[hAmmo] = {
+            OwnerID = hShooter and hShooter.id,
+            Class = sAmmo,
+            ID = hAmmo,
+            Team = (hShooter and g_pGame:GetTeam(hShooter.id) or 0),
+            Timer = timernew()
+        }
+    end
     if (hShooter and hShooter.IsPlayer) then
         hShooter:OnShoot(aShotInfo)
+
+        if (sAmmo == "explosivegrenade" or sAmmo == "scargrenade") then PluginSaveCall("PlayerVoices", "ProcessEvent", hShooter, eVE_ThrowFrag) end
+        --if (sAmmo == "c4explosive" or sAmmo == "claymore" or sAmmo == "avmine") then PluginSaveCall("PlayerVoices", "ProcessEvent", hShooter, eVE_PlaceExplosive) end
     end
 
     --------------------------------
@@ -837,10 +1098,8 @@ ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, vPos, vHit, vDir)
         local sEffect, vSpawn = self:GetRPGEffect(hShooter, hWeapon, vFollowed)
         if (sEffect) then
             SpawnEffect(sEffect, vFollowed)
-            SpawnEffect(ePE_Flare, vFollowed)
         end
     end
-
 
     --------------------------------
     -- Cfg
@@ -877,7 +1136,11 @@ ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, vPos, vHit, vDir)
                 if (aEffect.Sound) then
                     if (not aEffect.Delay or timerexpired(aEffect.Last, aEffect.Delay)) then
                         aEffect.Last = timerinit()
-                        PlaySound((type(aEffect.Sound) == "table" and getrandom(aEffect.Sound) or aEffect.Sound), vHit, aEffect.SoundVol)
+                        PlaySound({
+                            File = (type(aEffect.Sound) == "table" and getrandom(aEffect.Sound) or aEffect.Sound),
+                            Pos = vHit,
+                            Vol = aEffect.SoundVol
+                        })
                     end
                 end
             end

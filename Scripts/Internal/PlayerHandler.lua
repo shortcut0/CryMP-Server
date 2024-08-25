@@ -11,6 +11,12 @@ PlayerHandler = (PlayerHandler or {
 
 ------------------
 
+TIMER_CREATE = false
+NO_REFRESH = false
+CHECK_ONLY = true
+
+------------------
+
 ePlayerData_All             = 0
 ePlayerData_LastVisit       = "last_visit"
 ePlayerData_GameTime        = "play_time"
@@ -53,6 +59,7 @@ ePlayerTemp_SpectatorEquip  = 0
 ePlayerTimer_EquipmentMsg       = 0
 ePlayerTimer_EquipmentLoadedMsg = 1
 ePlayerTimer_ClientInstall      = 2
+ePlayerTimer_Firing             = 3
 
 ------------------
 
@@ -68,8 +75,8 @@ g_PlayerRayTable = {}
 ------------------
 PlayerHandler.Init = function(self)
 
-    --- Link Event
-    EventLink(eServerEvent_OnScriptReload, "PlayerHandler", "SavePlayerData")
+    --- Link Event (because they are out of order, we need to call this one manually.)
+    --EventLink(eServerEvent_OnScriptReload, "PlayerHandler", "SavePlayerData")
     self:LoadFile()
 
     --- Log
@@ -122,20 +129,18 @@ PlayerHandler.SaveFile = function(self)
 end
 
 ------------------
-PlayerHandler.OnClientDisconnect = function(self, hClient, bNoSave, bQuiet)
+PlayerHandler.OnClientDisconnect = function(self, hClient, bNoSave, bQuiet, bReload)
+
+    hClient:SetData(ePlayerData_LastName, nil)
+    hClient:SetData(ePlayerData_LastVoteKicked, nil)
+    hClient:SetData(ePlayerData_LastVisit, GetTimestamp())
 
     local sName = hClient:GetName()
-    if (not ServerNames:IsNomad(sName)) then
-        hClient:SetData(ePlayerData_LastName, sName)
-    end
-    hClient:SetData(ePlayerData_LastVisit, GetTimestamp())
-    if (hClient.VoteKicked) then
-        hClient:SetData(ePlayerData_LastVoteKicked, nil)
-    else
-        hClient:SetData(ePlayerData_LastVoteKicked, GetTimestamp())
-    end
 
-    local sID = hClient:GetProfileID()
+    if (not ServerNames:IsNomad(sName)) then hClient:SetData(ePlayerData_LastName, sName) end
+    if (hClient.VoteKicked) then hClient:SetData(ePlayerData_LastVoteKicked, GetTimestamp()) end
+
+    local sID   = hClient:GetProfileID()
     local aData = hClient:GetStoredData()
 
     self.PlayerData[sID] = aData
@@ -143,7 +148,8 @@ PlayerHandler.OnClientDisconnect = function(self, hClient, bNoSave, bQuiet)
         self:SaveFile()
     end
 
-    CallEvent(eServerEvent_SavePlayerData, hClient, bQuiet)
+    --Debug(">>>>>>>>>>>> CALL EVENT. NOW!")
+    CallEvent(eServerEvent_SavePlayerData, hClient, bQuiet, bReload)
 
 end
 
@@ -152,7 +158,7 @@ PlayerHandler.SavePlayerData = function(self)
 
     for _, hClient in pairs(GetPlayers()) do
         ServerLog("FOR CLIENT %s",hClient:GetName())
-        self:OnClientDisconnect(hClient, true, true)
+        self:OnClientDisconnect(hClient, true, true, true)
     end
     self:SaveFile()
 end
@@ -166,7 +172,6 @@ end
 PlayerHandler.InitClient = function(self, hClient, iChannel)
 
     self.RegisterFunctions(hClient, iChannel)
-    EventCall(eServerEvent_OnClientInit, hClient, iChannel)
 end
 
 ------------------
@@ -417,12 +422,66 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.IsAllowedEquip  = function(self, class) return self.Info.AllowedEquip:Allowed(class) end -- NOT synched
     hClient.GetEquipReason  = function(self) return self.Info.AllowedEquip:GetReason() end -- NOT synched
 
+    hClient.CreateHit = function(self, aInfo)
+
+        local hCurrent = self:GetCurrentItem()
+        local hTarget = aInfo.Target or self
+        local hShooter = aInfo.Shooter or self
+        local hWeapon = aInfo.Weapon or self
+
+        local hTargetId = hTarget and hTarget.id
+        local hShooterId = hShooter and hShooter.id
+        local hWeaponId = hWeapon and hWeapon.id
+
+        local iDamage = aInfo.Damage or 100
+        local iRadius = aInfo.Radius or 0
+
+        local iMaterialID = 0
+        if (aInfo.Material) then
+            iMaterialID = g_pGame:GetHitMaterialId(aInfo.Material)
+        end
+
+        local iPart = aInfo.Part or -1
+        local iTypeID = 0
+        if (aInfo.Type) then
+            iTypeID = g_pGame:GetHitTypeId(aInfo.Type)
+        else
+            iTypeID = g_pGame:GetHitTypeId("normal")
+        end
+
+        local vPos = aInfo.Pos or hTarget:GetPos()
+        local vDir = aInfo.Dir or self:SmartGetDir()
+        local vNormal = aInfo.Normal or vDir
+
+        g_pGame:ServerHit(hTargetId, hShooterId, hWeaponId, iDamage, iRadius, iMaterialID, iPart, iTypeID, vPos, vDir, vNormal)
+    end
+
     hClient.GetHitPos = function(self, iDist, iTypes, vDir, vPos)
         iTypes = iTypes or ent_all
         iDist = iDist or 5
-        vDir = vector.scale(vDir or self:GetViewDir(), iDist)
+
+        local iPosP = 0
+        if (iDist < 0) then
+            iDist = iDist * -1
+            if (iDist < 1) then iPosP = (1 - iDist) iDist = 1 end
+            vDir = vector.scale(vector.neg(vDir or self:SmartGetDir(1)), iDist)
+        else
+            if (iDist < 1) then iPosP = (1 - iDist) iDist = 1 end
+            vDir = vector.scale(vDir or self:SmartGetDir(1), iDist)
+        end
+
+        vPos = (vPos or self:GetHeadPos())
+        if (iPosP > 0) then
+            vPos = vector.add(vPos, vector.scale(vector.neg(vDir), iPosP))
+            --SpawnEffect(ePE_Flare,vPos,g_Vectors.up,0.1)
+        end
+
+        --Debug("req1=",iDist)
+        --Debug("req2=",vDir)
+        --Debug("req3=",iPosP)
+
         local nIgnore = (self:GetVehicleId() or self.id)
-        local iHits = Physics.RayWorldIntersection(vPos, vDir, iDist, iTypes, nIgnore, nil, g_PlayerRayTable)
+        local iHits = (ServerDLL.RayWorldIntersection or Physics.RayWorldIntersection)(vPos, vDir, 1, iTypes, nIgnore, nil, g_PlayerRayTable)
         local aHit = g_PlayerRayTable[1]
         if (iHits and iHits > 0) then
             aHit.surfaceName = System.GetSurfaceTypeNameById( aHit.surface )
@@ -432,13 +491,16 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     end
     hClient.GetFacingPos        = function(self, iFace, iDistance, iFollowType, t) return GetFacingPos(self, iFace, iDistance, iFollowType, t)  end
     hClient.GetHeadPos          = function(self) return self.actor:GetHeadPos() end
+    --hClient.GetBonePos          = function(self, bone) return self:GetBonePos(bone) end
     hClient.GetHeadDir          = function(self) return self.actor:GetHeadDir()  end
     hClient.GetViewPoint        = function(self, dist) return (self.actor:GetLookAtPoint(dist or 9999))  end
-    hClient.SvMoveTo            = function(self, pos, ang) self:SetInvulnerability(5) g_pGame:MovePlayer(self.id, vector.modifyz(pos, 0.25), (ang or self:GetWorldAngles()))  end
+    hClient.SvMoveTo            = function(self, pos, ang) self:SetInvulnerability(5) local v = self:GetVehicle() if (v) then v:SetWorldPos(pos) return end g_pGame:MovePlayer(self.id, vector.modifyz(pos, 0.25), (ang or self:GetWorldAngles()))  end
     hClient.SetInvulnerability  = function(self, time) g_pGame:SetInvulnerability(self.id, true, (time or 2.5)) end
     hClient.GetSpectatorDir     = function(self) return (self.actor:GetLookDirection() or self.PesudoDirection or vector.make()) end
     hClient.GetVehicleDir       = function(self) return (self.actor:GetVehicleViewDir()) end
-    hClient.SmartGetDir         = function(self, dv) if (self:IsSpectating()) then return self:GetSpectatorDir() elseif (self:GetVehicleId()) then return self:GetVehicleViewDir()end return (dv and self:GetDirectionVector() or self:GetHeadDir()) end
+    hClient.SmartGetDir         = function(self, dv) if (self:IsSpectating()) then return self:GetSpectatorDir() elseif (self:GetVehicleId()) then return self:GetVehicleDir()end return (dv and self:GetDirectionVector() or self:GetHeadDir()) end
+    hClient.GetLean             = function(self, dir) local d = self.actor:GetLean() if (dir) then return d == dir end return d end
+    hClient.IsIdle              = function(self, time) return self.Info.IdleTimer.expired(time or 5) end
 
     hClient.IsValidated     = function(self) return (self.Info.Validated == true) end
     hClient.GetProfileID    = function(self) return self.Info.ProfileID end
@@ -546,6 +608,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.GetRealPing     = function(self) return (g_pGame:GetPing(self:GetChannel() or 0) * 1000)  end
     hClient.SetRealPing     = function(self, real) g_pGame:SetSynchedEntityValue(self.id, g_gameRules.SCORE_PING_KEY, math.floor(real))  end
     hClient.GetCurrentItem  = function(self) return self.inventory:GetCurrentItem() end
+    hClient.GetItemByClass  = function(self, class) local h = self.inventory:GetItemByClass(class) return GetEntity(h) end
     hClient.HasItem         = function(self, class) return self.inventory:GetItemByClass(class) end
     hClient.GetItem         = function(self, class) return self.inventory:GetItemByClass(class) end
     hClient.GiveItem        = function(self, class, noforce) self.actor:SetActorMode(ACTORMODE_UNLIMITEDITEMS, 1) local i = ItemSystem.GiveItem(class, self.id, (not noforce))self.actor:SetActorMode(ACTORMODE_UNLIMITEDITEMS, 0) return i end
@@ -655,7 +718,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
 
                 --self.CM.Restored = false--test!
                 local iCM = self:GetData(ePlayerData_CM)
-                if (self:HasClientMod() and not self.CM.Restored and iCM ~= CM_NONE) then
+                if (self:HasClientMod() and not self.CM.Restored and iCM ~= nil and iCM ~= CM_NONE) then
 
                     -- dont restore if dead, causes strange bug. although its only temporary, still annoying ;)
                     if (self:IsAlive() or self:IsSpectating()) then
@@ -706,15 +769,34 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
 
         self.PesudoDirection = vPesudoDir
         self.LastPosition    = vPos
+
+        self.Info.IdleTime = (self.Info.IdleTime or 0) + System.GetFrameTime()
+        if (vector.length(self:GetVelocity()) > 0) then
+            self.Info.IdleTimer.refresh()
+            self.Info.IdleTime = 0
+        end
+
+        if (self:HasClientMod()) then
+            ClientMod:UpdateClient(self)
+        end
     end
+
+    hClient.Info.FiringTimer = timernew()
+
+    hClient.Info.IdleTimer   = timernew()
+    hClient.Info.IdleTime    = 0
 
     hClient.Info.Initialized = true
     hClient.InfoInitialized  = true
+
     hClient.InitTimer        = (hClient.InitTimer or timernew(5))
     hClient.LastTick         = timernew()
 
     ClientMod:InitClient(hClient)
     g_gameRules:SvInitClient(hClient)
+    if (hClient.IsPlayer) then
+        EventCall(eServerEvent_OnClientInit, hClient, iChannel)
+    end
 
     SendMsg(MSG_CENTER, hClient, "Successfully Initialized")
     ServerLog("Client Initialized!")

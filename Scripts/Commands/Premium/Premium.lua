@@ -20,6 +20,7 @@ AddCommand({
     Access = RANK_PREMIUM,
     Properties = {
         Cooldown = 120,
+        Cost = 25,
     },
     Function = function(self)
         SpawnEffect(ePE_Firework, self:GetPos(), g_Vectors.up, 2)
@@ -36,11 +37,31 @@ AddCommand({
     },
 
     Properties = {
+        Cooldown = 10,
     },
 
     -- self is the user unless specified otherwise
     Function = function(self, hID)
         return ClientMod:RequestModel(self, hID)
+    end
+})
+
+-- =====================================================================================
+AddCommand({
+    Name = "vehiclemodel",
+    Access = RANK_PREMIUM,
+
+    Arguments = {
+        { Name = "@l_ui_index", Desc = "@l_ui_index_d", Optional = true, IsNumber = true }
+    },
+
+    Properties = {
+        Cooldown = 10,
+    },
+
+    -- self is the user unless specified otherwise
+    Function = function(self, hID)
+        return ClientMod:ChangeVehicleModel(self, nil, hID)
     end
 })
 
@@ -54,6 +75,7 @@ AddCommand({
     },
 
     Properties = {
+        Cooldown = 10,
     },
 
     -- self is the user unless specified otherwise
@@ -72,11 +94,90 @@ AddCommand({
     },
 
     Properties = {
+        Cooldown = 10,
     },
 
     -- self is the user unless specified otherwise
     Function = function(self, hID)
         return ClientMod:RequestCharacter(self, hID)
+    end
+})
+
+------------
+AddCommand({
+    Name = "turtle",
+    Access = RANK_PREMIUM,
+    Arguments = {},
+    Properties = {
+        Cooldown = 10,
+    },
+    Function = function(self) return ClientMod:RequestCharacter(self, CM_TURTLE) end
+})
+
+------------
+AddCommand({
+    Name = "shark",
+    Access = RANK_PREMIUM,
+    Arguments = {},
+    Properties = {
+        Cooldown = 10,
+    },
+    Function = function(self) return ClientMod:RequestCharacter(self, CM_SHARK) end
+})
+
+------------
+AddCommand({
+    Name = "trooper",
+    Access = RANK_PREMIUM,
+    Arguments = {},
+    Properties = {
+        Cooldown = 10,
+    },
+    Function = function(self) return ClientMod:RequestCharacter(self, CM_TURTLE) end
+})
+
+------------
+AddCommand({
+    Name = "crab",
+    Access = RANK_PREMIUM,
+    Arguments = {},
+    Properties = {
+        Cooldown = 10,
+    },
+    Function = function(self) return ClientMod:RequestCharacter(self, CM_CRAB) end
+})
+
+------------
+AddCommand({
+    Name = "finch",
+    Access = RANK_PREMIUM,
+    Arguments = {},
+    Properties = {
+        Cooldown = 10,
+    },
+    Function = function(self) return ClientMod:RequestCharacter(self, CM_FINCH) end
+})
+
+------------
+AddCommand({
+    Name = "monkeywalk",
+    Access = RANK_PREMIUM,
+    Arguments = {},
+    Properties = {
+        Cooldown = 10,
+    },
+    Function = function(self)
+        self.ClientTemp.HasMonkeyWalk = (not self.ClientTemp.HasMonkeyWalk)
+        ClientMod:OnAll(string.format("g_Client:AddLA(GP(%d),'%s',%s)",
+                self:GetChannel(),
+                "misc_replaceMe_01",
+                g_ts(self.ClientTemp.HasMonkeyWalk)
+        ), {
+            Sync = true,
+            SyncID = "monkeywalk",
+            BindID = self.id,
+            Check = function() return self and self.ClientTemp.HasMonkeyWalk ~= false end
+        })
     end
 })
 

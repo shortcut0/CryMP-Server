@@ -68,3 +68,55 @@ AddCommand({
         SendMsg(CHAT_SERVER, self, self:LocalizeNest("@l_ui_hereIsYour", {aClass[2]}))
     end
 })
+
+------------
+AddCommand({
+    Name = "supercab",
+    Access = RANK_GUEST,
+
+    Properties = {
+        Prestige = 50,
+        Cooldown = 60,
+        Indoors = false,
+    },
+
+    Function = function(self)
+
+        local aInfo = self:GetEntitiesInFront(eGet_Physicalized, 3, 2)
+        if (not aInfo:None()) then
+            if (aInfo.Indoors) then
+                return false, self:Localize("@l_commandresp_notIndoors")
+            end
+            return false, self:Localize("@l_ui_EntitiesInFront", { aInfo.First or "Object" })
+        end
+
+        ClientMod:ChangeVehicleModel(self, nil, table.random({VM_AUDI,VM_TESLA}), true)
+        SendMsg(CHAT_SERVER, self, self:LocalizeNest("@l_ui_hereIsYour", {"SuperCab"}))
+    end
+})
+
+------------
+AddCommand({
+    Name = "audir8",
+    Access = RANK_GUEST,
+
+    Properties = {
+        Prestige = 50,
+        Cooldown = 60,
+        Indoors = false,
+    },
+
+    Function = function(self)
+
+        local aInfo = self:GetEntitiesInFront(eGet_Physicalized, 3, 2)
+        if (not aInfo:None()) then
+            if (aInfo.Indoors) then
+                return false, self:Localize("@l_commandresp_notIndoors")
+            end
+            return false, self:Localize("@l_ui_EntitiesInFront", { aInfo.First or "Object" })
+        end
+
+        ClientMod:ChangeVehicleModel(self, nil, table.random({VM_AUDI}), true)
+        SendMsg(CHAT_SERVER, self, self:LocalizeNest("@l_ui_hereIsYour", {"Audi R8"}))
+    end
+})

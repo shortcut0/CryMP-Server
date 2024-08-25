@@ -1,12 +1,16 @@
 --------------------
-CreatePlugin({
+local sPluginID = "PersistentScore"
+
+CreatePlugin(sPluginID, {
 
     DataDir = (SERVER_DIR_DATA .. "PlayerData\\"),
     DataFile = "PersistentScore.lua",
-    Score = {
+
+    -- Safely retrieve our data..
+    Score = PluginGetData(sPluginID, "Score", {
         PowerStruggle = {},
         InstantAction = {},
-    },
+    }),
 
     Config = {
 
@@ -25,7 +29,7 @@ CreatePlugin({
 
     },
 
-    ID = "PersistentScore",
+    ID = sPluginID, -- Hello! is this still used?
 
     ---------------------
     Links = {
@@ -36,6 +40,22 @@ CreatePlugin({
 
     ---------------------
     Init = function(self)
+        self:LoadScore()
+    end,
+
+    ---------------------
+    TryDeleteScore = function(self, hUser)
+
+        local sID = hUser:GetProfileID()
+        if (not hUser:IsValidated()) then
+            return false -- just ignore
+        end
+
+        if (self.Score[g_sGameRules][sID]) then
+            Logger:LogEvent(eLogEvent_Plugins, "@l_ui_scoreResetC", hUser:GetName())
+            self.Score[g_sGameRules][sID] = nil
+            self:SaveScore()
+        end
     end,
 
     ---------------------
@@ -50,6 +70,7 @@ CreatePlugin({
             HandleError("Error saving File %s (%s)", self.DataFile, sErr)
             ServerLogError("Failed to open file %s for writing", sFile)
         end
+
     end,
 
     ---------------------
@@ -92,13 +113,15 @@ CreatePlugin({
         end
 
         if (bAny) then
-            Logger:LogEventTo(GetPlayers(), eLogEvent_Plugins, "Score Restored for ${red}%s", hClient:GetName())
-            SendMsg(CHAT_SERVER, hClient, "(SCORE: Restored!)")
+            Script.SetTimer(2500, function()
+                Logger:LogEventTo(GetPlayers(), eLogEvent_Plugins, "@l_ui_scoreRestoredC", hClient:GetName())
+                SendMsg(CHAT_SERVER, hClient, "@l_ui_scoreRestored")
+            end)
         end
     end,
 
     ---------------------
-    OnClientDisconnect = function(self, hClient, bQuiet)
+    OnClientDisconnect = function(self, hClient, bQuiet, bWasReload)
 
         local sID     = hClient:GetProfileID()
         local iKills  = hClient:GetKills()
@@ -120,11 +143,14 @@ CreatePlugin({
             aInfo.Rank  = iRank
         end
 
-        if (not bQuiet) then
-            Logger:LogEvent(eLogEvent_Plugins, "Score Saved for ${red}%s", hClient:GetName())
-        end
 
         self.Score[g_sGameRules][sID] = aInfo
-        self:SaveScore()
+        if (not bWasReload) then
+            if (not bQuiet) then
+                Logger:LogEvent(eLogEvent_Plugins, "@l_ui_scoreSaved", hClient:GetName())
+            end
+            self:SaveScore()
+        end
+
     end,
 })

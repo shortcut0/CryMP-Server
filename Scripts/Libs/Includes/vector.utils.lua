@@ -22,6 +22,29 @@ vectors = {
 }
 
 ---------------------------
+vector.gawker = function(center, num, rad) -- probably not the most professional name......
+	local positions = {}
+	for i = 0, 360, 360/(num or 10) do
+		local pos = {
+			x = center.x + math.sin(math.rad(i)) * rad,
+			y = center.y + math.cos(math.rad(i)) * rad,
+			z = center.z
+		}
+
+		local dir = {
+			x = center.x - pos.x,
+			y = center.y - pos.y,
+			z = center.z - pos.z
+		}
+
+		positions[#positions + 1] = { pos = pos, dir = dir }
+	end
+
+	return positions
+end
+
+
+---------------------------
 -- vector.newvec ???
 
 vector.randomize = function(x, rand, xy, inplace)
@@ -823,6 +846,13 @@ end
 
 vector.reverse = function(v)
 	return { x = -v.x, y = -v.y, z = v.z }
+end
+
+---------------------------
+-- vector.neg
+
+vector.neg = function(v)
+	return { x = -v.x, y = -v.y, z = -v.z }
 end
 
 ---------------------------

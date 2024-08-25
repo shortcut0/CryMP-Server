@@ -7,3 +7,5 @@ scripts/gamerules/powerstruggleutils.lua = scripts/game/gamerules/powerstruggleu
 scripts/gamerules/instantaction.lua = scripts/game/gamerules/instantaction.lua
 
 scripts/main.lua = scripts/game/main.lua
+scripts/entities/others/gui.lua = scripts/game/entities/gui.lua
+IGNORE/scripts/entities/sound/soundspot.lua = scripts/game/entities/soundspot.lua

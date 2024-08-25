@@ -15,6 +15,7 @@ AddCommand({
             Desc = "@l_ui_count_d",
             Required = true,
             Default = 1,
+            IsNumber = true,
             Max = 100,
             Min = 1,
             Auto = true
@@ -67,7 +68,7 @@ AddCommand({
             return true, self:Localize("@l_ui_entitiesListedInConsole", { table.count((aFound or aEntities)) })
         end
 
-        local vPos = self:GetFacingPos(eFacing_Front, 5, eFollow_Auto, 3)
+        local vPos = self:GetFacingPos(eFacing_Front, 5, eFollow_Auto, 1)
         Script.SetTimer(1, function()
             SvSpawnEntity({
 
@@ -209,5 +210,72 @@ AddCommand({
             end
         end
         return true
+    end
+})
+
+------------
+AddCommand({
+    Name = "sb",
+    Access = RANK_ADMIN, -- Must be accessible to all!
+
+    ----------------------------------------
+    Arguments = {
+        {
+            Name = "@l_ui_count",
+            Desc = "@l_ui_count_d",
+            Required = true,
+            Default = 1,
+            IsNumber = true,
+            Max = 100,
+            Min = 1,
+            Auto = true
+        }, { Name = "@l_ui_argument", Desc = "@l_ui_argument_d", Optional = true}
+    },
+
+    ----------------------------------------
+    Properties = {
+    },
+
+    ----------------------------------------
+    Function = function(self, iCount, bExplosive)
+
+        local vPos = self:GetFacingPos(eFacing_Front, 5, eFollow_Auto, 1)
+        for i = 1, iCount do
+
+            local aParams = {
+                Physics = true,
+                Mass = 10,
+                Rigid = true,
+                Resting = false,
+                Pickable = true,
+                Usable = true,
+
+                Model = getrandom({ "objects/library/storage/barrels/barrel_blue.cgf", "objects/library/storage/barrels/barrel_green.cgf", "objects/library/storage/barrels/barrel_black.cgf", "objects/library/storage/barrels/barrel_red.cgf" }),
+                Pos = vPos,
+                Dir = self:SmartGetDir(1),
+                Network = true
+            }
+            if (bExplosive) then
+                aParams.Model = getrandom({ "Objects/library/storage/barrels/barrel_explosiv_black.cgf", "Objects/library/storage/barrels/barrel_explosive_red.cgf"})
+                aParams.HitCfg = {
+                    HP = 100,
+                    Explosion = {
+                        Effect = ePE_BarrelExplo,
+                        Scale = 1,
+                        Damage = 300,
+                        Radius = 6,
+                    },
+                    Burning = {
+                        BurnTime = 10,
+                        Effect = "explosions.barrel.burn"
+                    }
+                }
+            end
+            g_pGame:ScheduleEntityRemoval(SpawnGUI(aParams).id, 120, false)
+        end
+
+        SpawnEffect(ePE_Light, vPos)
+        SendMsg(CHAT_SERVER, self, self:Localize("@l_ui_entitiesSpawned", { "GUI", iCount }))
+        Logger:LogEventTo(self:GetAccess(), eLogEvent_Game, self:Localize("@l_ui_entitiesSpawned_console", { self:GetName(), "GUI", iCount }))
     end
 })

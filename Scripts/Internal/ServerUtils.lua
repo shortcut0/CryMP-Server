@@ -12,6 +12,7 @@ ePE_Firework	= "misc.extremly_important_fx.celebrate"
 ePE_C4Explosive = "explosions.C4_explosion.ship_door"
 ePE_Claymore	= "explosions.mine.claymore"
 ePE_AlienBeam	= "alien_weapons.singularity.Tank_Singularity_Spinup"
+ePE_BarrelExplo	= "explosions.barrel.explode"
 
 ----------------
 
@@ -79,7 +80,7 @@ ServerUtils.Init = function(self)
     GetPlayer    = self.GetPlayer
 
     --- Sounds
-    PlaySound    = function() HandleError("fixme!")  end
+    PlaySound    = self.PlaySound
 
     --- Effects
     SpawnEffect    = self.SpawnEffect
@@ -87,6 +88,8 @@ ServerUtils.Init = function(self)
     SpawnExplosion = self.SpawnExplosion
 
     --- Entities
+    SpawnGUI          = self.SpawnGUI
+
     GetVehicleClasses = self.GetVehicleClasses
     GetEntityClasses  = self.GetEntityClasses
     GetItemClasses    = self.GetItemClasses
@@ -126,6 +129,68 @@ ServerUtils.Init = function(self)
     end
     LUA_MAX_INTEGER = (iMaxInt / 10)
     ServerLog("LUA_MAX_INTEGER = %s", g_ts(LUA_MAX_INTEGER))
+end
+
+----------------
+
+ServerUtils.PlaySound = function(aParams)
+
+    --Debug(aParams.File)
+    local hFile = SpawnGUI({
+        Model = "",
+        Mass = -1,
+        Physics = 0,
+        Rigid = 0,
+        Sound = aParams.File,
+        Pos = aParams.Pos,
+        Dir = aParams.Dir,
+        Network = true
+    })
+
+    g_pGame:ScheduleEntityRemoval(hFile.id, 30, true)
+    return hFile
+
+end
+
+----------------
+
+ServerUtils.SpawnGUI = function(aParams)
+
+    local sName = "gui_" .. UpdateCounter(eCounter_Spawned)
+
+    sName = string.format("%s,Model={%s}",   sName, aParams.Model)
+    sName = string.format("%s,Resting={%d}", sName, (aParams.Resting == true and 1 or 0))
+    sName = string.format("%s,Physics={%d}", sName, (aParams.Physics == true and 1 or 0))
+    sName = string.format("%s,Rigid={%d}",   sName, (aParams.Static == true and 0 or 1))
+    sName = string.format("%s,Mass={%d}",    sName, (aParams.Mass or 0))
+    sName = string.format("%s,Pick={%d}",    sName, (aParams.Pickable and 1 or 0))
+    sName = string.format("%s,Use={%d}",     sName, (aParams.Usable and 1 or 0))
+    sName = string.format("%s,Scale={%f}",   sName, (aParams.Scale or 1))
+    sName = string.format("%s,Sound={%s}",   sName, (aParams.Sound or ""))
+    sName = string.format("%s,PProps={%s}",   sName, (aParams.Effect or ""))
+
+    -- name = "xyz,Model={file.cfg}Physics={1},Mass={69},Rigid={1},Resting={0}"
+    local hGUI = System.SpawnEntity({
+        class = "GUI",
+        name = sName,
+        properties = {},
+        position = aParams.Pos,
+        orientation = aParams.Dir,
+        fMass = (aParams.Mass or 0)
+    })
+    --SpawnEffect(ePE_Light,aParams.Pos)
+
+    hGUI.HitConfig = aParams.HitCfg
+
+    if (aParams.Network) then
+        CryAction.CreateGameObjectForEntity(hGUI.id)
+        CryAction.BindGameObjectToNetwork(hGUI.id)
+        if (CryAction.IsServer()) then
+            CryAction.ForceGameObjectUpdate(hGUI.id, true)
+        end
+    end
+
+    return hGUI
 end
 
 ----------------

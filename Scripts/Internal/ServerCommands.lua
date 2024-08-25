@@ -385,8 +385,8 @@ ServerCommands.ListCommands = function(self, hClient, aList, sWantList)
     local sInfoHelp = TryLocalize("@l_ui_commands_help", hClient:GetPreferredLanguage())
 
     SendMsg(MSG_CONSOLE_FIXED, hClient, " ")
-    SendMsg(MSG_CONSOLE_FIXED, hClient, CRY_COLOR_GRAY .. string.rep("-", iLineWidth))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, " " .. sInfoHelp)
+  --  SendMsg(MSG_CONSOLE_FIXED, hClient, CRY_COLOR_GRAY .. string.rep("-", iLineWidth))
+    SendMsg(MSG_CONSOLE_FIXED, hClient, "" .. string.mspace(sInfoHelp, iLineWidth, nil, string.COLOR_CODE))
 end
 
 -------------------
@@ -787,7 +787,6 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
     if (bTimer) then
         --hClient.CommandTimers[string.lower(sName)] = timernew(iCooldown)
 
-        Debug("TIMER REFRESHED")
         hClient:TimerRefresh(sTimerID, iCooldown, true)
         if (bPay and not bTestingMode) then
 
@@ -821,10 +820,13 @@ ServerCommands.SendResponse = function(self, hClient, iResponse, sCmd, sMsg, ...
     local aCommand = self.Commands[string.lower(sCmd)]
     local bChatMsg = true
     local bConsoleMsg = true
+    local bQuiet = false
 
     if (aCommand) then
 
         if (aCommand.Properties.Quiet) then
+
+            bQuiet = true
             if (table.getnested(aCommand, "Properties.HostCondition.IgnoreSilence") ~= true) then
                 iResponse = eCommandResponse_NoFeedback
                 sMsg = nil
@@ -946,7 +948,7 @@ ServerCommands.SendResponse = function(self, hClient, iResponse, sCmd, sMsg, ...
         SendMsg(CHAT_SERVER_LOCALE, hClient, aMsg2[1], unpack(aMsg2, 2))
     end
 
-    if (not hClient.IsServer) then
+    if (not bQuiet and not hClient.IsServer) then
         if (ConfigGet("Commands.SoundFeedback", true, eConfigGet_Boolean)) then
             if (bError) then
                 hClient:Execute(string.format("g_Client:PSE(\"%s\",nil,\"%s\")", sErrorFeedback, sErrorFeedback))

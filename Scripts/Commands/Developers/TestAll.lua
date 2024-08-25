@@ -4,7 +4,8 @@ AddCommand({
     Access = RANK_DEVELOPER, -- Must be accessible to all!
 
     Arguments = {
-        { "1", nil, Required = true },
+        {},
+     --[[   { "1", nil, Required = true },
         { "2", "-", Required = true, Default = "null" },
         { "3", "-", IsNumber = true },
         { "4", "-", IsNumber = true, Min = 1 },
@@ -13,14 +14,35 @@ AddCommand({
         { "7", "-", IsNumber = true, Max = 15, Min = 3, Auto = true },
         { "8", "-", IsPlayer = true, Required = true,AcceptAll = true },
         { "9", "-", IsPlayer = true, Required = true, AcceptAll = true },
-        { "10", "-", Concat = true },
+        { "10", "-", Concat = true },]]
     },
 
     Properties = {
     },
 
-    Function = function(self, ...)
+    Function = function(self, s,...)
 
+
+
+
+        ClientMod:OnAll([[g_Client.FA[g_localActorId]={ENTITY=g_localActor,ANIM="]]..s..[["}g_localActor:StartAnimation(0,"]]..s..[[",8)]]or[[
+
+
+local XY = g_localActor.inventory:GetCurrentItem()
+
+if false then XY:LoadCharacter(0,'objects/weapons/us/at_mine/at_mine_fp.chr') end
+
+        g_localActor.inventory:GetCurrentItem():StartAnimation(0,"]]..s..[[",8)
+        g_localActor.inventory:GetCurrentItem().item:PlayAction("pickup_weapon_left",1,1)
+        ]])
+
+
+        do return end
+        PlaySound({
+            File = "sounds/physics:bullet_impact:mat_concrete_50cal",
+            Pos = self:GetPos(),
+            Vol = 69
+        })
         --ServerLog(table.tostring({...}))
         return true
     end
