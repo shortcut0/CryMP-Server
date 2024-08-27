@@ -44,6 +44,17 @@ end
 
 --------------------------------
 --- Init
+ServerPCH.OnBotConnection = function(self, hBot)
+
+    ServerLog("Detected BOT Connection on Channel %d", hBot:GetChannel())
+    if (ConfigGet("Server.AllowBots", true, eConfigGet_Boolean) == false) then
+        hBot:Kick("Server", "Bots not Allowed.")
+    end
+
+end
+
+--------------------------------
+--- Init
 ServerPCH.OnValidation = function(self, hClient, sError, sResponse, iCode)
 
     if (not ChannelExists(hClient:GetChannel())) then
@@ -162,7 +173,7 @@ end
 ServerPCH.OnConnected = function(self, hClient)
 
     -- Stats
-    AddServerStat(eServerStat_ConnectedCount, 1)
+    AddServerStat(eServerStat_TotalChannels, 1)
 
     local iChannel = (hClient.actor:GetChannel())
     local sName = (hClient:GetName())

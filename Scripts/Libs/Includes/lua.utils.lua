@@ -125,7 +125,7 @@ end
 -- luautils.isNull
 
 luautils.isNull = function(hParam)
-	return type(hParam) == "nil"
+	return hParam == nil--type(hParam) == "nil"
 end
 
 ---------------------------

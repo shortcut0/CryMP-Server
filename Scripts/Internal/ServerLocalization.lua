@@ -1,3 +1,5 @@
+NO_LANGUAGE = "none"
+
 -----------------
 ServerLocale = {
 
@@ -6,7 +8,7 @@ ServerLocale = {
 
     Localization = {},
     DefaultLanguage = "english",
-    AvailableLanguages = { "english", "german", "spanish", "russian", "turkish", "czech" }
+    AvailableLanguages = { "english", "german", "spanish", "russian", "turkish", "czech", "russian_andrey" }
 }
 
 ----------------
@@ -28,6 +30,8 @@ ServerLocale.Init = function(self)
     local sLog = string.format("Loaded ${red}%d${gray} Localizations", table.count(aLocalizationData))
 
     Logger:LogEventTo(GetDevs(), eLogEvent_ServerLocale, sLog)
+
+    --self:TranslateText()
 end
 
 ----------------
@@ -130,6 +134,9 @@ ServerLocale.LocalizeText = function(self, sId, sLang, bForceExt, noReturn)
     end
 
     sLang = (sLang or sDefault)
+    if (sLang == NO_LANGUAGE) then
+        sLang = sDefault
+    end
     local aContent = (aLocale[sLang] or aLocale[sDefault])
 
     --ServerLog(sLang)
@@ -171,6 +178,10 @@ ServerLocale.GetLocalization = function(self, sId, sLang, sExtended)
 end
 
 ----------------
+ServerLocale.TranslateText = function(self, sId)
+end
+
+----------------
 ServerLocale.CreateLocalization = function(self, sId, aLanguages)
 
     sId = string.lower(sId)
@@ -186,6 +197,102 @@ ServerLocale.CreateLocalization = function(self, sId, aLanguages)
             self.Localization[sId][sLang] = { regular = aLang }
         end
     end
+
+    local sRussian = self.Localization[sId]["russian"]
+    if (sRussian) then
+        if (self.Localization[sId]["russian_andrey"] == nil) then
+
+            if (isArray(sRussian)) then
+                self.Localization[sId]["russian_andrey"] = {
+                    regular = sRussian.regular and self:TranslateRussianToAndrey(sRussian.regular),
+                    extended = sRussian.extended and self:TranslateRussianToAndrey(sRussian.extended)
+                }
+            else
+                self.Localization[sId]["russian_andrey"] = { regular = self:TranslateRussianToAndrey(sRussian)
+                }
+            end
+        end
+    end
+end
+
+----------------
+ServerLocale.TranslateRussianToAndrey = function(self, sMsg) -- TODO: Rename this
+
+    local aMap = {
+        { "А", "A", "A" }, { "Б", "B", "B" }, { "В", "V", "B" }, { "Г", "G", "r" }, { "Д", "D", "D" }, { "Е", "E", "E" },
+        { "Ё", "Yo", "E" }, { "Ж", "Zh", ")|(" }, { "З", "Z", "3" }, { "И", "I", "N" }, { "Й", "Y", "N" }, { "К", "K", "K" },
+        { "Л", "L", "L" }, { "М", "M", "M" }, { "Н", "N", "H" }, { "О", "O", "O" }, { "П", "P", "P" }, { "Р", "R", "P" },
+        { "С", "S", "C" }, { "Т", "T", "T" }, { "У", "U", "Y" }, { "Ф", "F", "O" }, { "Х", "Kh", "X" }, { "Ц", "Ts", "U" },
+        { "Ч", "Ch", "y" }, { "W", "Sh", "w" }, { "Щ", "Sch", "W" }, { "Ъ", "''", "b" }, { "Ы", "Y", "bl" }, { "Ь", "'", "b" },
+        { "Э", "E", "3" }, { "Ю", "Yu", "IO" }, { "Я", "Ya", "R" },
+        { "а", "a", "a" }, { "б", "b", "b" }, { "в", "v", "B" }, { "г", "g", "r" }, { "д", "d", "D" }, { "е", "e", "e" },
+        { "ё", "yo", "e" }, { "ж", "zh", ")|(" }, { "з", "z", "3" }, { "и", "i", "N" }, { "й", "y", "N" }, { "к", "k", "k" },
+        { "л", "l", "n" }, { "м", "m", "m" }, { "н", "n", "H" }, { "о", "o", "o" }, { "п", "p", "n" }, { "р", "r", "p" },
+        { "с", "s", "c" }, { "т", "t", "T" }, { "у", "u", "y" }, { "ф", "f", "O" }, { "х", "kh", "x" }, { "ц", "ts", "u" },
+        { "ч", "ch", "y" }, { "ш", "sh", "w" }, { "щ", "sch", "w" }, { "ъ", "''", "b" }, { "ы", "y", "bl" }, { "ь", "'", "b" },
+        { "э", "e", "3" }, { "ю", "yu", "lO" }, { "я", "ya", "R" }
+    }
+
+    local sChar_Previous = ""
+    local sTrans    = ""
+    local bFound    = false
+    local bFmtOpen  = false
+    local nSkip     = 0
+
+    for i, sChar in pairs(string.split(sMsg, "")) do
+        bFound   = false
+        bFmtOpen = bFmtOpen or (sChar == "{" and sChar_Previous == "$")
+
+        if (sChar == "}") then
+            bFmtOpen = false
+        end
+
+        if (nSkip == 0 or i >= nSkip) then
+            nSkip = 0
+            if (not bFmtOpen) then
+                if (not string.matchex(sChar, ",", "%s", "%d", "%$", "{", "}", "%(", "%)", ":")) then
+                    for __, aInfo in pairs(aMap) do
+
+                        --if (aInfo[2] == "ch") then
+                        --    ServerLog(string.sub(sMsg, i, i+string.len(aInfo[2])-1))
+                        --end
+                        --
+                        if (aInfo[2] == sChar or aInfo[2] == string.sub(sMsg, i, i + string.len(aInfo[2]) - 1)) then
+                            sTrans = sTrans .. aInfo[3]
+                            bFound = true
+                            nSkip  = i + string.len(aInfo[2])
+                            --ServerLog("%s==%s",aInfo[2],string.sub(sMsg, i, i+string.len(aInfo[2])))
+                            --ServerLog("skipping to %d (%d)",nSkip,i)
+                            break
+                        end
+                    end
+                    if (not bFound) then
+                        if (DebugMode()) then
+                            ServerLog("unknown character: %s for msg %s", sChar, sMsg)
+                        end
+                    end
+                end
+            else
+                --    ServerLog("format open.. ignoring sequence %s",sChar)
+            end
+            if (not bFound) then
+                sTrans = sTrans .. sChar
+            end
+            sChar_Previous = sChar
+        else
+            --ServerLog("skipping %d",i)
+        end
+    end
+
+    if (DebugMode()) then
+        ServerLog("Translated %-60s <===> %s", sMsg, sTrans)
+    end
+
+    --if (sMsg == "Igroka") then
+    --    ServerLog("translation for Igroka is %s",sTrans)
+    --end
+    return sTrans
+
 end
 
 ----------------
@@ -225,12 +332,12 @@ ServerLocale.LoadLanguages = function(self, sDir)
                 elseif (sType == "txt") then
 
                     -- FIXME
-                    error("unsupported type")
+                    throw_error("unsupported type")
 
                 elseif (sType == "json") then
 
                     -- FIXME
-                    error("unsupported type")
+                    throw_error("unsupported type")
 
                 else
                     ServerLog("Unknown file type!! help!!")

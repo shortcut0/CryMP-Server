@@ -162,6 +162,16 @@ CreateLocalization("l_ui_disabled", {
 
 
 
+CreateLocalization("l_ui_noClipEnabled", {
+    english = "NO-CLIP :: ${1}"
+})
+CreateLocalization("l_ui_noClipEnabledOn", {
+    english = "(${1}: No-Clip ${2})"
+})
+
+
+
+
 
 
 
@@ -234,8 +244,22 @@ CreateLocalization("l_commandarg_not_user", {
 
 
 
+CreateLocalization("l_ui_default", {
+    english = "Default"
+})
+CreateLocalization("l_ui_default_d", {
+    english = "The Default Value"
+})
 CreateLocalization("l_ui_languageUpdatedTo", {
     english = "(${1}: Set as Preferred Language)"
+})
+CreateLocalization("l_ui_languageAutoSet", {
+    english = "(Detected Country ${2} - Language Auto-Set to ${1} (Use !Language to Change))"
+})
+
+
+CreateLocalization("l_ui_teamEnergySet", {
+    english = "Team ${1} Alien Energy Set to ${2}"
 })
 
 
@@ -365,8 +389,14 @@ CreateLocalization("l_ui_entitiesListedInConsole", {
 CreateLocalization("l_ui_entitiesSpawned", {
     english = "(${1}: Spawned (${2}) Entities)"
 })
+CreateLocalization("l_ui_entitiesDeleted", {
+    english = "(${1}: Deleted (${2}) Entities)"
+})
 CreateLocalization("l_ui_entitiesSpawned_console", {
     english = "${magenta}${1}${gray} Spawned ${red}${3}${gray} Entities of Class ${red}${2}"
+})
+CreateLocalization("l_ui_entitiesDeleted_console", {
+    english = "${magenta}${1}${gray} Deleted ${red}${3}${gray} Entities of Class ${red}${2}"
 })
 CreateLocalization("l_ui_entityList", {
     english = "Available Entities"
@@ -683,6 +713,12 @@ CreateLocalization("l_ui_friendly", {
 CreateLocalization("l_ui_entitiesTagged", {
     english = "${1}Entities Tagged"
 })
+CreateLocalization("l_ui_hostilesOnRadar", {
+    english = "Warning: Detected ${1} Hostiles Nearby!"
+})
+CreateLocalization("l_ui_noEntitiesTagged", {
+    english = "RADAR: No Entities Found"
+})
 CreateLocalization("l_ui_thisIsYourExplosive", {
     english = "This is your Explosive!"
 })
@@ -850,6 +886,39 @@ CreateLocalization("l_ui_our", {
 })
 CreateLocalization("l_ui_enemy", {
     english = "Enemy"
+})
+
+
+
+CreateLocalization("l_ui_reviveQueuePaused", {
+    english = "Revive Paused - Press [Mouse1] to Continue"
+})
+
+
+CreateLocalization("l_ui_spawnPP", {
+    english = "Spawn Prestige"
+})
+
+CreateLocalization("l_ui_userEnteredArena", {
+    english = "(#${3}: ${1} Entered the ${2})"
+})
+
+CreateLocalization("l_ui_userLeftArena", {
+    english = "(${1} Left the ${2})"
+})
+
+CreateLocalization("l_ui_invalidArena", {
+    english = "Arena does not exist"
+})
+
+CreateLocalization("l_ui_Arena", {
+    english = "Arena"
+})
+CreateLocalization("l_ui_pvp", { -- player versus player
+    english = "PVP"
+})
+CreateLocalization("l_ui_boxing", {
+    english = "Boxing"
 })
 
 
@@ -1053,6 +1122,14 @@ CreateLocalization("l_ui_index", {
 
 CreateLocalization("l_ui_index_d", {
     english = "The Index of the list or item"
+})
+
+CreateLocalization("l_ui_amount", {
+    english = "Amount"
+})
+
+CreateLocalization("l_ui_amount_d", {
+    english = "The required amount"
 })
 
 

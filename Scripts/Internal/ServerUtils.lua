@@ -161,7 +161,7 @@ ServerUtils.SpawnGUI = function(aParams)
     sName = string.format("%s,Model={%s}",   sName, aParams.Model)
     sName = string.format("%s,Resting={%d}", sName, (aParams.Resting == true and 1 or 0))
     sName = string.format("%s,Physics={%d}", sName, (aParams.Physics == true and 1 or 0))
-    sName = string.format("%s,Rigid={%d}",   sName, (aParams.Static == true and 0 or 1))
+    sName = string.format("%s,Rigid={%d}",   sName, ((aParams.Rigid == false or aParams.Static == true) and 0 or 1))
     sName = string.format("%s,Mass={%d}",    sName, (aParams.Mass or 0))
     sName = string.format("%s,Pick={%d}",    sName, (aParams.Pickable and 1 or 0))
     sName = string.format("%s,Use={%d}",     sName, (aParams.Usable and 1 or 0))
@@ -780,7 +780,11 @@ ServerUtils.GetPlayers = function(aParams)
     for i, hPlayer in pairs(aPlayers) do
 
         bInsert = true
-        if (table.size(aParams) > 0) then
+        if (hPlayer.actor:IsPlayer() and not hPlayer.InfoInitialized) then
+            bInsert = false
+        end
+
+        if (bInsert and table.size(aParams) > 0) then
             if (aParams.Access) then
                 if (not hPlayer:HasAccess(aParams.Access)) then
                     bInsert = false
@@ -801,12 +805,6 @@ ServerUtils.GetPlayers = function(aParams)
 
             if (aParams.Spectators) then
                 if (not hPlayer:IsSpectating()) then
-                    bInsert = false
-                end
-            end
-
-            if (aParams.TeamID) then
-                if (hPlayer:GetTeam() ~= aParams.TeamID) then
                     bInsert = false
                 end
             end

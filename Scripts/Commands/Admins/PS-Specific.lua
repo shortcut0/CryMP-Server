@@ -33,12 +33,37 @@ AddCommand({
 
 ------------
 AddCommand({
+    Name = "energy",
+    Access = RANK_ADMIN, -- Must be accessible to all!
+
+    Arguments = {
+        { "@l_ui_amount", "@l_ui_amount_d", Required = true, IsNumber = true, Min = 1, Max = 100, Auto = true },
+        { "@l_ui_team", "@l_ui_team_d", Optional = true, IsNumber = true, Min = 0, Max = TEAM_END, Auto = true, Transform = { ["nk"] = TEAM_NK, ["us"] = TEAM_US, ["neutral"] = TEAM_NEUTRAL } }
+    },
+
+    Properties = {
+        PowerStruggle = true,
+        Host = "g_gameRules",
+    },
+
+    Function = function(self, hClient, iEnergy, iTeam)
+
+        iTeam = iTeam or hClient:GetTeam()
+        g_gameRules:SetTeamPower(iTeam, iEnergy)
+
+        SendMsg(MSG_ERROR, ALL_PLAYERS, "@l_ui_teamEnergySet", GetTeamName(iTeam), iEnergy)
+        return true, hClient:Localize("@l_ui_teamEnergySet", {GetTeamName(iTeam), iEnergy})
+    end
+})
+
+------------
+AddCommand({
     Name = "team",
     Access = RANK_ADMIN, -- Must be accessible to all!
 
     Arguments = {
         { "@l_ui_player", "@l_ui_player_d", Optional = true, Default = "self", AllOk = true, SelfOk = true, IsPlayer = true },
-        { "@l_ui_amount", "@l_ui_amount_d", Required = true, IsNumber = true, Min = 0, Max = TEAM_END, Auto = true, Transform = { ["nk"] = TEAM_NK, ["us"] = TEAM_US, ["neutral"] = TEAM_NEUTRAL } }
+        { "@l_ui_team", "@l_ui_team_d", Required = true, IsNumber = true, Min = 0, Max = TEAM_END, Auto = true, Transform = { ["nk"] = TEAM_NK, ["us"] = TEAM_US, ["neutral"] = TEAM_NEUTRAL } }
     },
 
     Properties = {

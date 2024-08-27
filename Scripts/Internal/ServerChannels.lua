@@ -15,6 +15,7 @@ ServerChannels = (ServerChannels or {
 
     ChannelData = {},
     Default = {
+        Default = true,
         Country = "Crysis",
         CountryCode = "CV",
         Continent = "Lingshan Islands",
@@ -84,7 +85,7 @@ ServerChannels.GetConnecting = function(self)
         })
     end
 
-    if (SERVER_DEBUG_MODE) then
+    if (DebugMode()) then
         for i = 1, 3 do
             table.insert(aConns, {
                 Nick = "Nomad-" .. i,
@@ -99,12 +100,11 @@ end
 -------------------
 ServerChannels.InitChannel = function(self, iChannel, sIP)
 
-    if (iChannel > LAST_CHANNEL) then
-        LAST_CHANNEL = iChannel
+    LAST_CHANNEL = math.max(LAST_CHANNEL, iChannel)
 
-        -- Stats Update
-        IncreaseServerStat(eServerStat_PlayerRecord, LAST_CHANNEL)
-    end
+    -- Stats Update
+    ServerLog("Player Record %d", LAST_CHANNEL)
+    IncreaseServerStat(eServerStat_PlayerRecord, iChannel)
 
     if (self.ChannelData[iChannel]) then
         return
@@ -125,10 +125,18 @@ end
 -------------------
 ServerChannels.ResolveIPData = function(self, aChannel, sIP)
 
-    if (self.IPData[sIP]) then
-        aChannel.IPData = table.copy(self.IPData[sIP])
+    local aData = self.IPData[sIP]
+    if (aData and aData.Default == nil) then
+        aChannel.IPData = table.copy(aData)
+        PlayerHandler:SetClientInfo(aChannel.ID, aData)
+        self:PostResolve(aChannel.ID)
+
+        ServerLog("Data already resolved!")
+        ServerLog(table.tostring(self.IPData[sIP]))
         return
     end
+
+    ServerLog("Resolving Data for IP %s", sIP)
 
     ServerDLL.Request({
         url = string.gsub(self.MasterServerAPI, "{ip}", sIP),
@@ -182,6 +190,7 @@ ServerChannels.OnResolve = function(self, iChannel, sIP, sError, sResponse, iCod
     self:SaveFile()
 
     PlayerHandler:SetClientInfo(iChannel, aResponse)
+    return true
 end
 
 -------------------
@@ -230,3 +239,34 @@ ServerChannels.GetHost = function(self, iChannel)
     local sHost, iPort = string.match((ServerDLL.GetChannelName(iChannel) or ""), "(.-):(%d+)")
     return sHost
 end
+
+-------------------
+ServerChannels.CountryToLanguage = function(self, sCountry, hDef)
+
+    -- this is to automatically assign a language to a player
+    -- edit: invalids commented so avoid false "auto detected language"
+    return ({
+        germany = "german",
+        chile = "spanish",
+        spain = "spanish",
+        mexico = "spanish",
+        russia = "russian",
+        belarus = "russian",
+        turkey = "turkish",
+        czechia = "czech",
+        austria = "german",
+        switzerland = "german",
+        argentina = "spanish",
+        colombia = "spanish",
+        ukraine = "russian",
+        kazakhstan = "russian",
+        usa = "english",
+        canada = "english",
+        --france = NO_LANGUAGE,
+        --italy = NO_LANGUAGE,
+        --japan = NO_LANGUAGE,
+        --china = NO_LANGUAGE,
+        --india = NO_LANGUAGE
+    })[string.lower(sCountry)] or hDef
+end
+

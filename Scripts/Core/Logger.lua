@@ -604,11 +604,17 @@ Logger.Format = function(sMessage, aFormatAppend)
 
     ---------------
     -- Server stats
-    if (ServerStats) then
-        table.merge(aFormat, {
-            ["server_alltime"]  = math.calctime(ServerStats:Get(eServerStat_ServerTime)),
-            ["server_maxplayer"]  = (ServerStats:Get(eServerStat_PlayerRecord)),
-            ["server_totalchannel"]  = (ServerStats:Get(eServerStat_TotalChannels)),
+    if (ServerStats ~= nil) then
+        aFormat = table.merge(aFormat, {
+            [eServerStat_ServerTime]     = math.calctime(ServerStats:Get(eServerStat_ServerTime)),
+            [eServerStat_PlayerRecord]   = (ServerStats:Get(eServerStat_PlayerRecord)),
+            [eServerStat_TotalChannels]  = (ServerStats:Get(eServerStat_TotalChannels)),
+            [eServerStat_ConnectedCount] = string.format("%04d", g_tn(ServerStats:Get(eServerStat_ConnectedCount, 0))),
+            ["server_mem"]           = string.bytesuffix(ServerDLL.GetMemUsage()),
+            ["server_peakm"]         = string.bytesuffix(ServerDLL.GetMemPeak()),
+            ["server_memPH"]         = string.bytesuffix(ServerStats:GetMemUsage(PROFILER_HOUR)),
+            ["server_memPD"]         = string.bytesuffix(ServerStats:GetMemUsage(PROFILER_DAILY)),
+            ["server_memPM"]         = string.bytesuffix(ServerStats:GetMemUsage(PROFILER_MINUTE)),
         })
     end
 

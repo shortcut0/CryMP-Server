@@ -21,7 +21,7 @@ ServerInjector.Init = function(self)
     self:ExecuteQueue()
 
     local iTotalInjections = table.it(self.LOADED_FILES, function(x, i, v) return ((x or 0) + v.Injections) end)
-    if (SERVER_DEBUG_MODE) then
+    if (DebugMode()) then
         ServerLog(LOG_STARS)
         ServerLog("[%04d] Injections:", iTotalInjections)
         for sFile, aData in pairs(self.LOADED_FILES) do

@@ -34,7 +34,7 @@ FileLoader.LoadFile = function(self, sFile, sType)
         return false, sErr
     end
 
-    if (SERVER_DEBUG_MODE) then
+    if (DebugMode()) then
         bOk, sErr = true, nil
         hLib()
     else

@@ -15,6 +15,7 @@ local ServerGameRules = {
         self.IS_PS = (g_sGameRules == "PowerStruggle")
         self.IS_IA = (g_sGameRules == "InstantAction")
 
+
         ---------
 
         Logger.CreateAbstract(self, { LogClass = "GameRules" })
@@ -29,6 +30,7 @@ local ServerGameRules = {
 
         self.ACTIONS        = {}
         self.TIMED_ACTIONS  = {}
+        self.TaggedExplosives = {}
 
         eGRMessage_AutoVoteStart = 0
         eGRMessage_MapEndsIn     = 1
@@ -76,7 +78,7 @@ local ServerGameRules = {
         Function = function(self, hClient)
 
             hClient.TagPlayerAlert = timernew(10)
-            hClient.TagAward = { PP = 0, CP = 0, Timer = nil, Num = 0 }
+            hClient.TagAward = { PP = 0, CP = 0, Timer = nil, Num = 0, Hostiles = 0 }
             ServerLog("GameRules.InitClient")
         end
 
@@ -182,11 +184,96 @@ local ServerGameRules = {
     ---------------------------------------------
     {
         Class = "g_gameRules",
+        Target = { "OnRadarScanComplete" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hShooterID, hWeaponID, iScanDistance)
+
+            local hShooter = System.GetEntity(hShooterID)
+            local hWeapon = System.GetEntity(hWeaponID)
+
+            local iTeam = hShooter:GetTeam()
+
+            if (GetCVar("server_allow_scan_explosives") > 0) then
+                local aNearby = System.GetEntitiesInSphere(hShooter:GetPos(), iScanDistance / 3)
+                for _, hNearby in pairs(aNearby) do
+                    if (IsAny(hNearby.class, "claymoreexplosive", "avexplosive", "c4explosive"
+                    )) then
+                        self.TaggedExplosives[hNearby.id] = {
+                            Timer = timernew(),
+                            EffectTimer = timernew(),
+                            TeamID = hShooter:GetTeam()
+                        }
+                        hShooter.TagAward.Num = hShooter.TagAward.Num + 1
+                        hShooter.TagAward.PP  = hShooter.TagAward.PP + 5
+                        hShooter.TagAward.CP  = hShooter.TagAward.CP + 1
+
+                        if (iTeam ~= TEAM_NEUTRAL) then
+                            ClientMod.ExecuteOn(GetPlayers({ TeamID = iTeam }), 'g_Client:SLH("' .. hNearby:GetName() .. '","red",15)')
+                        else
+                            ClientMod.ExecuteOn(GetPlayers({ NotID = hShooter.id }), 'g_Client:SLH("' .. hNearby:GetName() .. '","red",15)')
+                            ClientMod.ExecuteOn({ hShooter }, 'g_Client:SLH("' .. hNearby:GetName() .. '","green",15)')
+                        end
+                        --ClientMod.ExecuteOn(GetPlayers({ TeamID = GetOtherTeam(hShooter:GetTeam()) }), 'g_Client:SLH("' .. hNearby:GetName() .. '","red",15)')
+                    end
+                end
+            end
+
+            if (self.IS_PS) then
+
+                local iScanned = hShooter.TagAward.Num
+                if (iScanned > 0) then
+
+                    local iHostile = hShooter.TagAward.Hostiles
+                    Debug(iHostile)
+                    if (iHostile > 0) then
+                        local aNearby = GetPlayers({ NotID = true and NULL_ENTITY or hShooter.id, Range = iScanDistance, Pos = hShooter:GetPos(), Team = hShooter:GetTeam() })
+                        for _, hNearby in pairs(aNearby) do
+
+                            hNearby:Execute(string.format([[g_Client:PSE("sounds/interface:multiplayer_interface:mp_tac_alarm_suit",nil,"hostiles")ClientEvent(eEvent_BLE,eBLE_Warning,"%s")]],
+                                    hNearby:Localize("@l_ui_hostilesOnRadar", {iHostile}))
+                            )
+                        end
+                    end
+
+                    hShooter:Execute(string.format(
+                            [[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( +%d PP, +%d CP )")]],
+                            hShooter:Localize("@l_ui_entitiesTagged",{hShooter.TagAward.Num.." "}),
+                            hShooter.TagAward.PP,
+                            hShooter.TagAward.CP
+                    ))
+                    self:AwardPPCount(hShooterID, self.ppList.TAG_ENEMY, nil, hShooter:HasClientMod())
+                    self:AwardCPCount(hShooterID, self.cpList.TAG_ENEMY, nil, hShooter:HasClientMod())
+                else
+                    hShooter:Execute(string.format(
+                            [[ClientEvent(eEvent_BLE,eBLE_Warning,"%s")]],
+                            hShooter:Localize("@l_ui_noEntitiesTagged",{}),
+                            hShooter.TagAward.PP,
+                            hShooter.TagAward.CP
+                    ))
+                end
+            end
+
+            hShooter.TagAward = {
+                CP  = 0,
+                PP  = 0,
+                Num = 0,
+                Hostiles = 0
+            }
+        end
+
+    },
+
+    ---------------------------------------------
+    --- NetExpose
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
         Target = { "Server.OnAddTaggedEntity" },
         Type = eInjection_Replace,
 
         ------------------------
-        -- Self is the entity!
         Function = function(self, hShooterID, hTargetID, sClass)
 
            -- Debug("C")
@@ -200,17 +287,16 @@ local ServerGameRules = {
 
             local bTesting = hShooter.IsPlayer and hShooter:IsTesting()
 
-            hShooter.TagAward.Num = (hShooter.TagAward.Num) + 1
+            if ((iTeam_S ~= iTeam_T) or bTesting) then
 
-            if ((iTeam_S ~= iTeam_T)) then
+                -- Always increase counter!
+                hShooter.TagAward.Num = (hShooter.TagAward.Num) + 1
+
                 if (hTarget) then
                     if ((hShooter:IsTesting() or not hTarget.last_scanned) or (_time - hTarget.last_scanned > 16)) then
 
-                        if ((hTarget and hTarget.IsPlayer) or bTesting) then
-                            if (hShooter.TagPlayerAlert.expired()) then
-                                hShooter.TagPlayerAlert.refresh()
-                                self.onClient:ClMDAlert(hShooter:GetChannel(), "")
-                            end
+                        if ((hTarget and hTarget.class == "Player") or bTesting) then
+                            hShooter.TagAward.Hostiles = hShooter.TagAward.Hostiles + 1
                         end
 
                         hShooter.TagAward.PP  = (hShooter.TagAward.PP) + self.ppList.TAG_ENEMY
@@ -219,35 +305,26 @@ local ServerGameRules = {
                         hTarget.last_scanned = _time
                     end
                 end
+                --[[
+                                if (IsAny(sClass, "c4explosive", "avexplosive", "claymoreexplosive")) then
+                                    hShooter.TagAward.PP  = (hShooter.TagAward.PP) + 15
+                                    hShooter.TagAward.CP  = (hShooter.TagAward.CP) + self.cpList.TAG_ENEMY
+                                    self.TaggedExplosives[hTargetID] = { Timer = timernew() }
 
-                if (IsAny(sClass, "c4explosive", "avexplosive", "claymoreexplosive")) then
-                    hShooter.TagAward.PP  = (hShooter.TagAward.PP) + 15
-                    hShooter.TagAward.CP  = (hShooter.TagAward.CP) + self.cpList.TAG_ENEMY
-                    self.TaggedExplosives[hTargetID] = { Timer = timernew() }
-                end
+
+                                    Debug("expl")
+                                end]]
             end
-
+--[[
             if (hShooter) then
                 if (hShooter.TagAward.Timer) then
                     Script.KillTimer(hShooter.TagAward.Timer)
                 end
                 hShooter.TagAward.Timer = Script.SetTimer(125, function()
 
-                    -- YES! This, indeed, is horrible. But it will stay like this for now.
-                    hShooter:Execute(string.format(
-                            [[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( +%d PP, +%d CP )")]],
-                            hShooter:Localize("@l_ui_entitiesTagged",{hShooter.TagAward.Num.." "}),
-                            hShooter.TagAward.PP,
-                            hShooter.TagAward.CP
-                    ))
-                    self:AwardPPCount(hShooterID, self.ppList.TAG_ENEMY, nil, hShooter:HasClientMod())
-                    self:AwardCPCount(hShooterID, self.cpList.TAG_ENEMY, nil, hShooter:HasClientMod())
 
-                    hShooter.TagAward = {
-                        CP = 0, PP = 0, Num = 0
-                    }
                 end)
-            end
+            end]]
         end
     },
 
@@ -378,8 +455,6 @@ local ServerGameRules = {
 
         ------------------------
         Function = function(self, hAdmin, sBuilding, iTeam, iTeam2)
-
-            Debug("CaptureByCommand->",self:GetName())
 
             local hAdminTeam = hAdmin:GetTeam()
             local vAdminPos = hAdmin:GetPos()
@@ -948,6 +1023,19 @@ local ServerGameRules = {
                     TeamInstantAction.Server.OnUpdate(self, iFrameTime)
                 end
             end
+
+            for _, aInfo in pairs(self.TaggedExplosives) do
+                if (not GetEntity(_)) then
+                    self.TaggedExplosives[_] = nil
+                else
+                    if (aInfo.Timer.expired(15)) then
+                        self.TaggedExplosives[_] = nil
+                    elseif (aInfo.EffectTimer.expired(3)) then
+                        --SpawnEffect("misc.runway_light.flash_red", ServerDLL.GetProjectilePos(_), g_Vectors.up, 0.1)
+                        aInfo.EffectTimer.refresh()
+                    end
+                end
+            end
         end
     },
 
@@ -1082,6 +1170,137 @@ local ServerGameRules = {
                 end
             end
         end
+    },
+
+    ---------------------------------------------
+    --- HandlePings
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "UpdateReviveQueue" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self)
+
+            -- todo: someone with free time rewrite this
+            local iAutoSpecTime   = ConfigGet("General.GameRules.AutoSpectateTimer", 30, eConfigGet_Number)
+            local iPremiumSpawnPP = ConfigGet("General.GameRules.PremiumSpawnPP", 1.25, eConfigGet_Number)
+
+            local reviveTimer = self.game:GetRemainingReviveCycleTime()
+            if (reviveTimer>0) then
+                for playerId,revive in pairs(self.reviveQueue) do
+                    if (revive.active) then
+                        local player=System.GetEntity(playerId);
+                        if (player and player.spawnGroupId and player.spawnGroupId~=NULL_ENTITY) then
+                            if (not revive.announced) then
+                                self.onClient:ClReviveCycle(player.actor:GetChannel(), true);
+                                revive.announced=true;
+                            end
+                        elseif (revive.announced) then -- spawngroup got invalidated while spawn cycle was up,
+                            -- so need to make sure it gets sent again after the situation is cleared
+                            revive.announced=nil;
+                        end
+                    end
+                end
+
+                -- if player has been dead more than 5s and isn't spectating, auto-switch to spectator mode 3
+                local players=self.game:GetPlayers();
+                if (players) then
+                    for i,player in pairs(players) do
+                        if(player and player:IsDead() and player.death_time and _time-player.death_time>iAutoSpecTime and player.actor:GetSpectatorMode() == 0) then
+                            self.Server.RequestSpectatorTarget(self, player.id, 1);
+                        end
+                    end
+                end
+            end
+
+            if (reviveTimer<=0) then
+                self.game:ResetReviveCycleTime();
+
+                for i,teamId in ipairs(self.teamId) do
+                    self:UpdateTeamRanks(teamId);
+                end
+
+                for playerId,revive in pairs(self.reviveQueue) do
+                    if (revive.active and self:CanRevive(playerId)) then
+                        revive.active=false;
+
+                        local player=System.GetEntity(playerId);
+                        if (player) then
+                            self:RevivePlayer(player.actor:GetChannel(), player)
+
+                            if (not revive.tk) then
+                                local rank=self.rankList[self:GetPlayerRank(player.id)]
+                                if (rank and rank.min_pp and rank.min_pp>0) then
+
+                                    local currentpp=self:GetPlayerPP(player.id)
+                                    local iMinPP = rank.min_pp * (player:IsPremium() and iPremiumSpawnPP or 1)
+                                    if (currentpp < iMinPP) then
+
+                                        local iAward = iMinPP - currentpp
+
+                                        if (iAward > 0) then
+                                            self:AwardPPCount(player.id, iAward, nil, player:HasClientMod())
+
+                                            Script.SetTimer(100, function()
+                                                player:Execute(string.format([[g_Client.Event(eEvent_BLE, eBLE_Currency,"%%1 %s ( +%d PP )","%s")]],
+                                                        player:Localize("@l_ui_spawnPP"),
+                                                        iMinPP,
+                                                        rank.name
+                                                ))
+                                            end)
+                                        end
+                                    end
+                                end
+                            end
+
+                            self:CommitRevivePurchases(playerId)
+                            revive.tk = nil
+                            revive.announced = nil
+                        end
+                    end
+                end
+            end
+        end
+
+    },
+
+    ---------------------------------------------
+    --- HandlePings
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "Server.RequestRevive" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hPlayerID)
+
+            local hPlayer = GetEntity(hPlayerID)
+            if (hPlayer and hPlayer.actor) then
+
+                if (hPlayer:HasInstantRevive()) then
+                    return self:RevivePlayer(hPlayer.actor:GetChannel(), hPlayer)
+                end
+
+                if (self.IS_PS) then
+                    if (((hPlayer.actor:GetSpectatorMode() == 3 and self.game:GetTeam(hPlayerID) ~= 0) or (hPlayer:IsDead() and hPlayer.death_time and _time - hPlayer.death_time > 2.5)) and (not self:IsInReviveQueue(hPlayerID))) then
+                        self:QueueRevive(hPlayerID)
+                    elseif (self:IsInReviveQueue(hPlayerID)) then
+                        self:ResetRevive(hPlayerID)
+                        SendMsg(MSG_CENTER, hPlayer, "@l_ui_reviveQueuePaused")
+                    end
+                else
+                    if (hPlayer.death_time and _time - hPlayer.death_time > 2.5 and hPlayer:IsDead()) then
+                        self:RevivePlayer(hPlayer.actor:GetChannel(), hPlayer)
+                    end
+                end
+            end
+        end
+
     },
 
     ---------------------------------------------
@@ -1324,6 +1543,8 @@ local ServerGameRules = {
             local hTarget   = aHitInfo.target
             local hShooter  = aHitInfo.shooter
 
+            ServerItemHandler:OnBeforeKilled(hShooter, hTarget, aHitInfo)
+
             hTarget.death_time = _time
             hTarget.death_pos  = hTarget:GetWorldPos(hTarget.death_pos)
 
@@ -1350,7 +1571,6 @@ local ServerGameRules = {
             self:ProcessScores(aHitInfo, bTeamKill)
             self:AwardAssistPPAndCP(aHitInfo)
             self:OnKilled(aHitInfo)
-
 
             ServerItemHandler:OnPlayerKilled(hShooter, hTarget, aHitInfo)
         end

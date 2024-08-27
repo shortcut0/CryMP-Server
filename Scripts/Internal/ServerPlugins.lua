@@ -90,7 +90,7 @@ ServerPlugins.PluginSaveCall = function(self, sID, sCall, ...)
         return
     end
 
-    if (SERVER_DEBUG_MODE) then
+    if (DebugMode()) then
         return hFunc(hPlugin, ...)
     else
         local bOk, sError = pcall(hFunc, hPlugin, ...)
@@ -134,7 +134,7 @@ ServerPlugins.CreatePlugin = function(self, sID, aPlugin)
     end
 
     if (aPlugin.Init) then
-        if (SERVER_DEBUG_MODE) then
+        if (DebugMode()) then
             aPlugin:Init()
         else
             local bOk, sError = pcall(aPlugin.Init, aPlugin)

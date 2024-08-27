@@ -56,6 +56,9 @@ eClientResp_ChairEffectsOn = 68
 eClientResp_ChairEffectsOff = 69
 eClientResp_ChairRemove = 70
 
+eClientResp_MCX = { 100, 107 }
+eClientResp_MCY = { 110, 117 }
+
 ---------------
 
 CM_NONE         = 0
@@ -101,6 +104,7 @@ CM_TERN         = 39
 CM_FROG         = 40
 CM_ALIENWORK    = 41
 CM_BUTTERFLY    = 42
+CM_BOOBS        = 43
 CM_HEADLESS     = 1000
 
 HEAD_NONE = 0
@@ -175,22 +179,17 @@ end
 ClientMod.InitClient = function(self, hClient)
 
     -------
-    hClient.ExecuteRPC = function(this, sMethod, aParams)
-        RPC:OnPlayer(this, sMethod, aParams)
-    end
+    hClient.ExecuteRPC    = function(this, sMethod, aParams) RPC:OnPlayer(this, sMethod, aParams) end
+    hClient.Execute       = function(this, sCode, ...) sCode = string.formatex(sCode, ...) ClientMod.ExecuteOn({ this }, sCode) end
+    hClient.ExecuteOthers = function(this, sCode, ...) sCode = string.formatex(sCode, ...) ClientMod.ExecuteOn(GetPlayers({ NotID = this.id }), sCode) end
 
-    hClient.Execute = function(this, sCode, ...)
-        sCode = string.formatex(sCode, ...)
-        ClientMod.ExecuteOn({ this }, sCode)
-    end
-    hClient.ExecuteOthers = function(this, sCode, ...)
-        sCode = string.formatex(sCode, ...)
-        ClientMod.ExecuteOn(GetPlayers({ NotID = this.id }), sCode)
-    end
+    hClient.GetMapCoords  = function(this) return string.format("%s%d", unpack(this.ClientTemp.Coords))  end
 
     -------
     table.checkM(hClient, "CM", { Restored = false, ID = CM_NONE, File = "" })
-    table.checkM(hClient, "ClientTemp", {  })
+    table.checkM(hClient, "ClientTemp", {
+        Coords = { "A", 1 }
+    })
 
     -------
     ServerLog("ClientMod.InitClient")
@@ -432,6 +431,10 @@ ClientMod.DecodeSpecRequest = function(self, hClient, iMessage)
             "AVMine", "Claymore", "C4"
     )
 
+    if (iMessage < 0) then
+    --    iMessage = iMessage * -1
+    end
+
     if (iMessage == eClientResp_OnInstalled) then
         self:OnInstalled(hClient)
 
@@ -465,7 +468,7 @@ ClientMod.DecodeSpecRequest = function(self, hClient, iMessage)
                 ClientMod:OnAll(string.format([[g_Client:ANIM(%d,"combat_weaponPunchUB_dualpistol_01")]], hClient:GetChannel()))
             end
             if (hFists) then
-                aRH = hClient:GetHitPos(2)
+                aRH = hClient:GetHitPos(2.5)
                 hRHEntity = aRH and aRH.entity
                 if (hRHEntity) then
                     hClient:CreateHit({
@@ -495,6 +498,12 @@ ClientMod.DecodeSpecRequest = function(self, hClient, iMessage)
 
     elseif (iMessage == eClientResp_ChairEffectsOn or iMessage == eClientResp_ChairEffectsOff) then
         self:ChairEffects(hClient, iMessage == eClientResp_ChairEffectsOn)
+
+    elseif ((iMessage >= 100 and iMessage <= 107)) then
+        hClient.ClientTemp.Coords[1] = ({"A","B","C","D","E","F","G"})[iMessage - 100] or "?"
+
+    elseif ((iMessage >= 110 and iMessage <= 117)) then
+        hClient.ClientTemp.Coords[2] = iMessage - 110
 
     else
         Logger:LogEventTo(RANK_DEVELOPER, eLogEvent_ClientMod, "@l_ui_clm_invalidResponse", hClient:GetName(),g_tn(iMessage or 0))
@@ -583,6 +592,7 @@ ClientMod.GetModels = function()
 
     local aModels = {
         [CM_DEFAULT]    = { "Nomad", "objects/characters/human/us/nanosuit/nanosuit_us_multiplayer.cdf" , true},
+        [CM_BOOBS]      = {"General Kyong", "G:MODEL_NOMAD_BOOBS"},
         [CM_KYONG]      = {"General Kyong", "objects/characters/human/story/Kyong/Kyong.cdf", true},
         [CM_KOREANAI]   = {"Korean AI", { "objects/characters/human/asian/nk_soldier/nk_soldier_camp_cover_heavy_04.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_cover_heavy_05.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_cover_heavy_07.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_cover_heavy_09.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_cover_light_01.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_cover_light_02.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_light_leader_04.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_light_leader_02.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_light_leader_03.cdf", }},
         [CM_AZTEC]      = {"Aztec", "objects/characters/human/story/Harry_Cortez/harry_cortez_chute.cdf", 1},

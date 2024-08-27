@@ -329,7 +329,7 @@ ServerPublisher.GetServerReport = function(self, iType)
     local iRanked       = "1"
 
     ------
-    if (SERVER_DEBUG_MODE) then
+    if (DebugMode()) then
         iPlayerCount = (iPlayerCount + getrandom(1, 2))
         hPlayerList     = self:GetPlayers(iPlayerCount)
 

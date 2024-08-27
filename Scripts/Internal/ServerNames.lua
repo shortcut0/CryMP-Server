@@ -7,8 +7,8 @@ ServerNames = {
 
     AllowSpaces = true,
 
-    NomadTemplate = "^Nomad$",
-    NameTemplate = "[Nomad.${a_country}] ::  (${a_channel})",
+    NomadTemplate = "^Nomad%.%w+ :: %(#$d+%)$",
+    NameTemplate = "Nomad.${a_country} :: (#${server_total_connects})",
 }
 
 ----------------

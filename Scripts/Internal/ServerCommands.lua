@@ -37,8 +37,9 @@ eCommandResponse_Premium            = 7 -- It's for premium members
 eCommandResponse_NoAccess           = 8 -- User doesn't have access (uses not found response!)
 eCommandResponse_BadGameRules       = 9 -- User doesn't have access (uses not found response!)
 
-ARGUMENT_TARGET  = function() return ServerCommands:GetPrefab("ARGUMENT_TARGET") end
-ARGUMENT_MESSAGE = function() return ServerCommands:GetPrefab("ARGUMENT_MESSAGE") end
+ARGUMENT_TARGET  = function(...) return ServerCommands:GetPrefab("ARGUMENT_TARGET", ...) end
+ARGUMENT_TARGET2 = function(...) return ServerCommands:GetPrefab("ARGUMENT_TARGET2", ...) end
+ARGUMENT_MESSAGE = function(...) return ServerCommands:GetPrefab("ARGUMENT_MESSAGE", ...) end
 
 -------------------------
 --- Init
@@ -77,6 +78,18 @@ ServerCommands.GetPrefab = function(self, sID, bRequired)
             Name = "@l_ui_target",
             Desc = "@l_ui_target_d",
             IsPlayer = true,
+            Default = "self",
+            SelfOk = true,
+            Required = bRequired,
+            Optional = (not bRequired),
+        },
+        ["ARGUMENT_TARGETALL"] = {
+            Name = "@l_ui_target",
+            Desc = "@l_ui_target_d",
+            IsPlayer = true,
+            AllOk = true,
+            Default = "self",
+            SelfOk = true,
             Required = bRequired,
             Optional = (not bRequired),
         },
@@ -411,7 +424,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
 
     local iUserRank = hClient:GetAccess()
     if (iUserRank < iAccess) then
-        if (IsPremiumRank(iAccess)) then
+        if (IsPremiumRank(iAccess, true)) then
             return self:SendResponse(hClient, eCommandResponse_Premium, sName)
         end
         return self:SendResponse(hClient, eCommandResponse_NotFound, sName)
@@ -756,7 +769,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
         --ServerLog("pushing client")
     end
 
-    if (SERVER_DEBUG_MODE) then
+    if (DebugMode()) then
         hCmdResponse, sCmdError = fCmdFunc(aHost, unpack(aPushArgs))
     else
         bSuccess, hCmdResponse, sCmdError = pcall(fCmdFunc, aHost, unpack(aPushArgs))

@@ -19,8 +19,13 @@ AddCommand({
             return true, self:Localize("@l_ui_availableLanguages", { table.concat(AVAILABLE_LANGUAGES, ", ") })
         end
 
+        if (string.lower(sNewLang) == NO_LANGUAGE) then
+            self:SetPreferredLanguage(NO_LANGUAGE)
+            self.WantNoLanguage = true
+            return true, self:Localize("@l_ui_languageUpdatedTo", {"@l_ui_default"})
+        end
         if (not table.findv(AVAILABLE_LANGUAGES, string.lower(sNewLang))) then
-            return false, "@l_ui_languageNotFound", sNewLang
+            return false, self:Localize("@l_ui_languageNotFound", { sNewLang })
         end
 
         self:SetPreferredLanguage(sNewLang)

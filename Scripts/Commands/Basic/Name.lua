@@ -1,7 +1,7 @@
 ------------
 AddCommand({
     Name = "name",
-    Access = RANK_ADMIN, -- Must be accessible to all!
+    Access = RANK_GUEST, -- Must be accessible to all!
 
     Arguments = {
         { "@l_ui_name", "@l_ui_newname_d", Required = true, Concat = true },

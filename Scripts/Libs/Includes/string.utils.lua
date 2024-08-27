@@ -1291,6 +1291,7 @@ end
 string.empty = function(s)
 	if (isNull(s)) then
 		return true end
+
 	return (string.stripws(s) == "")
 end
 
@@ -1373,6 +1374,8 @@ end
 string.bytesuffix = function(iBytes, iNull, bNoSuffix)
 
 	---------
+	local bNeg = iBytes <= 0
+	if (bNeg) then iBytes = iBytes * -1 end
 	local aSuffixes = { "bytes", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB", "HB", "BB" }
 	local iSuffixCount = table.count(aSuffixes)
 	local iIndex = 1
@@ -1392,6 +1395,7 @@ string.bytesuffix = function(iBytes, iNull, bNoSuffix)
 	end
 
 	---------
+	if (bNeg) then iBytes = iBytes * -1 end
 	local sBytes = string.format(string.format("%%0.%df%%s", iNullCount), iBytes, ((not bNoSuffix) and (" " .. aSuffixes[iIndex]) or ""))
 	return sBytes
 

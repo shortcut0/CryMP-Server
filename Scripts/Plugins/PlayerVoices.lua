@@ -263,12 +263,14 @@ CreatePlugin("PlayerVoices", {
                         --- INCOMING EVENT !! im dumb and cant rmember shit hjfksl fdkslö
                         --Debug("Not same team !! !!")
 
-                        aInfo.SoundTemp = aInfo.SoundTemp or {}
-                        if (not table.findv(aInfo.SoundTemp, hPlayer.id)) then
-                            table.insert(aInfo.SoundTemp, hPlayer.id)
-                            self:ProcessEvent(hPlayer, eVE_IncomingExplosive)
+                        if (vector.distance(vExplosive, hPlayer:GetPos()) < 15) then
+                            aInfo.SoundTemp = aInfo.SoundTemp or {}
+                            if (not table.findv(aInfo.SoundTemp, hPlayer.id)) then
+                                table.insert(aInfo.SoundTemp, hPlayer.id)
+                                self:ProcessEvent(hPlayer, eVE_IncomingExplosive)
+                            end
+                            break
                         end
-                        break
                     end
                 end
             end

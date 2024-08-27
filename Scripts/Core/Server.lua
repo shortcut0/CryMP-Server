@@ -81,7 +81,7 @@ Server.Init = function(self)
     self:CreateServerEntity()
     self:InitServerEntity()
 
-    if (SERVER_DEBUG_MODE) then
+    if (DebugMode()) then
         local aLoaded = self.Initializer.LOADED_FILES
         self:Log(LOG_STARS)
         self:Log("[%02d] Files Loaded:", table.countRec(aLoaded))
@@ -314,11 +314,14 @@ Server.OnTick = function(self)
         if (hClient.InfoInitialized) then
             hClient:Tick()
             EventCall(eServerEvent_OnClientTick, hClient)
+        else
+            Debug("Not init!S")
         end
     end
     EventCall(eServerEvent_ScriptTick)
 
     -- Stats Update
+    ServerStats:UpdatePerformance()
     AddServerStat(eServerStat_ServerTime, 1)
 end
 

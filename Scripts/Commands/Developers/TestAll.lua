@@ -23,6 +23,7 @@ AddCommand({
     Function = function(self, s,...)
 
 
+        do return self:IsPremium() end
 
 
         ClientMod:OnAll([[g_Client.FA[g_localActorId]={ENTITY=g_localActor,ANIM="]]..s..[["}g_localActor:StartAnimation(0,"]]..s..[[",8)]]or[[

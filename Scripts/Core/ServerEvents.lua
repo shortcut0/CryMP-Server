@@ -67,7 +67,7 @@ ServerEvents.PostInit = function(self)
 
     --------
     local iTotalLinks = table.it(self.LinkedEvents, function(x, i, v) return ((x or 0) + table.count(v)) end)
-    if (SERVER_DEBUG_MODE) then
+    if (DebugMode()) then
         ServerLog(LOG_STARS .. LOG_STARS)
         ServerLog("[%02d] Server Server Events:", iTotalLinks)
         for iEvent, aLinked in pairs(self.LinkedEvents) do
@@ -111,7 +111,7 @@ ServerEvents.CallEvent = function(self, iEvent, ...)
     end
 
     if (sError) then
-        if (SERVER_DEBUG_MODE) then
+        if (DebugMode()) then
             throw_error(sError)
         else
 
@@ -137,7 +137,7 @@ ServerEvents.CallEvent = function(self, iEvent, ...)
         sHost = aInfo.Host
         sFunc = aInfo.Func
         if (aInfo.Active) then
-            if (SERVER_DEBUG_MODE) then
+            if (DebugMode()) then
                 hReturn = aInfo.Function(checkGlobal(sHost), unpack(aArgs))
             else
                 bOk, sErr = pcall(aInfo.Function, checkGlobal(sHost), unpack(aArgs))
@@ -180,7 +180,7 @@ ServerEvents.LinkEvent = function(self, iEvent, hThis, hFunc)
     end
 
     if (sError) then
-        if (SERVER_DEBUG_MODE) then
+        if (DebugMode()) then
             error(sError)
         else
 

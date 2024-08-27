@@ -18,6 +18,8 @@ ServerInit = {}
 ----------------
 
 SERVER_DEBUG_MODE = false
+DebugMode = function() return SERVER_DEBUG_MODE   -- <== This is so we can easily modify what defines the debug mode
+end
 
 ----------------
 ServerInit.Init = function(self)

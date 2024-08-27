@@ -163,8 +163,11 @@ end
 ---------------------------
 -- vector.new
 
-vector.new = function(v)
+vector.new = function(v, x, y)
 	if (v) then
+		if (x and y) then
+			return vector.make(v,x,y)
+		end
 		return table.copy(v)
 	else
 		return { x = 0, y = 0, z = 0 }
@@ -460,9 +463,9 @@ vector.normalize = function(v)
 		return v end
 
 	------------------
-	if (vecNormalize) then
-		return vecNormalize(v)
-	end
+	--if (vecNormalize) then
+	--	return vecNormalize(v)
+	--end
 
 	local iMag = math.sqrt(v.x * v.x + v.y * v.y + v.z * v.z)
 	if (iMag == 0) then
@@ -479,23 +482,44 @@ end
 ---------------------------
 -- vector.scale
 
+vector.toang = function(v)
+
+	local dx, dy, dz = v.x,v.y, v.z
+	local dst = math.sqrt(dx*dx + dy*dy + dz*dz)
+	local ang = {
+		x = math.atan2(dz, dst),
+		y = 0,
+		z = math.atan2(-dx, dy)
+	};
+	return ang
+end
+
+---------------------------
+-- vector.scale
+
 vector.scale = function(v, iMul, sKey)
 
 	------------------
 	if (not vector.isvector(v)) then
 		return v end
-	
+
 	------------------
+	local n = {
+		x = v.x,y=v.y,z=v.z
+	}
 	if (sKey and vector.iskey(sKey)) then
-		v[sKey] = v[sKey] * iMul
+		n[sKey] = n[sKey] * iMul
 	else
-		v.x = v.x * iMul
-		v.y = v.y * iMul
-		v.z = v.z * iMul
+		--v.x = v.x * iMul
+		--v.y = v.y * iMul
+		--v.z = v.z * iMul
+		n.x = v.x * iMul
+		n.y = v.y * iMul
+		n.z = v.z * iMul
 	end
 	
 	------------------
-	return v
+	return n
 end
 
 ---------------------------
@@ -528,6 +552,118 @@ vector.bbox = function()
 	return { min = vector.new(), max = vector.new() }
 end
 
+
+---------------------------
+-- vector.bbox_randomedge
+
+vector.bbox_randomedge = function(bbox, margin)
+
+	margin = margin or 0
+
+	local function randomInRange(a, b)
+		return math.random() * (b - a) + a
+	end
+
+	local function clamp(value, minVal, maxVal)
+		return math.max(minVal, math.min(maxVal, value))
+	end
+
+	local min = bbox.min
+	local max = bbox.max
+
+	local x = randomInRange(min.x + margin, max.x - margin)
+	local y = randomInRange(min.y + margin, max.y - margin)
+	local z = randomInRange(min.z + margin, max.z - margin)
+
+	-- Choose a random face of the bbox
+	local face = math.random(1, 6)
+
+	if face == 1 then
+		x = min.x + margin
+	elseif face == 2 then
+		x = max.x - margin
+	elseif face == 3 then
+		y = min.y + margin
+	elseif face == 4 then
+		y = max.y - margin
+	elseif face == 5 then
+		z = min.z + margin
+	elseif face == 6 then
+		z = max.z - margin
+	end
+
+	-- Clamp the coordinates to ensure they're within the bounding box
+	x = clamp(x, min.x, max.x)
+	y = clamp(y, min.y, max.y)
+	z = clamp(z, min.z, max.z)
+
+	return {x = x, y = y, z = z}
+end
+
+---------------------------
+-- vector.bbox_inside
+
+vector.bbox_inside = function(bbox, pos)
+	return pos.x >= bbox.min.x and pos.x <= bbox.max.x and
+			pos.y >= bbox.min.y and pos.y <= bbox.max.y and
+			pos.z >= bbox.min.z and pos.z <= bbox.max.z
+end
+
+---------------------------
+-- vector.bbox_center
+
+vector.bbox_center = function(bbox, zoffset)
+	return {
+		x = (bbox.min.x + bbox.max.x) / 2,
+		y = (bbox.min.y + bbox.max.y) / 2,
+		z = zoffset or ((bbox.min.z + bbox.max.z) / 2)
+	}
+end
+
+---------------------------
+-- vector.bbox_inside
+
+vector.bbox_closestpoint = function(bbox, pos, pull)
+	local function clamp(value, minVal, maxVal)
+		return math.max(minVal, math.min(maxVal, value))
+	end
+
+	local closest = {
+		x = clamp(pos.x, bbox.min.x, bbox.max.x),
+		y = clamp(pos.y, bbox.min.y, bbox.max.y),
+		z = clamp(pos.z, bbox.min.z, bbox.max.z)
+	}
+
+	-- Calculate the center of the bbox
+	local center = vector.bbox_center(bbox)
+
+	-- Calculate the direction from the closest point to the center
+	local dir = {
+		x = center.x - closest.x,
+		y = center.y - closest.y,
+		z = center.z - closest.z
+	}
+
+	-- Calculate the distance between the closest point and the center
+	local dist = math.sqrt(dir.x^2 + dir.y^2 + dir.z^2)
+
+	-- If the pull distance is greater than 0 and less than the distance to the center, move the closest point
+	if (pull and pull > 0 and dist > 0) then
+		-- Normalize the direction
+		local scale = pull / dist
+		dir.x = dir.x * scale
+		dir.y = dir.y * scale
+		dir.z = dir.z * scale
+
+		-- Move the closest point towards the center by the pull distance
+		closest.x = clamp(closest.x + dir.x, bbox.min.x, bbox.max.x)
+		closest.y = clamp(closest.y + dir.y, bbox.min.y, bbox.max.y)
+		closest.z = clamp(closest.z + dir.z, bbox.min.z, bbox.max.z)
+	end
+
+	return closest
+end
+
 ---------------------------
 -- vector.bbox_size
 
@@ -548,6 +684,24 @@ vector.bbox_size = function(bbox, scale)
 	size.y = (max.y - min.y) * (scale or 1)
 	size.z = (max.z - min.z) * (scale or 1)
 	return size
+end
+
+---------------------------
+vector.max_distance = function(list)
+	local max_dist = 0
+	local count = table.count(list)
+	for i = 1, count do
+		for j = i + 1, count do
+			local dx = list[i].x - list[j].x
+			local dy = list[i].y - list[j].y
+			local dz = list[i].z - list[j].z
+			local dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+			if (dist > max_dist) then
+				max_dist = dist
+			end
+		end
+	end
+	return max_dist
 end
 
 ---------------------------

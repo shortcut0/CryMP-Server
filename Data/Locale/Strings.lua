@@ -428,12 +428,13 @@ CreateLocalization("l_ui_movedToTeam", {
 })
 
 CreateLocalization("l_ui_movedToTeamAll", {
-    english = "Moved All Players to Team ${2}",
-    czech   = "Vsechny hrace presunuto do tymu ${2}",
-    german  = "Alle Spieler in Team ${2} verschoben",
-    spanish = "Todos los jugadores movidos al equipo ${2}",
-    turkish = "Tum oyuncular ${2} takimina tasindi",
-    russian = "Vse igroki peremeshcheny v komandu ${2}",
+    english = "Moved All Players to Team ${1}",
+    czech   = "Vsechny hrace presunuto do tymu ${1}",
+    german  = "Alle Spieler in Team ${1} verschoben",
+    spanish = "Todos los jugadores movidos al equipo ${1}",
+    turkish = "Tum oyuncular ${1} takimina tasindi",
+    russian = "Vse igroki peremeshcheny v komandu ${1}",
+    andrey = " ${1}",
 })
 
 CreateLocalization("l_ui_targetAlreadyInTeam", {
@@ -734,12 +735,12 @@ CreateLocalization("l_ui_availableLanguages", {
 })
 
 CreateLocalization("l_ui_languageNotFound", {
-    english = "(${1}: Language not found)",
-    czech   = "(${1}: Jazyk nenalezen)",
-    german  = "(${1}: Sprache nicht gefunden)",
-    spanish = "(${1}: Idioma no encontrado)",
-    turkish = "(${1}: Dil bulunamadi)",
-    russian = "(${1}: Yazyk ne naiden)",
+    english = "${1}: Language not found",
+    czech   = "${1}: Jazyk nenalezen",
+    german  = "${1}: Sprache nicht gefunden",
+    spanish = "${1}: Idioma no encontrado",
+    turkish = "${1}: Dil bulunamadi",
+    russian = "${1}: Yazyk ne naiden",
 })
 
 CreateLocalization("l_ui_languageUpdatedTo", {

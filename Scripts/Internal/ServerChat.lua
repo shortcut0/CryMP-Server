@@ -92,6 +92,10 @@ ServerChat.Init = function(self)
         self.ConsoleQueue[sCfg] = ConfigGet(("Messages.Console.Queue." .. sCfg), self.ConsoleQueue[sCfg], eConfigGet_Any)
     end
 
+    self.ForbiddenWords = ConfigGet("Messages.Chat.ForbiddenWords", {
+        "gay", "shit", "fuck", "bitch"
+    }, eConfigGet_Array)
+
     --------------
     LinkEvent(eServerEvent_ScriptUpdate, "ServerChat", "OnUpdate")
 end
@@ -208,6 +212,54 @@ ServerChat.CreateChatEntity = function(self, aInfo)
 end
 
 ----------------
+ServerChat.ShouldHideMessage = function(self)
+    return false -- TODO
+end
+
+----------------
+ServerChat.FilterMessage = function(self, sMessage)
+
+    local aForbidden = self.ForbiddenWords
+
+    local function getVariations(char)
+        local map = ({
+            ["e"] = { 3 },
+            ["s"] = { 5 },
+            ["a"] = { 4 },
+            ["o"] = { 0 },
+        })[char]
+        if (map) then
+            return table.concat(map,"")
+        end
+        return ""
+    end
+
+    local function createPattern(word)
+        local pattern = ""
+        local sVars = ""
+        for i = 1, #word do
+            local c = word:sub(i, i)
+            sVars = getVariations(c)
+            pattern = pattern .. string.format("[%s%s%s]+", c:lower(), c:upper(), sVars)
+        end
+        return pattern
+    end
+
+    local function maskBadWord(word)
+        return string.rep("*", #word)
+    end
+
+    for _, badWord in ipairs(aForbidden) do
+        local pattern = createPattern(badWord)
+        sMessage = sMessage:gsub(pattern, maskBadWord)
+    end
+
+    return sMessage
+end
+
+
+
+----------------
 ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage, iForcedteam, bServerMessage)
 
     -- bServerMessage, Was this message sent by the server itself?
@@ -246,6 +298,10 @@ ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage,
             SendMsg(CHAT_SERVER_LOCALE, hSender, "@l_ui_youAreMuted", aMuteInfo:GetReason(), math.calctime(aMuteInfo:GetRemaining(), nil, 3))
             Logger:LogEventTo(GetPlayers({ Access = hSender:GetAuthority(RANK_MODERATOR) }), eLogEvent_Punish, "@l_ui_logMutedMessage", hSender:GetName(), sMessage)
 
+            return { ShowMessage = false }
+        end
+
+        if (self:ShouldHideMessage(hSender, sMessage)) then
             return { ShowMessage = false }
         end
     end
@@ -291,11 +347,13 @@ ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage,
         aReturn.ShowMessage = true
     end
 
-    if (iType == ChatToTeam) then
-        Debug("mdfkn team")
+    if (hSender.IsPlayer and iType == ChatToTeam) then
+        aReturn.NewMessage = string.format("(Coords, %s): %s", hSender:GetMapCoords(), (sMessage or ""))
     end
 
-    --error("not showing")
+    if (hSender.IsPlayer) then
+        aReturn.NewMessage = self:FilterMessage(aReturn.NewMessage)
+    end
     return aReturn
 end
 

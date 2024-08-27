@@ -19,8 +19,28 @@ local ServerGameRulesBuying = {
         ------------------------
         Function = function(self)
 
+            -- Vehicles!
+            self.buyList["usvtol"].price = 800
+            self.buyList["nkhelicopter"].price = 600
+            self.buyList["nkapc"].price = 600
+            self.buyList["ustank"].price = 700
+            self.buyList["nktank"].price = 700
 
-            self.buyList["rocket"] = { id="rocket", name="@mp_eRocket", ammo = true, price = 25, amount = 1, category="@mp_catAmmo", loadout = 1 }
+            -- Weapons!
+            self.weaponList["shiten"] = { id = "shiten", name = "ShiTen", category = "@mp_catWeapons", price = 400, loadout = 1, weapon = true, class = "ShiTen", uniqueId = 620, uniqueloadoutgroup = 1, uniqueloadoutcount =2};
+            self.buyList["rpg"].price = 200
+            self.buyList["dsg1"].price = 350
+            self.buyList["gauss"].price = 650
+
+            -- Ammo!
+            self.weaponList["sell_1"]  = { id = "sell",   name = "Sell Current Item", 		weapon = true, category = "@mp_catWeapon", 	price = 0, 		loadout = 1};
+            self.ammoList["sell_2"]  = { id = "sell",   name = "Sell Current Item", 		ammo = true, category = "@mp_catAmmo", 	price = 0, 		loadout = 1};
+            self.buyList["rocket"]   = { id = "rocket", name = "@mp_eRocket",        ammo = true, price = 25, amount = 1, category="@mp_catAmmo", loadout = 1 }
+
+            -- Update!
+            self.buyList["sell_1"]  = self.weaponList["sell_1"]
+            self.buyList["sell_2"]  = self.ammoList["sell_2"]
+            self.buyList["shiten"]  = self.weaponList["shiten"]
         end
 
     },
@@ -500,7 +520,7 @@ local ServerGameRulesBuying = {
     },
 
     ---------------------------------------------
-    --- OnPurchaseCancelled
+    --- BuyItem
     ---------------------------------------------
     {
 
@@ -511,10 +531,16 @@ local ServerGameRulesBuying = {
         ------------------------
         Function = function(self, hPlayerID, sItem)
 
+            Debug("FUCK!")
             -- !!hook
             local hPlayer = GetEntity(hPlayerID)
             if (not hPlayer) then
                 return false
+            end
+
+            Debug("sItem",sItem)
+            if (sItem == "sell") then
+                return ServerItemHandler:SellItem(hPlayerID, sItem)
             end
 
             local iEnergy
@@ -526,6 +552,7 @@ local ServerGameRulesBuying = {
                 return false
             end
 
+            Debug("TEST TEST EST")
             if (not ServerItemHandler:CanBuyItem(hPlayer, sItem, aDef)) then
                 return false
             end

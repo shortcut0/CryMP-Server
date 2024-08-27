@@ -119,6 +119,9 @@ ConfigCreate({
         ---> Server Configuration
         Server = {
 
+            -- If false, server will automatically kick bots
+            AllowBots = true,
+
             --------------------
             -- Punishment Config
             Punishment = {
@@ -163,6 +166,7 @@ ConfigCreate({
                 "russian",
                 "turkish",
                 "czech",
+                "russian_andrey",
             },
 
             --- The Default Server Language
@@ -186,12 +190,12 @@ ConfigCreate({
                 --  <bold>...</bold>
                 --- > {mod_name}        > Server Mod Name
                 --- > {mod_version}     > Server Mod Version
-                Description = "\tServer Running on {mod_exe} ${mod_version} (x${mod_bits})\nCompiled Using ${mod_compiler}\n\nUp-Time: ${server_uptime}\n\n[debug]: se(${dbg_scripterr})",
+                Description = "\tServer Running on {mod_exe} ${mod_version} (x${mod_bits})\nCompiled Using ${mod_compiler}\n\nUp-Time: ${server_uptime} | Mem: ${server_mem} (${server_peakm})\n\n[debug]: se(${dbg_scripterr})\nmem min: ${server_memPM}, mem hrs: ${server_memPH}, mem day: ${server_memPD}",
 
             }, ---< Report
 
             --- Server PAK Url
-            PAKUrl = "http://nomad.nullptr.one/~finch/CryMP-Client-v0.pak",
+            PAKUrl = "http://nomad.nullptr.one/~finch/CryMP-Client-v00.pak",
 
             ----------------------
             --- Map Download Links
@@ -363,6 +367,12 @@ ConfigCreate({
             ---> Game Rule Specific
             GameRules = {
 
+                -- The Spawn Prestige multiplier for premium members!!
+                PremiumSpawnPP = 1.25,
+
+                -- Automatically place dead players into spectator mode after this amount of time passed since their death
+                AutoSpectateTimer = 180, -- FIXME
+
                 ----------------------
                 --- Work Configuration
                 WorkingConfig = {
@@ -439,6 +449,9 @@ ConfigCreate({
                         BanTime = 0,
 
                     }, ---< TeamKills
+
+                    -- if players should drop all their equipment upon death
+                    DropAllEquipment = true,
 
                     -- Deduct rewards for killing bots
                     DeductBotKills = false,
@@ -628,8 +641,50 @@ ConfigCreate({
         ---> Server Message Settings
         Messages = {
 
+            -----------------------------
+            -- Chat message configuration
+            Chat = {
+
+                -- a list of forbidden words that will be starred
+                ForbiddenWords = {
+                    "fuck",
+                    "shit",
+                    "bitch",
+                    "asshole",
+                    "bastard",
+                    "dick",
+                    "cunt",
+                    "faggot",
+                    "slut",
+                    "whore",
+                    "nigger",
+                    "nigga",
+                    "niger",
+                    "retard",
+                    "motherfucker",
+                    "cocksucker",
+                    "pussy",
+                    "twat",
+                    "wanker",
+                    "jerkoff",
+
+                    "faggot", "fag", "fagot", "fuck", "fuk", "fck", "shit", "sh!t", "bitch", "btch", "b!tch",
+                    "asshole", "a**hole", "nigger", "nigga", "ni**a", "cunt", "cnt", "dick", "d1ck", "pussy",
+                    "pusy", "puss", "whore", "wh0re", "slut", "slutty", "bastard", "bstd", "b1tch", "fucking",
+                    "fcking", "suck", "suk", "sucka", "fuker", "fucker", "fuqr", "fook", "fker", "fker",
+                    "fkoff", "fking", "fooker", "bitchez", "b!tchez", "btches",
+                    "retard", "r3tard", "twat", "twaat"
+
+                }, ---< ForbiddenWords
+
+            }, ---< Chat
+
+            --------------------------------
+            -- Console message configuration
             Console = {
 
+                --------
+                -- Queue
                 Queue = {
 
                     -- Queue is not needed with changed RMI reliability flags

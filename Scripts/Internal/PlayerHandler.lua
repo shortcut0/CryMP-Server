@@ -197,7 +197,7 @@ PlayerHandler.SetClientInfo = function(self, iChannel, aInfo)
     end
 
     self.CachedInfo[iChannel].IPData.Data = aInfo
-    ServerLog("%s",table.tostring(aInfo))
+    ServerLog("Cached Info: %s",table.tostring(aInfo))
 end
 
 ------------------
@@ -286,7 +286,7 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
             Default = ServerChannels:GetDefaultData(),
 
             Set             = function(x, y) x.Info.Data = y end,
-            GetCountry      = function(x) local f = (x.Info.Data or {}) return (f["isocode"] or f["Country"] or f["country"] or x.Info.IPData.Default.Country) end,
+            GetCountry      = function(x) local f = (x.Info.IPData.Data or {}) return (f["Country"] or f["country"] or x.Info.IPData.Default.Country) end,
             GetCountryCode  = function(x) local f = (x.Info.IPData.Data or {}) return (f["isocode"] or f["CountryCode"] or f["countryCode"] or x.Info.IPData.Default.CountryCode) end
         },
 
@@ -322,8 +322,8 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
 
         ----------
         Language = {
-            Language  = SERVER_LANGUAGE,
-            Preferred = SERVER_LANGUAGE
+            Language  = "default",
+            Preferred = "default"
         },
 
         ----------
@@ -335,6 +335,10 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
         ----------
         SpawnLocations = {
             default = nil
+        },
+
+        ----------
+        ReviveRules = {
         },
 
         ----------
@@ -397,6 +401,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.IsPlayer  = (not bServer)
     hClient.IsServer  = (bServer)
     hClient.Info      = PlayerHandler:GetClientInfo(iChannel)
+    hClient.Info.ChannelID = hClient.actor and hClient.actor:GetChannel() or 0
 
     -- FIXME
     hClient.IsLagging       = function(self) return false end --self.actor:IsFlying()  end
@@ -597,6 +602,8 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.TimerDiff       = function(self, id) return self.Info.Timers:Diff(id) end
     hClient.TimerExpiry     = function(self, id) return self.Info.Timers:Expiry(id) end
 
+    hClient.VoteKicked      = function(self, admin, msg) ServerPunish:DisconnectPlayer(eKickType_Kicked, self, (msg or "No Reason Specified"), nil, admin or "Server") end
+
     --> Data
     hClient.GetGameTime     = function(self) return self:GetData(ePlayerData_GameTime, 0)  end
     hClient.GetPlayTime     = function(self) return self:GetData(ePlayerData_PlayTime, 0) + self:GetGameTime()  end
@@ -615,6 +622,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.GiveItemPack    = function(self, pack, noforce) return ItemSystem.GiveItemPack(self.id, pack, (not noforce)) end
     hClient.SelectItem      = function(self, class) return self.actor:SelectItemByNameRemote(class) end
     hClient.GetEquipment    = function(self) local a = self.inventory:GetInventoryTable() local e for i, v in pairs(a) do local x = GetEntity(v) if (x and x.weapon) then if (e == nil) then e = {} end table.insert(e, { x.class, table.it(x.weapon:GetAttachedAccessories(), function(ret, index, val) local class = GetEntity(val) if (ret == nil) then return { class }  end table.insert(ret, class) end) }) end end return e end
+    hClient.GetInventory    = function(self) local a = self.inventory:GetInventoryTable() local n = {} for _,id in pairs(a or {}) do table.insert(n,GetEntity(id)) end return n end
 
     hClient.IsPunished      = function(self, f) return (self.Info.Punishment:Is(f))  end
     hClient.SetBanned       = function(self, mode) self.Info.Punishment.WasBanned = mode  end
@@ -644,7 +652,38 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.HitAccuracyExpired   = function(self) return self.Info.HitAccuracy:Expired() end
 
     -- TODO
-    hClient.GetSpawnLocation     = function(self, id) return self.Info.SpawnLocations[(id or "default")]  end
+    hClient.AddInstantRevive     = function(self, id, p) self.Info.ReviveRules[id] = p  end
+    hClient.HasInstantRevive     = function(self, id)
+        local bOk
+        for _, f in pairs(self.Info.ReviveRules) do
+            if ((isFunc(f) and f(self)) or false) then
+                bOk = true
+            end
+        end
+        return bOk
+    end
+    hClient.AddSpawnLocation     = function(self, id, info) self.Info.SpawnLocations[id] = info  end
+    hClient.GetSpawnLocation     = function(self, id)
+        local vPos, vAng
+        local fCb
+        local iMax = 0
+        for i, aLocation in pairs(self.Info.SpawnLocations) do
+            if ((id ~= nil and i == id) or ((aLocation.Check == nil or (aLocation.Check(aLocation, self)) == true) and (aLocation.Priority or 0) >= iMax)) then
+
+                vPos, vAng=
+                aLocation.Pos,
+                aLocation.Ang or aLocation.Dir
+
+                iMax = (aLocation.Priority or 0)
+                fCb = aLocation.OnUsed
+            end
+        end
+
+        if (fCb) then
+            fCb(self)
+        end
+        return vPos, vAng
+    end
     hClient.GetEntitiesInFront   = function(self, ...) return ServerUtils.GetEntitiesInFront(self, ...)  end
     hClient.IsObjectInFront      = function(self, dist) local aHit = self:RayHit(dist) if (not aHit) then return false end return true end
     hClient.RayHit      = function(self, dist, ents, flags)
@@ -682,6 +721,18 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
             if (self:IsDead() and not self:IsSpectating()) then
                 self:Revive(1, 1)
             end
+        end
+
+        local sCountry = self:GetCountry()
+        local sAutoLang = ServerChannels:CountryToLanguage(sCountry)
+        --Debug(sCountry,"===",sAutoLang)
+        if (not self.WantNoLanguage and self:GetPreferredLanguage() == NO_LANGUAGE and table.findv(AVAILABLE_LANGUAGES, sAutoLang) and sAutoLang ~= NO_LANGUAGE) then
+
+            self:SetPreferredLanguage(sAutoLang)
+            Script.SetTimer(5000, function()
+                --(${2}: Language Auto-Set to ${1} (Use !Language to Change))
+                SendMsg(CHAT_SERVER, self, self:Localize("@l_ui_languageAutoSet", { string.capitalN(sAutoLang), sCountry }))
+            end)
         end
 
         if (self:IsValidated()) then

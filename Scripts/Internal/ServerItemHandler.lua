@@ -120,8 +120,6 @@ end
 ----------------------
 ServerItemHandler.CanBuyItem = function(self, hPlayer, sItem, aDef)
 
-    ServerLog("Can buy %s", sItem)
-
     local aForbidden = ConfigGet("General.GameRules.Buying.ForbiddenItems", {}, eConfigGet_Array)
     if (table.empty(aForbidden)) then
         return true
@@ -137,15 +135,13 @@ end
 ----------------------
 ServerItemHandler.CanBuyVehicle = function(self, hPlayer, sVehicle, aDef)
 
-    ServerLog("Can buy %s", sItem)
-
     local aForbidden = ConfigGet("General.GameRules.Buying.ForbiddenVehicles", {}, eConfigGet_Array)
     if (table.empty(aForbidden)) then
         return true
     end
 
     if (string.matchex(sItem, unpack(aForbidden))) then
-        self:HandleMessage(hPlayer, "@l_ui_buyVehicleForbidden", { aDef.class }, MSG_ERROR)
+        self:HandleMessage(hPlayer, "@l_ui_buyVehicleForbidden", { sVehicle }, MSG_ERROR)
         return false
     end
     return true
@@ -238,8 +234,7 @@ ServerItemHandler.OnItemBought = function(self, hPlayer, hItem, aDef, iPrice, aF
             local iShare = math.floor((iPrice * (iInvestmentShare / 100)) + 0.5)
             if (iShare > 0) then
                 for _, hUser in pairs(aFactory.CapturedBy or {}) do
-
-                    if (hUser ~= hPlayer) then
+                    if (GetEntity(hUser.id) and hUser.IsPlayer and hUser ~= hPlayer) then
                         hUser:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hUser:LocalizeNest("@l_ui_investmentShare ( +" .. iShare .. " PP )")..[[")]])
                         g_gameRules:AwardPPCount(hUser.id, iShare, nil, hUser:HasClientMod())
                     end
@@ -579,6 +574,18 @@ ServerItemHandler.OnStartReload = function(self, hPlayer, hWeapon)
 end
 
 ----------------------
+ServerItemHandler.OnBeforeKilled = function(self, hShooter, hTarget, aHitInfo)
+
+    if (hTarget.IsPlayer and ConfigGet("General.GameRules.HitConfig.DropAllEquipment", true, eConfigGet_Boolean)) then
+        for _, hItem in pairs(hTarget:GetInventory() or {}) do
+            if (hItem.weapon) then
+                hTarget.actor:DropItem(hItem.id)
+            end
+        end
+    end
+end
+
+----------------------
 ServerItemHandler.OnPlayerKilled = function(self, hShooter, hTarget, aHitInfo)
 
     if (hShooter and hTarget) then
@@ -614,11 +621,13 @@ ServerItemHandler.OnPlayerKilled = function(self, hShooter, hTarget, aHitInfo)
             end
         end
 
-        if (table.count(aNearbyAny) <= 1) then -- all dead
-            --Debug("alone..")
-            PluginSaveCall("PlayerVoices", "ProcessEvent", hShooter, eVE_AllEliminated)
-        else -- one dead
-            PluginSaveCall("PlayerVoices", "ProcessEvent", hShooter, eVE_OneEliminated)
+        if (hShooter ~= hTarget) then
+            if (table.count(aNearbyAny) <= 1) then -- all dead
+                --Debug("alone..")
+                PluginSaveCall("PlayerVoices", "ProcessEvent", hShooter, eVE_AllEliminated)
+            else -- one dead
+                PluginSaveCall("PlayerVoices", "ProcessEvent", hShooter, eVE_OneEliminated)
+            end
         end
 
         if (table.count(aNearbyAllies) > 0) then -- ally down..
@@ -855,61 +864,71 @@ ServerItemHandler.UpdateExplosionEffects = function(self, sWeapon, sProjectile, 
     end
 
     local iSurface = aHit.surface
-    if (iSurface == 210) then -- rocks
+    if (iSurface == 210 or iSurface == 140) then -- rocks
 
-        local aObjects = {
-            --"objects/natural/rocks/vulkan_rocks/small_vulkan_rock_a.cgf",
-            --"objects/natural/rocks/vulkan_rocks/small_vulkan_rock_b.cgf",
-            --"objects/natural/rocks/vulkan_rocks/small_vulkan_rock_c.cgf",
-            "objects/natural/rocks/vulkan_rocks/vulkan_rock_a.cgf",
-            "objects/natural/rocks/vulkan_rocks/vulkan_rock_b.cgf",
-            "objects/natural/rocks/vulkan_rocks/vulkan_rock_c.cgf",
-        }
-        for i = 1, math.random(7, 11) do
-            Script.SetTimer(i * 15, function()
-
-                local vRock = table.copy(vPos)
-                vRock.z = vRock.z + math.frandom(0, 1.15)
-                local hRock = SpawnGUI({
-                    Model = getrandom(aObjects),
-                    Physics = true,
-                    Resting = false,
-                    Ridig = true,
-                    Mass = 100,
-                    Pos = vRock,
-                    Dir = aHit.normal,
-                    Mass = 30,
-                    Scale = math.frandom(0.2,0.75),
-                    Network = true,
-                })
-
-                hRock:AddImpulse(-1, hRock:GetPos(), vector.randomize(table.copy(vNormal), 0.2, false), 100, 1)
-                hRock.DamageMultiplier = 50
-                g_pGame:ScheduleEntityRemoval(hRock.id, math.random(8,14), false)
-            end)
+        local bCraterSpawned = false
+        if (iSurface == 140) then -- concrete
+            --angle threshold
+            if (vNormal.z < math.cos(math.rad(25))) then
+                return
+            end
+            local aClasses = {
+                "rocket",
+                "LAW",
+                "Hellfire",
+                "SideWinder",
+                "scargrenade"
+            }
+            if ((table.findv(aClasses, sWeapon) or table.findv(aClasses, sProjectile)) and not IsPointUnderwater(vPos)) then
+                ClientMod:OnAll(string.format([[g_Client:ExplosionEffect({x=%f,y=%f,z=%f},{x=%f,y=%f,z=%f})]],
+                        vPos.x, vPos.y, vPos.z,
+                        vNormal.x, vNormal.y, vNormal.z
+                ))
+                bCraterSpawned = true
+            end
         end
 
-    elseif (iSurface == 140) then -- concrete
+        if (iSurface ~= 140) then-- or bCraterSpawned) then
+            local aObjects = {
+                --"objects/natural/rocks/vulkan_rocks/small_vulkan_rock_a.cgf",
+                --"objects/natural/rocks/vulkan_rocks/small_vulkan_rock_b.cgf",
+                --"objects/natural/rocks/vulkan_rocks/small_vulkan_rock_c.cgf",
+                "objects/natural/rocks/vulkan_rocks/vulkan_rock_a.cgf",
+                "objects/natural/rocks/vulkan_rocks/vulkan_rock_b.cgf",
+                "objects/natural/rocks/vulkan_rocks/vulkan_rock_c.cgf",
+            }
+            for i = 1, math.random(7, 11) do
+                Script.SetTimer(i * 15, function()
 
-        --angle threshold
-        if (vNormal.z < math.cos(math.rad(25))) then
-            return
+                    local vRock = table.copy(vPos)
+                    vRock.z = vRock.z + math.frandom(0, 1.15)
+                    vRock.x = vRock.x + math.frandom(aHit.normal.x, aHit.normal.x * 3)
+                    vRock.y = vRock.y + math.frandom(aHit.normal.y, aHit.normal.y * 3)
+                    local hRock = SpawnGUI({
+                        Model = getrandom(aObjects),
+                        Physics = true,
+                        Resting = false,
+                        Ridig = true,
+                        Mass = 100,
+                        Pos = vRock,
+                        Dir = aHit.normal,
+                        Mass = 30,
+                        Scale = math.frandom(0.2,0.75),
+                        Network = true,
+                    })
+
+                    --hRock:SetColliderMode(2)
+                    Script.SetTimer(1, function()
+                        hRock:AddImpulse(-1, hRock:GetPos(), vector.scaleInPlace(vNormal, 1), 300, 1)
+                    end)
+                    hRock.DamageMultiplier = 50
+                    g_pGame:ScheduleEntityRemoval(hRock.id, math.random(8,14), false)
+                end)
+            end
+            SpawnEffect("bullet.hit_rock.b_dusty", vPos, aHit.normal, 3)
         end
 
-        local aClasses = {
-            "rocket",
-            "LAW",
-            "Hellfire",
-            "SideWinder",
-            "scargrenade"
-        }
-
-        if ((table.findv(aClasses, sWeapon) or table.findv(aClasses, sProjectile)) and not IsPointUnderwater(vPos)) then
-            ClientMod:OnAll(string.format([[g_Client:ExplosionEffect({x=%f,y=%f,z=%f},{x=%f,y=%f,z=%f})]],
-                    vPos.x, vPos.y, vPos.z,
-                    vNormal.x, vNormal.y, vNormal.z
-            ))
-        end
+    else
     end
 end
 
@@ -921,8 +940,6 @@ ServerItemHandler.OnProjectileHit = function(self, nShooter, nProjectile, bDead,
     if (not hShooter) then return end
 
     -----------------------
-    -- Fixed!!
-    -- <>  BUG BUG IN C++!! LAWAYS CALLED FOR ALL ENTITIES!!
 
     local iBonus = ConfigGet("General.GameRules.Prestige.ProjectileEliminationAward", 50, eConfigGet_Number)
     if (g_gameRules.IS_PS) then
@@ -952,6 +969,13 @@ ServerItemHandler.OnProjectileHit = function(self, nShooter, nProjectile, bDead,
             else
                 SendMsg(MSG_CENTER, hShooter, "@l_ui_thisIsYourExplosive")
             end
+        end
+    end
+
+    if (hProjectile.class == "avexplosive") then
+        hProjectile.HP = (hProjectile.HP or 1000) - iDamage
+        if (hProjectile.HP <= 0) then
+            ServerDLL.ExplodeProjectile(hProjectile.id)
         end
     end
 end
@@ -1008,6 +1032,15 @@ ServerItemHandler.OnExplosivePlaced = function(self, nPlayer, nExplosive, iType,
 
     local bCloak = (hPlayer:GetSuitMode() == NANOMODE_CLOAK) and iType ~= 2
     if (hExplosive) then
+
+        Script.SetTimer(350, function()
+            local vPos = hExplosive:GetPos()
+            local iTeam = g_pGame:GetTeam(nExplosive)
+            ClientMod:OnAll(string.format([[g_Client:ESLH("%s","%s",{x=%f,y=%f,z=%f},%d,0.15)]],
+                    hExplosive:GetName(),hExplosive.class, vPos.x, vPos.y, vPos.z, iTeam
+            ))
+        end)
+
         SendMsg(MSG_CENTER, hPlayer, "(" .. (bCloak and "@l_ui_cloaked_u-"or"") .. sType:upper() .. ": @l_ui_placed_u - (" .. iCount .. " / " .. (iLimit or -1) .. "))")
         if (bCloak) then
             local vPos = hExplosive:GetPos()
@@ -1029,6 +1062,9 @@ ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, hAmmo, sAmmo, vPos
 
     if (hShooter and hShooter.IsPlayer) then
         hShooter.Info.FiringTimer.refresh()
+        if (hShooter:IsTesting()) then
+            self:UpdateExplosionEffects(hWeapon and hWeapon.class or "", "rocket", vHit, vDir)
+        end
     end
 
     -----------

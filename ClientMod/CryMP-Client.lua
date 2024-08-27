@@ -3,6 +3,8 @@
 --
 -- COPYRIGHT (D) MARISAAAAAAUH 2006-2069
 --
+-- todo:
+-- add back pushing boats from atomcl!
 ---------------------------------------------------------
 
 if (not g_localActor) then return end
@@ -22,6 +24,23 @@ ClientMod = {
     chan    = g_localActor.actor:GetChannel(),
 
     -- ======================
+    COLORS = {
+        red     = {0.91, 0.1, 0.1},
+        green   = {0, 1, 0},
+        blue    = {0.041, 0.6, 0.9},
+        grey    = {0.4, 0.4, 0.4},
+        orange  = {1, 0.647, 0},
+        yellow  = {0.587, 0.79, 0.21},
+        pink    = {1, 0.75, 0.8},
+        purple  = {0.5, 0, 0.5},
+        cyan    = {0, 1, 1},
+        magenta = {1, 0, 1},
+        brown   = {0.6, 0.3, 0.1},
+        teal    = {0, 0.5, 0.5},
+        maroon  = {0.5, 0, 0},
+        olive   = {0.5, 0.5, 0},
+        lavender= {0.8, 0.6, 0.8},
+    },
 
     -- ======================
     _G                  = {},
@@ -36,6 +55,7 @@ ClientMod = {
     MATERIAL_CACHE      = {},
     DEBUG               = ClientModX.DEBUG,
     COUNTER             = ClientModX.COUNTER or 0,
+    NO_CLIP             = ClientModX.NO_CLIP or 0,
     DRAW_TOOLS          = ClientModX.DRAW_TOOLS or {},
     EXPLOSION_EFFECTS   = {},
     FORCED_CVARS        = {
@@ -83,6 +103,11 @@ IA_IA = (g_gameRules.class == "InstantAction")
 
 -- pak
 MODEL_NOMAD_HEADLESS = "CryMP-Objects/characters/nomad/headless.cdf"
+MODEL_NOMAD_BOOBS = "CryMP-Objects/characters/woman/nanosuit_female/Nanosuit_Female.cdf"
+if (not PAK_LOADED) then
+    -- :(
+    MODEL_NOMAD_BOOBS = "objects/characters/human/story/Dr_Rosenthal/Dr_Rosenthal.cdf"
+end
 
 --=========================================================
 -- START UP
@@ -214,10 +239,11 @@ ClientMod.Init = function(self)
 
     -------
     self:FixClWork()
-    self:PatchGameRules()
+    self:PatchGameRules() if (IS_PS) then self.PatchBL(g_gameRules) end
     self:PatchLocalActor()
     self:PatchGUI()
     self:PatchDoor()
+    self:PatchVB()
 
     -------
     self.AASearchLasers:Init()
@@ -247,6 +273,22 @@ ClientMod.Delete = function(self)
 
     ClientLog("Client Deleted..")
     g_aHooks = nil
+
+    self._G                  = nil
+    self.VM                  = nil
+    self.WANT_VM             = nil
+    self.LS                  = nil
+    self.LA                  = nil
+    self.FA                  = nil
+    self.NSS                 = nil
+    self.PREVIOUS_INV        = nil
+    self.CHAT_EFFECTS        = nil
+    self.MATERIAL_CACHE      = nil
+    self.DEBUG               = nil
+    self.COUNTER             = nil
+    self.NO_CLIP             = nil
+    self.DRAW_TOOLS          = nil
+    self.EXPLOSION_EFFECTS   = nil
 end
 
 --=========================================================
@@ -326,6 +368,7 @@ ClientMod.AddCVars = function(self)
     AddCVar("crymp_idleanimslot", "lalala", 0)
     AddCVar("crymp_weapon_cockingalways", "lalala", 0)
     AddCVar("crymp_cloaklayer", "lalala", 4)
+    AddCVar("crymp_fp_anim_allowall", "lalala", 0)
 
     -- Commands
     AddCommand("crymp_loadlocal", "Load local client sources.", [[loadfile("crymp-server\\clientmod\\crymp-client.lua")()]])
@@ -336,6 +379,7 @@ ClientMod.AddCVars = function(self)
     AddCommand("cmp_ssi","","g_Client:ShowServerInfo(false)")
     AddCommand("cmp_hsi","","g_Client:ShowServerInfo(true)")
     AddCommand("cmp_jp","","g_Client:Jetpack(g_Client.chan,not g_Client.ent.JETPACK.HAS)")
+    AddCommand("cmp_slh","","g_Client:SLH(g_localActor,'green',5)")
 end
 
 --=========================================================
@@ -615,6 +659,20 @@ end
 
 --=========================================================
 -- Events
+ClientMod.VehicleHit = function(self, v, hit)
+
+    local id = v.CMID
+    local dmg = v.vehicle:GetRepairableDamage()
+    DebugLog(dmg)
+    if (id) then
+        if (id == VM_USPLANE or id == VM_NKPLANE or id == VM_CARGOPLANE or id == VM_AIRCRAFT) then
+            DebugLog("jet hit")
+        end
+    end
+end
+
+--=========================================================
+-- Events
 ClientMod.OnHit = function(self, hPlayer, aHitInfo)
 
     local hShooter = aHitInfo.shooter
@@ -784,6 +842,19 @@ end
 
 --=========================================================
 -- Events
+ClientMod.UpdateJets = function(self)
+
+    --local v = self.ent:GetVehicle()
+    --if (v and v:GetDriverId() == self.id) then
+    --    self:Update_Jet()
+    --elseif (self.JET.PGB) then
+    --    HUD.SetProgressBar("",false)
+   --     self.JET_PGB = nil
+    --end
+end
+
+--=========================================================
+-- Events
 ClientMod.Update = function(self,ft)
 
     ft = ft or System.GetFrameTime()
@@ -869,6 +940,7 @@ ClientMod.Update = function(self,ft)
     --- Needs to be called on frame
     self:UpdateHitMarkers()
     self:UpdateChatEffects()
+    self:UpdateJets()
 
     self:UpdateFlying(ft)
 
@@ -889,7 +961,35 @@ ClientMod.Update = function(self,ft)
       --  self.ent:ResetMaterial(2)
      --   self.ent:ResetMaterial(3)
    -- end
+    -- test!
+    --[[
+    self.sprintfps=self.sprintfps or 0
+    local f=self.ent:GetItemByClass("Fists")
+    if (false and timerexpired(self.sprintfp,self.sprintfpt) and self.ent:GetSpeed()>3) then
+        if (self.sprintfps>=2) then
+            self.sprintfps=0
+        end
+        self.sprintfps = self.sprintfps+1
+        local a
+        if (self.sprintfps==1) then
+            DebugLog("a1")
+            a="run_forward_nw_01"
+        elseif (self.sprintfps==2) then
+            DebugLog("a2")
+            a="run_forward_nw_01"
+        else
+            -- more STEPS!
+        end
 
+        if (a) then
+            self.sprintfp=timerinit()
+            local speed = self.ent:GetSuitMode(NANOMODE_SPEED) and 1.2 or 1
+            f:StartAnimation(0,a,9,0.15,speed,1)
+            self.sprintfpt=((f:GetAnimationLength(0,a) or 0)-System.GetFrameTime()*2)*speed
+
+        end
+    end
+]]
     --------------------------------
     --- Limit Update Rate
     if (not timerexpired(self.UpdateTick, self.UpdateRate)) then
@@ -898,11 +998,19 @@ ClientMod.Update = function(self,ft)
         self.UpdateTick = timerinit()
     end
 
+
     --------------------------------
     --- Limit Update Rate
     if (timerexpired(self.SecondTick, 1)) then
         self:TIMER_SECOND()
         self.SecondTick = timerinit()
+    end
+
+    --------------------------------
+    --- Limit Update Rate
+    if (timerexpired(self.QuarterTick, 0.25)) then
+        self:TIMER_QUARTER()
+        self.QuarterTick = timerinit()
     end
 
     for x, y in pairs(self.LS) do
@@ -1260,10 +1368,62 @@ end
 
 --=========================================================
 -- Events
+ClientMod.GetVehicles = function(self)
+    local v={}
+    for i,h in pairs(System.GetEntities()) do
+        if (h.vehicle) then table.insert(v,h) end
+    end
+    return v
+end
+
+--=========================================================
+-- Events
+ClientMod.TIMER_QUARTER = function(self)
+
+    --[[
+    local aVehicles = CPPAPI.GetVehicles and CPPAPI.GetVehicles() or self:GetVehicles()
+    local vVehicle, iWaterInfo
+    for _, hVehicle in pairs(aVehicles) do
+        vVehicle = hVehicle:GetPos()
+        iWaterInfo = CryAction.GetWaterInfo(vVehicle)
+        if (iWaterInfo and vVehicle.z < iWaterInfo) then
+            if (not hVehicle.WaterSplash) then
+                vVehicle.z = iWaterInfo
+                --Particle.SpawnEffect( "vehicle_fx.tanks_surface_fx.water_splashes",vVehicle,g_Vectors.up )
+                DebugLog("immersion!!!")
+            end
+        elseif (hVehicle.WaterSplash) then
+            hVehicle.WaterSplash = nil
+        end
+    end]]
+
+end
+
+--=========================================================
+-- Events
 ClientMod.TIMER_SECOND = function(self)
+
+    local vPos = self.ent:GetPos()
+    local mcX, mcY = HUD.GetMapGridCoord(vPos.x, vPos.y)
+    if ((mcX..mcY) ~= self.LAST_MC) then
+        self:TS(0,100+mcX)
+        self:TS(0,110+mcY)
+        DebugLog("%d=%d, %d=%d", mcX,100+mcX,mcY,110+mcY)
+        self.LAST_MC = mcX..mcY
+    end
 
     if (self.REMOTE_SECOND) then self:REMOTE_SECOND() end
     self:UpdateVoteMenu()
+
+    local iClipping = self.NO_CLIP
+    if (iClipping and iClipping > 0) then
+        if (self.ent:IsAlive()) then
+            self.ent:SetColliderMode(iClipping)
+        end
+    elseif (iClipping == 0) then
+        self.ent:SetColliderMode(0)
+        self.NO_CLIP = nil
+    end
 
     local G = System.GetCVar
     local _ = 0
@@ -2059,6 +2219,12 @@ ClientMod.RequestModel = function(self, channelId, modelId, modelPath, soundPath
         return ClientLog("no chan..again")
     end
 
+    local sG = string.match(modelPath, "^G:(.*)")
+    if (sG) then
+        DebugLog("using global for MODEL %s",sG)
+        modelPath = _G[sG] or modelPath -- fallback in case its an error!
+    end
+
     if (hPlayer.CM.ID == modelId) then return DebugLog("we ARE already that model!!") end
 
     local v = hPlayer:GetVehicle()
@@ -2313,13 +2479,80 @@ end
 -- av
 
 --=========================================================
+ClientMod.GetWeaponOwner = function(self,i)
+
+    for _, v in pairs(g_pGame:GetPlayers() or System.GetEntitiesByClass("Player")) do
+        if (v.actor:IsPlayer()) then
+            for __, _v in pairs(v.inventory:GetInventoryTable() or {}) do
+                if (_v == i.id) then
+                    return true
+                end
+            end
+        end
+    end
+    return false
+end
+
+--=========================================================
+ClientMod.GetItemDefByClass = function(self, c)
+    local def
+    for i, v in pairs(g_gameRules.buyList) do
+        if (v.class and v.class == c) then
+            def = v
+        end
+    end
+    return def
+end
+
+--=========================================================
+ClientMod.GetItemDefBy = function(self, c)
+    return g_gameRules.buyList and g_gameRules.buyList[c]
+end
+
+--=========================================================
 ClientMod.ItemChanged = function(self, p, n, o)
 
+    if (IS_PS) then
+        self:UpdateBLSell()
+    end
+
+    -- slh?
+    local hOld = GetEntity(o)
+    local iTeam = g_pGame:GetTeam(p.id)
+    local cg,cr=self.COLORS.green,self.COLORS.red
+    if (hOld) then
+        local bDropped = false
+
+        if (GetVersion() > 16) then
+            bDropped = not hOld.weapon:GetShooter()
+        elseif (false and hOld.GetParent) then
+            bDropped = hOld:GetParent()==nil
+        else
+            bDropped = not self:GetWeaponOwner(hOld)
+        end
+
+        if (bDropped) then
+            if (self.id==p.id or (IS_PS and iTeam == g_pGame:GetTeam(self.id))) then
+                --DebugLog("GREEN!")
+                self:SLH(hOld,cg,10) -- highlight GREEN
+            else
+                --DebugLog("RED")
+                self:SLH(hOld,cr,10) -- highlight RED
+            end
+        end
+    end
+
     local pick
-    if ( n) then
+    if (n) then
+
+        --if still in highlight, stop it, for ourselfs, timer is 2.5s, for othrs its
+        if (true or not timerexpired(n.SLH_TIMER, n.SLH_TIME)) then
+            self:SLH(n,((p.id~=self.id and (not IS_PS or iTeam~=g_pGame:GetTeam(self.id)))) and cr or cg,(n.id==self.id and 2.5 or 1))
+        else
+        end
 
     local a={["AVMine"]="arm_01",}
-     pick = (self.PREVIOUS_INV[n.id] == nil or (n.class~="GaussRifle" and timerexpired(self.PREVIOUS_INV[n.id],math.random(45,72))))
+     pick = (p.PREVIOUS_INV[n.id] == nil or (n.class~="GaussRifle" and timerexpired(p.PREVIOUS_INV[n.id],math.random(45,72))))
     if (GetCVar("crymp_weapon_cockingalways") >0 or pick)then
         a["DSG1"]="cock_right_01"
         a["GaussRifle"]=getrandom({"cock_right_akimbo_01","cock_right_01"})
@@ -2341,9 +2574,11 @@ ClientMod.ItemChanged = function(self, p, n, o)
 
     local new={}
     for _,y in pairs(self.ent.inventory:GetInventoryTable()or{}) do
-        new[y]=not pick and self.PREVIOUS_INV[y] or timerinit()
+        new[y]=not pick and p.PREVIOUS_INV[y] or timerinit()
     end
-    self.PREVIOUS_INV = new
+
+
+    p.PREVIOUS_INV = new
 end
 
 --=========================================================
@@ -2358,8 +2593,14 @@ ClientMod.IDLEFP = function(self, chan, anim, speed, all)
     if (p.id == self.id) then
         local hFists = g_localActor.inventory:GetCurrentItem()
         if (not hFists or (not all and hFists.class ~= "Fists")) then
-            return
+            if (GetCVar("crymp_fp_anim_allowall")<=0) then
+                return DebugLog("not playing fp. bad item")
+            else
+                hFists = p:GetItemByClass("Fists")if(not hFists) then return DebugLog("f not found")end
+            end
         end
+        hFists:Hide(0)
+        hFists:DrawSlot(0,1)
         hFists:StartAnimation(0, anim, 8)
 
         hFists.animtimer = timerinit()
@@ -2455,9 +2696,18 @@ ClientMod.IDLE = function(self, chan, anim, fpanim, loop, reset)
     end
     if (fpanim and p.id == self.id) then
         local hFists = g_localActor.inventory:GetCurrentItem()
-        if (not hFists or hFists.class ~= "Fists") then
-            return
-        end
+
+            if (not hFists or hFists.class ~= "Fists") then
+
+                if (GetCVar("crymp_fp_anim_allowall") <= 0) then
+                    return
+                else
+                    hFists = (p:GetItemByClass("Fists"))
+                    if (not hFists) then
+                        return
+                    end
+                end
+            end
 
         if (timerexpired(hFists.animtimer, hFists.animtime)) then
             hFists:StartAnimation(0, fpanim, 8)
@@ -2492,7 +2742,80 @@ ClientMod.StopSound = function(self, entity, id, slot)
 end
 
 --=========================================================
+ClientMod.IMP = function(self, ent, dir, str, pos)
+
+    ent = GetEntity(ent)
+    if (not ent) then
+        return
+    end
+
+    ent:AddImpulse(-1, pos or ent:GetCenterOfMassPos(), dir, str, 1)
+end
+
+--=========================================================
+ClientMod.ESLH = function(self, n,c,p,t,rad)
+
+    local a=System.GetEntities()
+    local e = GetEntity(n)
+    if (not e) then
+
+        -->>>> this is god AWFUL!!
+        for _,h in pairs(a) do
+            if (h.class==c) then
+                local hp=h:GetPos()
+                if (hp.x==p.x and hp.y==p.y and hp.z==p.z)then
+                    e=h
+                    break
+                end
+                if (DistanceVectors(hp,h:GetPos())<(rad or 1)) then
+                    if (g_pGame:GetTeam(h.id)==t) then
+                        if (e) then
+                            DebugLog("uncertain...."..h:GetName()..","..e:GetName())
+                            e=nil
+                          --  break
+                        end
+                        e = h
+                    end
+                end
+            end
+        end
+    end
+    if e then
+        self:SLH(e.id,g_pGame:GetTeam(e.id)==g_pGame:GetTeam(self.id) and "green" or "red",15)
+    else
+        DebugLog("not found..")
+    end
+end
+
+--=========================================================
+ClientMod.SLH = function(self, name, c, t)
+    if (not HUD.SetSilhouette) then
+        return
+    end
+
+    for _,__ in pairs(System.GetEntities()) do
+        if (__.class=="claymoreexplosive") then
+            DebugLog(__:GetName())
+        end
+    end
+    local iAlpha = 1
+    local hEntity = GetEntity(name)
+    if (not hEntity) then
+        return DebugLog("Entity %s not found for slh", g_ts(name))
+    end
+
+    c = (c and (self.COLORS[c] or c))
+    HUD.SetSilhouette(hEntity.id, c[1], c[2], c[3], iAlpha, t or -1)
+    hEntity.SLH_TIMER = timerinit()
+    hEntity.SLH_TIME = t or 0
+end
+
+--=========================================================
 -- PLAY SOUND EVENT
+
+ClientMod.INCREASE_VOICE_VOLUMES = true
+ClientMod.PATCHED_VOICES = {}
+
 ClientMod.PSE = function(self, sound, entity, id, slot, loop, force_restart, overwrite)
 
     -- Sowwy chris
@@ -2519,15 +2842,80 @@ ClientMod.PSE = function(self, sound, entity, id, slot, loop, force_restart, ove
         end
     end
 
-    ClientLog("->play%s",sound)
-    if (entity.actor and string.find(sound,"dialog")) then
-        TD = bor(bor(SOUND_EVENT, SOUND_VOICE), SOUND_DEFAULT_3D)
+    ----------------------
+    -- FROM FAPP!!
+
+    --if (p.lastPainSound and Sound.IsPlaying(p.lastPainSound)) then
+    --    return;
+    --end
+
+    --[[if (p ~= g_localActor) then
+        if (p:GetDistance(g_localActorId) > 100) then --skip sounds too far away
+            return;
+        end
+    end]]
+    if (self.INCREASE_VOICE_VOLUMES and not self.PATCHED_VOICES[sound] and CPPAPI.GetLanguage and CPPAPI.AddLocalizedLabel and sound:sub(1, 3) ~= "mp_") then
+        local language = CPPAPI.GetLanguage()
+        local tbl = {
+            languages = {},
+            english_text = sound,
+            sound_volume = 0.8,
+            sound_event = "",
+            sound_radio_ratio = 0,
+            sound_radio_background = 0,
+            sound_radio_squelch = 0,
+            sound_ducking = 0,
+            --keep_existing = true,
+            use_subtitle = false,
+        }
+
+        tbl.languages[language:lower()] = {
+            sound_volume = 0.8,
+            sound_radio_ratio = 0.0,
+            sound_radio_background = 0,
+            sound_radio_squelch = 0,
+            sound_event = "",
+            --localized_text = "30 seconds until mission termination.",
+        }
+
+        local ok = CPPAPI.AddLocalizedLabel(sound, tbl)
+
+        if (ok) then
+            DebugLog("Modified label "..sound.." for language: "..language:lower());
+
+            self.PATCHED_VOICES[sound] = true
+        else
+            DebugLog("Failed Modified label "..sound.." for language: "..language:lower());
+
+        end
+    end
+
+    if (loop) then
+        TD = bor(TD,SOUND_LOOP)
+    end
+
+
+    DebugLog("[%s] %s->play%s",string.sub(sound, 2),entity:GetName(),sound)
+    if (entity.actor and (string.sub(sound, 0,2) == "ai" or string.find(sound,"dialog"))) then
+
+        TD = bor(TD, SOUND_EVENT)
+        TD = bor(TD, SOUND_VOICE)
+      --  TD = bor(TD, SOUND_RADIUS)
+
       --  TD = bor(bor(bor(SOUND_EVENT, SOUND_VOICE), SOUND_DEFAULT_3D), SOUND_RADIUS)
       --  entity.SoundSlots[id][slot] = entity:PlaySoundEventEx(sound, TD, 3, vc, 15, 35, fol)
    --     Sound.SetSoundVolume(entity.SoundSlots[id][slot], 10)
    -- else
+       -- entity.SoundSlots[id][slot] = entity:PlaySoundEvent(sound, g_Vectors.v000, g_Vectors.v010, SOUND_VOICE,SOUND_SEMANTIC_PLAYER_FOLEY)
+        --entity.SoundSlots[id][slot] = entity:PlaySoundEventEx(sound, TD, 1, g_Vectors.v000, 1, 5, fol );
+    --else
     end
     entity.SoundSlots[id][slot] = entity:PlaySoundEvent(sound, vc, vc2, TD, fol)
+
+    --p.lastPainSound = p:PlaySoundEvent(se,g_Vectors.v000,g_Vectors.v010, bor(SOUND_LOAD_SYNCHRONOUSLY, SOUND_VOICE), v);
+
+
+    --entity.SoundSlots[id][slot] = entity:PlaySoundEvent(sound, vc, vc2, TD, fol)
     if (loop) then
         Sound.SetSoundLoop(entity.SoundSlots[id][slot], 1)
     end
@@ -2653,7 +3041,7 @@ ClientMod.Inject = function(self, aParams)
     local sTarget   = aParams.Target
     local fFunction = aParams.Function
     local iType     = (aParams.Type or eInjection_Replace)
-    local bPatchEntities = aParams.PatchEntities
+    local bPatchEntities = aParams.PatchEntities or aParams.Patch
 
     if (hEntity) then
         ServerInjector.InjectEntity(aParams)
@@ -2670,15 +3058,15 @@ ClientMod.Inject = function(self, aParams)
         })[sEntity]
     end
 
-    if (not hClass) then
-        DebugLog("Class %s to Inject not found", sEntity)
+    if (isString(sEntity) and not hClass) then
+        DebugLog("Class %s to Inject not found", g_ts(sEntity))
         if (not sScriptPath) then
             return
         end
         DebugLog("Loding %s",sScriptPath)
         Script.ReloadScript(sScriptPath)
     else
-        DebugLog("%s OK",sEntity)
+        DebugLog("%s OK",g_ts(sEntity))
     end
 
     local function Replace(sT, c, f)
@@ -2690,6 +3078,7 @@ ClientMod.Inject = function(self, aParams)
         local iNest = table.size(aNest)
         if (iNest == 1) then
             if (iType == eInjection_Replace) then c[sT] = f end
+            DebugLog("REPLACED OK %s!",sT)
         else
             local h = table.remove(aNest, 1)
             if (not c[h]) then
@@ -2699,24 +3088,29 @@ ClientMod.Inject = function(self, aParams)
         end
     end
 
-    if (isArray(sTarget)) then
-        for _, s in pairs(sTarget) do Replace(s, hClass, fFunction) end
-    else
-        Replace(sTarget, hClass, fFunction)
-    end
+    sEntity = not isArray(sEntity) and { sEntity } or sEntity
+    for i, v in pairs(sEntity) do
 
-    if (bPatchEntities) then
-        for _, hEnt in pairs(System.GetEntitiesByClass(sEntity) or {}) do
-            if (isArray(sTarget)) then
-                for _, s in pairs(sTarget) do Replace(s, hEnt, fFunction) end
-            else
-                Replace(sTarget, hEnt, fFunction)
-            end
+        if (isArray(sTarget)) then
+            for _, s in pairs(sTarget) do Replace(s, _G[v], fFunction) end
+        else
+            Replace(sTarget, _G[v], fFunction)
+        end
 
-            if (aParams.Call) then
-                fFunction(hEnt)
+        if (bPatchEntities) then
+            for _, hEnt in pairs(System.GetEntitiesByClass(v) or {}) do
+                if (isArray(sTarget)) then
+                    for _, s in pairs(sTarget) do Replace(s, hEnt, fFunction) end
+                else
+                    Replace(sTarget, hEnt, fFunction)
+                end
+
+                if (aParams.Call) then
+                    fFunction(hEnt)
+                end
             end
         end
+
     end
 end
 
@@ -2737,7 +3131,7 @@ ClientMod.PatchLocalActor = function(client)
 
 
     client:Inject({
-        Class    = "g_localActor",
+        Class    = "Player",
         Target   = "CurrentItemChanged",
         PatchEntities = true,
         Function = function(self, newItemId, lastItemId)
@@ -3018,6 +3412,7 @@ ClientMod.PatchLocalActor = function(client)
         PatchEntities = true,
         Function = function(self)
 
+            self.PREVIOUS_INV = self.PREVIOUS_INV or { }
             self.FLYING_CHAIR = self.FLYING_CHAIR or { ENTITYID = nil }
             self.JETPACK = self.JETPACK or { HAS = false, VISIBLE = false, PARTS = {}, MAIN = nil, EXHAUST0 = nil, EXHAUST1 = nil }
             self.CM = self.CM or { ID = 0, File = "" }
@@ -3040,7 +3435,11 @@ ClientMod.PatchLocalActor = function(client)
             self.GetHeadDir   = function(this) return (this.actor:GetHeadDir()) end
             self.GetLoopAt    = function(this) return (this.actor:GetLookatPoint()) end
             self.GetSuitMode  = function(this,c) local m = this.actor:GetNanoSuitMode() if (c) then return m==c end return m end
-            self.GetVehicle   = function(this,c) return GetEntity(self.actor:GetLinkedVehicleId()) end
+            self.GetVehicle   = function(this,c) return GetEntity(this.actor:GetLinkedVehicleId()) end
+
+
+            self.GetItemByClass   = function(this,c) return GetEntity(this.inventory:GetItemByClass(c)) end
+            self.GetCurrentItem   = function(this) return GetEntity(this.inventory:GetCurrentItem()) end
 
             -- Longs, like on the server!
             self.RegisterAnimationLoop  = function(this, ...) return (g_Client.AnimationHandler:StartAnimation(this, ...)) end
@@ -3165,6 +3564,28 @@ end
 
 --=========================================================
 -- Patch Game rules (and flags..)
+ClientMod.PatchVB = function(client)
+
+    local aClasses = table.append({"VehicleBase"}, (System.GetVehicleClasses and System.GetVehicleClasses() or { "Alien_warrior",
+        "Asian_aaa", "Asian_apc", "Asian_helicopter", "Asian_ltv", "Asian_patrolboat", "Asian_tank", "Asian_truck",
+        "Civ_car1", "Civ_speedboat",
+        "DefaultVehicle",
+        "US_apc", "US_hovercraft", "US_ltv", "US_smallboat", "US_tank", "US_transportVTOL", "US_trolley", "US_vtol"
+    }))
+    client:Inject({
+        Class    = aClasses,
+        Patch    = true,
+        Target   = {"Client.OnHit"},
+        Function = function(self, aHit)
+            g_Client:VehicleHit(self,aHit)
+        end
+
+    })
+
+end
+
+--=========================================================
+-- Patch Game rules (and flags..)
 ClientMod.PatchDoor = function(client)
 
     client:Inject({
@@ -3194,8 +3615,222 @@ end
 
 --=========================================================
 -- Patch Game rules (and flags..)
+ClientMod.UpdateBLSell = function(self)
+
+    g_gameRules.buyList["sell_1"].price = 0
+    g_gameRules.buyList["sell_1"].available = false
+    g_gameRules.buyList["sell_2"].price = 0
+    g_gameRules.buyList["sell_2"].available = false
+
+    local hCurrent = self.ent:GetCurrentItem()
+    if (hCurrent) then
+        local def = self:GetItemDefByClass(hCurrent.class)
+        if (def) then
+            g_gameRules.buyList["sell_1"].price = def.price * 0.75 -- FIXME, sync with server ! gobalsynchedvalue?? maybe??
+            g_gameRules.buyList["sell_2"].price = def.price * 0.75 -- FIXME, sync with server ! gobalsynchedvalue?? maybe??
+        end
+    end
+
+    HUD.UpdateBuyList()
+end
+
+--=========================================================
+-- Patch Game rules (and flags..)
+ClientMod.PatchBL = function(self)
+
+    -- TODO: top tech price reducing! (also on server!)
+    DebugLog("patching bl")
+
+
+    -- Vehicles!
+    self.buyList["usvtol"].price = 800
+    self.buyList["nkhelicopter"].price = 600
+    self.buyList["nkapc"].price = 600
+    self.buyList["ustank"].price = 700
+    self.buyList["nktank"].price = 700
+
+    -- Weapons!
+    self.weaponList["shiten"] = { id = "shiten", name = "ShiTen", category = "@mp_catWeapons", price = 400, loadout = 1, weapon = true, class = "ShiTen", uniqueId = 620, uniqueloadoutgroup = 1, uniqueloadoutcount =2};
+    self.buyList["rpg"].price = 200
+    self.buyList["dsg1"].price = 350
+    self.buyList["gauss"].price = 650
+
+    -- Ammo!
+    self.weaponList["sell_1"]  = { id = "sell",   name = "Sell Current Item", 		category = "@mp_catExplosives", 	price = 0, 		loadout = 1};
+    self.ammoList["sell_2"]  = { id = "sell",   name = "Sell Current Item", 		ammo = true, category = "@mp_catAmmo", 	price = 0, 		loadout = 1};
+    self.buyList["rocket"]   = { id = "rocket", name = "@mp_eRocket",       invisible = true, ammo = true, price = 25, amount = 1, category="@mp_catAmmo", loadout = 1 }
+
+    -- Update!
+    self.buyList["sell_1"]  = self.weaponList["sell_1"]
+    self.buyList["sell_2"]  = self.ammoList["sell_2"]
+    self.buyList["shiten"]  = self.weaponList["shiten"]
+
+    for _, aDef in pairs(self.buyList) do
+       --[[ if (aDef.category == "@mp_catWeaponsEx") then
+            aDef.category = "mp_catWeapons"
+        end
+        if (aDef.category == "@mp_catExplosivesEx") then
+            aDef.category = "mp_catExplosives"
+        end]]
+    end
+
+    HUD.UpdateBuyList()
+    HUD.UpdateBuyList("")
+    -- ====================================================
+--[[
+    local aWeaponList = table.append(g_gameRules.weaponList, {
+        --{ id = "flashbang", 		name = "@mp_eFlashbang", 	category = "@mp_catExplosives", price = 10, 	loadout = 1, class = "FlashbangGrenade", 	amount = 1, weapon = false, ammo = true},
+    })
+
+    local aAmmoList = table.append(g_gameRules.ammoList, {
+        { id = "sell",          name = "Sell Current Item",     category = "@mp_catAmmo", 	price = 0, 		loadout = 1},
+        { id = "rocket",        name = "@mp_eRocket",            price = 25, amount = 1, category="@mp_catAmmo", loadout = 1 },
+    })
+    local aEquipList = table.append(g_gameRules.equipList, {
+        --{ id = "binocs", 	name = "@mp_eBinoculars", 	category = "@mp_catEquipment", price = 50, loadout = 1, class = "Binoculars", 	uniqueId = 101},
+    })
+    local aVehicleList = table.append(g_gameRules.vehicleList, {
+       -- { id = "speedboat", 		name = "Speed Boat", 			category = "@mp_catVehicles", price = 0, 	loadout = 0, class = "Civ_speedboat", 		modification = "MP", 			buildtime = 10},
+    })
+   local aProtoList = table.append(g_gameRules.protoList, {
+        --{ id = "moac", name = "@mp_eAlienWeapon", category = "@mp_catWeapons", price = 300, loadout = 1, class = "AlienMount", uniqueId = 11, uniqueloadoutgroup = 1, uniqueloadoutcount =2,level = 50, weapon = true},
+   })
+
+
+    -- ====================================================
+    g_gameRules.buyList={}
+    for _,def in pairs(g_gameRules.weaponList) do
+        g_gameRules.buyList[def.id]=def;
+        if def.weapon==nil then
+            def.weapon=true;
+        end
+    end
+    for _,def in pairs(aAmmoList) do
+        def.price=0
+        DebugLog(def.id)
+        g_gameRules.buyList[def.id]=def;
+        if def.ammo==nil then
+            def.ammo=true;
+        end
+    end
+    for _,def in pairs(g_gameRules.equipList) do
+        g_gameRules.buyList[def.id]=def;
+        if def.equip==nil then
+            def.equip=true;
+        end
+    end
+    for _,def in pairs(g_gameRules.vehicleList) do
+        g_gameRules.buyList[def.id]=def;
+        if def.vehicle==nil then
+            def.vehicle=true;
+        end
+    end
+    for _,def in pairs(g_gameRules.protoList) do
+        g_gameRules.buyList[def.id]=def;
+        if def.proto==nil then
+            def.proto=true;
+        end
+    end
+    g_gameRules.buyList={}--]]
+
+end
+--=========================================================
+-- Patch Game rules (and flags..)
 ClientMod.PatchGameRules = function(self)
 
+
+    -- =========================================================================================================
+    if (IS_PS) then
+        g_gameRules.teamRadio=
+        {
+            black =
+            {
+                [1]=
+                {
+                    {"mp_american/us_F5_1_10-4","@mp_radio_Yes",3},
+                    {"mp_american/us_F5_2_negative","@mp_radio_No",3},
+                    {"mp_american/us_F5_3_wait","@mp_radio_Wait",3},
+                    {"mp_american/us_F5_4_follow_me","@mp_radio_FollowMe",3},
+                    {"mp_american/us_F5_6_thank_you","@mp_radio_Thanks",3},
+                    {"mp_american/us_F5_5_sorry","@mp_radio_Sorry", 3},
+                    {"mp_american/us_F5_7_watch_out","@mp_radio_WatchOut", 3},
+                    {"mp_american/us_F5_8_well_done","@mp_radio_WellDone", 3},
+                    {"mp_american/us_F5_9_hurry_up","@mp_radio_HurryUp", 3},
+                },
+                [2]=
+                {
+                    {"mp_american/us_F6_1_attack_enemy_base","@mp_radio_TakeBase"},
+                    {"mp_american/us_F6_2_gather_power_cores","@mp_radio_GatherPower"},
+                    {"mp_american/us_F6_3_take_prototype_factory","@mp_radio_TakePT"},
+                    {"mp_american/us_F6_4_take_war_factory","@mp_radio_TakeWar"},
+                    {"mp_american/us_F6_5_take_airfield","@mp_radio_TakeAir"},
+                    {"mp_american/us_F6_6_take_bunker","@mp_radio_TakeBunker"},
+                    {"mp_american/us_F6_7_take_naval","@mp_radio_TakeNaval"},
+                },
+                [3]=
+                {
+                    {"mp_american/us_F7_1_armor_spotted","@mp_radio_ArmorSpotted"},
+                    {"mp_american/us_F7_2_aircraft_spotted","@mp_radio_AircraftSpotted"},
+                    {"mp_american/us_F7_3_boat_spotted","@mp_radio_BoatSpotted"},
+                    {"mp_american/us_F7_4_vehicle_spotted","@mp_radio_LTVSpotted"},
+                    {"mp_american/us_F7_5_infantry_spotted","@mp_radio_InfantrySpotted"},
+                    {"mp_american/us_F7_6_sniper","@mp_radio_SniperSpotted"},
+                },
+                [4]=
+                {
+                    {"mp_american/us_F8_1_request_assistance","@mp_radio_Assistance"},
+                    {"mp_american/us_F8_2_get_into_vehicle","@mp_radio_GetIn"},
+                    {"mp_american/us_F8_3_get_out_vehicle","@mp_radio_GetOut"},
+                    {"mp_american/us_F8_4_mechanical_assistance_needed","@mp_radio_MechAssistance"},
+                    {"mp_american/us_F8_5_radar_scan","@mp_radio_Radar"},
+                    {"mp_american/us_F5_10_request_pickup","@mp_radio_Pickup", 3},
+                },
+            },
+            tan =
+            {
+                [1]=
+                {
+                    {"mp_korean/nk_F5_1_10-4","@mp_radio_Yes",3},
+                    {"mp_korean/nk_F5_2_negative","@mp_radio_No",3},
+                    {"mp_korean/nk_F5_3_wait","@mp_radio_Wait",3},
+                    {"mp_korean/nk_F5_4_follow_me","@mp_radio_FollowMe",3},
+                    {"mp_korean/nk_F5_6_thank_you","@mp_radio_Thanks",3},
+                    {"mp_korean/nk_F5_5_sorry","@mp_radio_Sorry", 3},
+                    {"mp_korean/nk_F5_7_watch_out","@mp_radio_WatchOut", 3},
+                    {"mp_korean/nk_F5_8_well_done","@mp_radio_WellDone", 3},
+                    {"mp_korean/nk_F5_9_hurry_up","mp_radio_HurryUp", 3},
+                },
+                [2]=
+                {
+                    {"mp_korean/nk_F6_1_attack_enemy_base","@mp_radio_TakeBase"},
+                    {"mp_korean/nk_F6_2_gather_power_cores","@mp_radio_GatherPower"},
+                    {"mp_korean/nk_F6_3_take_prototype_factory","@mp_radio_TakePT"},
+                    {"mp_korean/nk_F6_4_take_war_factory","@mp_radio_TakeWar"},
+                    {"mp_korean/nk_F6_5_take_airfield","@mp_radio_TakeAir"},
+                    {"mp_korean/nk_F6_6_take_bunker","@mp_radio_TakeBunker"},
+                    {"mp_korean/nk_F6_7_take_naval","@mp_radio_TakeNaval"},
+                },
+                [3]=
+                {
+                    {"mp_korean/nk_F7_1_armor_spotted","@mp_radio_ArmorSpotted"},
+                    {"mp_korean/nk_F7_2_aircraft_spotted","@mp_radio_AircraftSpotted"},
+                    {"mp_korean/nk_F7_3_boat_spotted","@mp_radio_BoatSpotted"},
+                    {"mp_korean/nk_F7_4_vehicle_spotted","@mp_radio_LTVSpotted"},
+                    {"mp_korean/nk_F7_5_infantry_spotted","@mp_radio_InfantrySpotted"},
+                    {"mp_korean/nk_F7_6_sniper","@mp_radio_SniperSpotted"},
+                },
+                [4]=
+                {
+                    {"mp_korean/nk_F8_1_request_assistance","@mp_radio_Assistance"},
+                    {"mp_korean/nk_F8_2_get_into_vehicle","@mp_radio_GetIn"},
+                    {"mp_korean/nk_F8_3_get_out_vehicle","@mp_radio_GetOut"},
+                    {"mp_korean/nk_F8_4_mechanical_assistance_needed","@mp_radio_MechAssistance"},
+                    {"mp_korean/nk_F8_5_radar_scan","@mp_radio_Radar"},
+                    {"mp_korean/nk_F5_10_request_pickup","@mp_radio_Pickup", 3},
+                },
+            }
+        };
+    end
 
     -- =========================================================================================================
     self:Inject({
@@ -3359,6 +3994,7 @@ ClientMod.InitLibs = function()
     table.count=function(t)local x=0 if(not isArray(t))then return x end for i,v in pairs(t) do x=x+1 end return x end
     table.size=table.count
     table.empty=function(t)return table.size(t)==0  end
+    table.append=function(t,a)local n={} for _,v in pairs(t) do table.insert(n,v) end for _,v in pairs(a) do table.insert(n,v) end return n  end
 
     --- STRING ---
     string.empty=function(s)return(s==nil or string.len(s)==0)end
@@ -3452,13 +4088,13 @@ ClientMod.AnimationHandler = {
         CM_WORKER, CM_ALIEN, CM_HUNTER, CM_SCOUT,
         CM_SHARK, CM_DOG, CM_TROOPER, CM_CHICKEN,
         CM_TURTLE, CM_CRAB, CM_FINCH, CM_TERN,
-        CM_FROG, CM_ALIENWORK, CM_BUTTERFLY, CM_HEADLESS =
+        CM_FROG, CM_ALIENWORK, CM_BUTTERFLY, CM_BOOBS, CM_HEADLESS =
         0, 1, 2, 3, 4, 5, 6, 7,
         8, 9, 10, 11, 12, 13, 14, 15,
         16, 17, 18, 19, 20, 21, 22, 23,
         24, 25, 26, 27, 28, 29, 30, 31,
         32, 33, 34, 35, 36, 37, 38, 39,
-        40, 41, 42, 1000
+        40, 41, 42, 43, 1000
 
 
         -- Client Event Cases

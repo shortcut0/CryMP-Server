@@ -306,8 +306,23 @@ ServerAccess.IsDevRank = function(iRank)
 end
 
 -------------------
-ServerAccess.IsPremiumRank = function(iRank)
-    return (GetRankInfo(iRank, "Premium") == true)
+ServerAccess.IsPremiumRank = function(iRank, bLiteral)
+    local bPremium = (GetRankInfo(iRank, "Premium") == true)
+    if (not bPremium and not bLiteral) then
+        local iLowestPremium = -1
+        for _, aInfo in pairs(ServerAccess.RegisteredRanks) do
+            if (aInfo.Premium) then
+                if (iLowestPremium == -1 or aInfo.Authority <= iLowestPremium) then
+                    iLowestPremium = aInfo.Authority
+                end
+            end
+            if (iLowestPremium ~= -1 and aInfo.Authority > iLowestPremium) then
+                return true
+            end
+        end
+        bPremium = false
+    end
+    return bPremium
 end
 
 -------------------
