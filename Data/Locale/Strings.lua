@@ -57,7 +57,7 @@ CreateLocalization("l_ui_access_d", {
     czech  = "Cilovy Rang",
     german = "Der Zielrang",
     spanish = "El Rango de destino",
-    turkish = "Hedef Rütbe",
+    turkish = "Hedef Rutbe",
     russian = "Tselevoi Rang"
 })
 
@@ -706,25 +706,6 @@ CreateLocalization("l_ui_reason_d", {
     turkish = "Eyleminizin nedeni",
     russian = "Prichina vashego deistviya",
 })
-
-CreateLocalization("l_ui_time", {
-    english = "Time",
-    czech   = "Cas",
-    german  = "Zeit",
-    spanish = "Tiempo",
-    turkish = "Zaman",
-    russian = "Vremya",
-})
-
-CreateLocalization("l_ui_time_d", {
-    english = "The time for the Action (eg. 5m10s, 1h30m)",
-    czech   = "Cas pro akci (napr. 5m10s, 1h30m)",
-    german  = "Die Zeit fur die Aktion (z. B. 5m10s, 1h30m)",
-    spanish = "El tiempo para la accion (por ejemplo, 5m10s, 1h30m)",
-    turkish = "Eylem icin sure (ornegin, 5m10s, 1h30m)",
-    russian = "Vremya dlya deistviya (naprimer, 5m10s, 1h30m)",
-})
-
 CreateLocalization("l_ui_availableLanguages", {
     english = "Available Languages: ${1}",
     czech   = "Dostupne jazyky: ${1}",
@@ -743,13 +724,1053 @@ CreateLocalization("l_ui_languageNotFound", {
     russian = "${1}: Yazyk ne naiden",
 })
 
+CreateLocalization("l_ui_default", {
+    english = "Default",
+    german = "Standard",
+    spanish = "Por defecto",
+    russian = "Po umolchaniyu",
+    turkish = "Varsayilan",
+    czech = "Vychozi",
+    french = "Par defaut"
+})
+
+CreateLocalization("l_ui_default_d", {
+    english = "The Default Value",
+    german = "Der Standardwert",
+    spanish = "El valor por defecto",
+    russian = "Znacheniye po umolchaniyu",
+    turkish = "Varsayilan deger",
+    czech = "Vychozi hodnota",
+    french = "La valeur par defaut"
+})
+
 CreateLocalization("l_ui_languageUpdatedTo", {
     english = "(${1}: Set as Preferred Language)",
-    czech   = "(${1}: Nastaveno jako preferovany jazyk)",
-    german  = "(${1}: Als bevorzugte Sprache festgelegt)",
-    spanish = "(${1}: Establecer como idioma preferido)",
+    german = "(${1}: Als Bevorzugte Sprache eingestellt)",
+    spanish = "(${1}: Establecido como idioma preferido)",
+    russian = "(${1}: Ustanovlen kak predpochtitel'nyy yazyk)",
     turkish = "(${1}: Tercih edilen dil olarak ayarlandi)",
-    russian = "(${1}: Ustanovleno kak predpochtitelnyi yazyk)",
+    czech = "(${1}: Nastaveno jako preferovany jazyk)",
+    french = "(${1}: Defini comme langue preferee)"
+})
+
+CreateLocalization("l_ui_languageAutoSet", {
+    english = "(Detected Country ${2} - Language Auto-Set to ${1} (Use !Language to Change))",
+    german = "(Land ${2} erkannt - Sprache automatisch auf ${1} eingestellt (Verwenden Sie !Language zum Andern))",
+    spanish = "(Pais detectado ${2} - Idioma configurado automaticamente a ${1} (Usar !Language para cambiar))",
+    russian = "(Obnaruzhena strana ${2} - Yazyk avtomaticheski ustanovlen na ${1} (Ispol'zuyte !Language dlya smeny))",
+    turkish = "(Algilanan Ulke ${2} - Dil otomatik olarak ${1} olarak ayarlandi (Degistirmek icin !Language kullanin))",
+    czech = "(Detekovana zeme ${2} - Jazyk automaticky nastaven na ${1} (Pouzijte !Language pro zmenu))",
+    french = "(Pays detecte ${2} - Langue automatiquement definie sur ${1} (Utilisez !Language pour changer))"
+})
+
+CreateLocalization("l_ui_teamEnergySet", {
+    english = "Team ${1} Alien Energy Set to ${2}",
+    german = "Team ${1} Alien Energie auf ${2} eingestellt",
+    spanish = "La energia alienigena del equipo ${1} se ha ajustado a ${2}",
+    russian = "Energiya inoplanetnykh v komande ${1} ustanovlena na ${2}",
+    turkish = "Takim ${1} Yabanci Enerji ${2} olarak ayarlandi",
+    czech = "Energie mimozemstanu tymu ${1} nastavena na ${2}",
+    french = "Energie extraterrestre de l'equipe ${1} definie sur ${2}"
+})
+
+CreateLocalization("l_ui_you", {
+    english = "You",
+    german = "Du",
+    spanish = "Tu",
+    russian = "Ty",
+    turkish = "Sen",
+    czech = "Ty",
+    french = "Vous"
+})
+
+CreateLocalization("l_ui_playerTeleportedToYou", {
+    english = "(${1}: Teleported to your Location)",
+    german = "(${1}: Zu deinem Standort teleportiert)",
+    spanish = "(${1}: Teletransportado a tu ubicacion)",
+    russian = "(${1}: Teleportirovan k vashemu mestopolozheniyu)",
+    turkish = "(${1}: Konumunuza teleport edildi)",
+    czech = "(${1}: Teleportovan na tvoje misto)",
+    french = "(${1}: Teleporte a votre emplacement)"
+})
+
+CreateLocalization("l_ui_youTeleportedTo", {
+    english = "(${1}: You Teleported to their Location)",
+    german = "(${1}: Du wurdest zu ihrem Standort teleportiert)",
+    spanish = "(${1}: Te teletransportaste a su ubicacion)",
+    russian = "(${1}: Vy teleportirovalis' k ikh mestopolozheniyu)",
+    turkish = "(${1}: Onlarin konumuna teleport oldun)",
+    czech = "(${1}: Teleportovany k jejich mistu)",
+    french = "(${1}: Vous vous etes teleporte a leur emplacement)"
+})
+
+CreateLocalization("l_ui_noOtherPlayersOnline", {
+    english = "No Other Players Online",
+    german = "Keine anderen Spieler online",
+    spanish = "No hay otros jugadores en linea",
+    russian = "Drugikh igrokov net v seti",
+    turkish = "Baska oyuncu cevrimici degil",
+    czech = "Zadni jini hraci nejsou online",
+    french = "Aucun autre joueur en ligne"
+})
+
+CreateLocalization("l_ui_allPlayersBroughtToYour", {
+    english = "(All Players: Brought to ${1})",
+    german = "(Alle Spieler: Zu ${1} gebracht)",
+    spanish = "(Todos los jugadores: Llevados a ${1})",
+    russian = "(Vse igroki: Dovedeny k ${1})",
+    turkish = "(Tum oyuncular: ${1}'e getirildi)",
+    czech = "(Vsechni hraci: Privedeni k ${1})",
+    french = "(Tous les joueurs: Amenes a ${1})"
+})
+
+CreateLocalization("l_ui_playerBroughtToYour", {
+    english = "(${1}: Brought to ${2})",
+    german = "(${1}: Zu ${2} gebracht)",
+    spanish = "(${1}: Llevado a ${2})",
+    russian = "(${1}: Doveden k ${2})",
+    turkish = "(${1}: ${2}'e getirildi)",
+    czech = "(${1}: Priveden k ${2})",
+    french = "(${1}: Amene a ${2})"
+})
+
+CreateLocalization("l_ui_allPlayersBroughtToYou", {
+    english = "(All Players: Brought to your Location)",
+    german = "(Alle Spieler: Zu deinem Standort gebracht)",
+    spanish = "(Todos los jugadores: Llevados a tu ubicacion)",
+    russian = "(Vse igroki: Dovedeny k vashemu mestopolozheniyu)",
+    turkish = "(Tum oyuncular: Konumunuza getirildi)",
+    czech = "(Vsechni hraci: Privedeni na tvoje misto)",
+    french = "(Tous les joueurs: Amenes a votre emplacement)"
+})
+
+CreateLocalization("l_ui_playerBroughtToYou", {
+    english = "(${1}: Brought to your Location)",
+    german = "(${1}: Zu deinem Standort gebracht)",
+    spanish = "(${1}: Llevado a tu ubicacion)",
+    russian = "(${1}: Doveden k vashemu mestopolozheniyu)",
+    turkish = "(${1}: Konumunuza getirildi)",
+    czech = "(${1}: Priveden na tvoje misto)",
+    french = "(${1}: Amene a votre emplacement)"
+})
+
+CreateLocalization("l_ui_youWereTeleportedTo", {
+    english = "(${1}: Brought you to their Location)",
+    german = "(${1}: Zu ihrem Standort gebracht)",
+    spanish = "(${1}: Te llevo a su ubicacion)",
+    russian = "(${1}: Doveden k ikh mestopolozheniyu)",
+    turkish = "(${1}: Seni konumlarina getirdi)",
+    czech = "(${1}: Priveden k jejich mistu)",
+    french = "(${1}: Vous a amene a leur emplacement)"
 })
 
 
+CreateLocalization("l_ui_entitiesListedInConsole", {
+    english = "Open your Console to view the List of (${1}) Entities",
+    german = "Oeffne deine Konsole, um die Liste der (${1}) Entitaeten zu sehen",
+    spanish = "Abre tu Consola para ver la Lista de (${1}) Entidades",
+    russian = "Otkroj konsol', chtoby posmotret' spisok iz (${1}) sushchnostej",
+    turkish = "Varliklar Listesini goruntulemek icin Konsolunuzu acin",
+    czech = "Otevri svou konzoli pro zobrazeni seznamu (${1}) entit",
+    french = "Ouvrez votre Console pour voir la Liste des (${1}) Entites"
+})
+
+CreateLocalization("l_ui_entitiesSpawned", {
+    english = "(${1}: Spawned (${2}) Entities)",
+    german = "(${1}: ${2} Entitaeten gespawnt)",
+    spanish = "(${1}: Generadas (${2}) Entidades)",
+    russian = "(${1}: Sozdano (${2}) sushchnostej)",
+    turkish = "(${1}: ${2} Varliklar Yaratilmis)",
+    czech = "(${1}: Spawnuto (${2}) entit)",
+    french = "(${1}: (${2}) Entites generees)"
+})
+
+CreateLocalization("l_ui_entitiesDeleted", {
+    english = "(${1}: Deleted (${2}) Entities)",
+    german = "(${1}: ${2} Entitaeten geloescht)",
+    spanish = "(${1}: Eliminadas (${2}) Entidades)",
+    russian = "(${1}: Udaleno (${2}) sushchnostej)",
+    turkish = "(${1}: ${2} Varliklar Silindi)",
+    czech = "(${1}: Smazano (${2}) entit)",
+    french = "(${1}: (${2}) Entites supprimees)"
+})
+
+CreateLocalization("l_ui_entitiesSpawned_console", {
+    english = "${magenta}${1}${gray} Spawned ${red}${3}${gray} Entities of Class ${red}${2}",
+    german = "${magenta}${1}${gray} Spawned ${red}${3}${gray} Entitaeten der Klasse ${red}${2}",
+    spanish = "${magenta}${1}${gray} Generadas ${red}${3}${gray} Entidades de Clase ${red}${2}",
+    russian = "${magenta}${1}${gray} Sozdano ${red}${3}${gray} sushchnostej klassa ${red}${2}",
+    turkish = "${magenta}${1}${gray} ${red}${3}${gray} Sinifina ait Varliklar Yaratilmis ${red}${2}",
+    czech = "${magenta}${1}${gray} Spawnuto ${red}${3}${gray} entit tridy ${red}${2}",
+    french = "${magenta}${1}${gray} Generees ${red}${3}${gray} Entites de Classe ${red}${2}"
+})
+
+CreateLocalization("l_ui_entitiesDeleted_console", {
+    english = "${magenta}${1}${gray} Deleted ${red}${3}${gray} Entities of Class ${red}${2}",
+    german = "${magenta}${1}${gray} Geloescht ${red}${3}${gray} Entitaeten der Klasse ${red}${2}",
+    spanish = "${magenta}${1}${gray} Eliminadas ${red}${3}${gray} Entidades de Clase ${red}${2}",
+    russian = "${magenta}${1}${gray} Udaleno ${red}${3}${gray} sushchnostej klassa ${red}${2}",
+    turkish = "${magenta}${1}${gray} ${red}${3}${gray} Sinifina ait Varliklar Silindi ${red}${2}",
+    czech = "${magenta}${1}${gray} Smazano ${red}${3}${gray} entit tridy ${red}${2}",
+    french = "${magenta}${1}${gray} Supprimees ${red}${3}${gray} Entites de Classe ${red}${2}"
+})
+
+CreateLocalization("l_ui_entityList", {
+    english = "Available Entities",
+    german = "Verfuegbare Entitaeten",
+    spanish = "Entidades Disponibles",
+    russian = "Dostupnye sushchnosti",
+    turkish = "Mevcut Varliklar",
+    czech = "Dostupne entity",
+    french = "Entites Disponibles"
+})
+
+CreateLocalization("l_ui_entityClass", {
+    english = "Class",
+    german = "Klasse",
+    spanish = "Clase",
+    russian = "Klass",
+    turkish = "Sinif",
+    czech = "Trida",
+    french = "Classe"
+})
+
+CreateLocalization("l_ui_entityClass_d", {
+    english = "The Class of the entity to use",
+    german = "Die zu verwendende Entitaetenklasse",
+    spanish = "La Clase de la entidad a usar",
+    russian = "Klass ispol'zuemoj sushchnosti",
+    turkish = "Kullanilacak varligin Sinifi",
+    czech = "Trida entity k pouziti",
+    french = "La Classe de l'entite a utiliser"
+})
+
+CreateLocalization("l_ui_count", {
+    english = "Count",
+    german = "Anzahl",
+    spanish = "Cuenta",
+    russian = "Kolichestvo",
+    turkish = "Adet",
+    czech = "Pocet",
+    french = "Compte"
+})
+
+CreateLocalization("l_ui_count_d", {
+    english = "The Count to apply to the action",
+    german = "Die Anzahl, die fuer die Aktion verwendet wird",
+    spanish = "El Conteo a aplicar a la accion",
+    russian = "Kolichestvo dlya primeneniya k dejstviju",
+    turkish = "Eyleme uygulanacak sayi",
+    czech = "Pocet pro pouziti v akci",
+    french = "Le nombre a appliquer a l'action"
+})
+
+CreateLocalization("l_ui_noEntitiesFound", {
+    english = "No Entities Found!",
+    german = "Keine Entitaeten gefunden!",
+    spanish = "No se encontraron Entidades!",
+    russian = "ne najdeny sushchnosti!",
+    turkish = "Varlik Bulunamadi!",
+    czech = "Nalezene zadne entity!",
+    french = "Aucune Entite Trouvee!"
+})
+
+CreateLocalization("l_ui_noItemsFound", {
+    english = "WTF, No Items Found!",
+    german = "WTF, Keine Gegenstaende gefunden!",
+    spanish = "WTF, ¡No se encontraron Articulos!",
+    russian = "WTF, ne najdeny predmety!",
+    turkish = "WTF, Esya Bulunamadi!",
+    czech = "WTF, Zadne predmety nenalezeny!",
+    french = "WTF, Aucun Objet Trouve!"
+})
+
+CreateLocalization("l_ui_itemList", {
+    english = "Available Items",
+    german = "Verfuegbare Gegenstaende",
+    spanish = "Articulos Disponibles",
+    russian = "Dostupnye predmety",
+    turkish = "Mevcut Esyalar",
+    czech = "Dostupne predmety",
+    french = "Objets Disponibles"
+})
+
+CreateLocalization("l_ui_itemReceived", {
+    english = "(Received: x${2} ${1})",
+    german = "(Erhalten: x${2} ${1})",
+    spanish = "(Recibido: x${2} ${1})",
+    russian = "(Polucheno: x${2} ${1})",
+    turkish = "(Alindi: x${2} ${1})",
+    czech = "(Obdrzeno: x${2} ${1})",
+    french = "(Recu: x${2} ${1})"
+})
+
+CreateLocalization("l_ui_itemGiven", {
+    english = "(${1}: Equipped with x${3} ${2})",
+    german = "(${1}: Ausgeruestet mit x${3} ${2})",
+    spanish = "(${1}: Equipado con x${3} ${2})",
+    russian = "(${1}: Vooruzhen x${3} ${2})",
+    turkish = "(${1}: x${3} ${2} Ile Donatildi)",
+    czech = "(${1}: Vybaven x${3} ${2})",
+    french = "(${1}: Equipe avec x${3} ${2})"
+})
+
+CreateLocalization("l_ui_allPlayers", {
+    english = "All Players",
+    german = "Alle Spieler",
+    spanish = "Todos los Jugadores",
+    russian = "Vse igroki",
+    turkish = "Tum Oyuncular",
+    czech = "Vsi hraci",
+    french = "Tous les Joueurs"
+})
+
+CreateLocalization("l_ui_attachments", {
+    english = "Attachments",
+    german = "Anbauten",
+    spanish = "Adjuntos",
+    russian = "Nasadki",
+    turkish = "Eklentiler",
+    czech = "Prislusenstvi",
+    french = "Accessoires"
+})
+
+CreateLocalization("l_ui_attachments_d", {
+    english = "The attachments to use",
+    german = "Die zu verwendenden Anbauten",
+    spanish = "Los adjuntos a usar",
+    russian = "Nasadki dlya ispol'zovanija",
+    turkish = "Kullanilacak Eklentiler",
+    czech = "Prislusenstvi k pouziti",
+    french = "Les accessoires a utiliser"
+})
+
+CreateLocalization("l_ui_accuracy", {
+    english = "(Accuracy: ${1} (${2}%))",
+    german = "(Genauigkeit: ${1} (${2}%))",
+    spanish = "(Precision: ${1} (${2}%))",
+    russian = "(Tochnost': ${1} (${2}%))",
+    turkish = "(Dogruluk: ${1} (${2}%))",
+    czech = "(Presnost: ${1} (${2}%))",
+    french = "(Precision: ${1} (${2}%))"
+})
+
+CreateLocalization("l_ui_accuracy_0", {
+    english = "GODAWFUL",
+    german = "GOTTESLEID",
+    spanish = "GODAWFUL",
+    russian = "GODAWFUL",
+    turkish = "TANRIVERDI",
+    czech = "BOZIDONE",
+    french = "AFFREUX"
+})
+
+CreateLocalization("l_ui_accuracy_5", {
+    english = "Horrible",
+    german = "Schrecklich",
+    spanish = "Horrible",
+    russian = "Uzhasno",
+    turkish = "Berbat",
+    czech = "Hrozne",
+    french = "Horrible"
+})
+
+CreateLocalization("l_ui_accuracy_10", {
+    english = "Very Bad",
+    german = "Sehr Schlecht",
+    spanish = "Muy Malo",
+    russian = "Ochen' ploho",
+    turkish = "Cok Kotu",
+    czech = "Velmi spatne",
+    french = "Tres Mauvais"
+})
+
+CreateLocalization("l_ui_accuracy_20", {
+    english = "Bad",
+    german = "Schlecht",
+    spanish = "Malo",
+    russian = "Ploho",
+    turkish = "Kotu",
+    czech = "Spatne",
+    french = "Mauvais"
+})
+
+CreateLocalization("l_ui_accuracy_35", {
+    english = "Below Average",
+    german = "Unter dem Durchschnitt",
+    spanish = "Por Debajo del Promedio",
+    russian = "Nizhe srednego",
+    turkish = "Ortalamanin Altinda",
+    czech = "Podprumerne",
+    french = "En dessous de la Moyenne"
+})
+
+CreateLocalization("l_ui_accuracy_50", {
+    english = "Average",
+    german = "Durchschnitt",
+    spanish = "Promedio",
+    russian = "Srednij",
+    turkish = "Ortalama",
+    czech = "Prumerny",
+    french = "Moyen"
+})
+
+CreateLocalization("l_ui_accuracy_60", {
+    english = "Good",
+    german = "Gut",
+    spanish = "Bueno",
+    russian = "Horosho",
+    turkish = "Iyi",
+    czech = "Dobry",
+    french = "Bon"
+})
+
+CreateLocalization("l_ui_accuracy_70", {
+    english = "Very Good",
+    german = "Sehr Gut",
+    spanish = "Muy Bueno",
+    russian = "Ochen' horosho",
+    turkish = "Cok Iyi",
+    czech = "Velmi dobry",
+    french = "Tres Bon"
+})
+
+CreateLocalization("l_ui_accuracy_80", {
+    english = "Perfect",
+    german = "Perfekt",
+    spanish = "Perfecto",
+    russian = "Sovershenno",
+    turkish = "Mukemmel",
+    czech = "Perfektni",
+    french = "Parfait"
+})
+
+CreateLocalization("l_ui_accuracy_90", {
+    english = "Godlike",
+    german = "Goettlich",
+    spanish = "Divino",
+    russian = "Bozhestvenno",
+    turkish = "Ilahi",
+    czech = "Bozske",
+    french = "Divin"
+})
+
+CreateLocalization("l_ui_accuracy_99", {
+    english = "Aimbotter",
+    german = "Aimbotter",
+    spanish = "Aimbotter",
+    russian = "Aimbotter",
+    turkish = "Aimbotter",
+    czech = "Aimbotter",
+    french = "Aimbotter"
+})
+
+CreateLocalization("l_ui_horrible", {
+    english = "Horrible",
+    german = "Schrecklich",
+    spanish = "Horrible",
+    russian = "Uzhasno",
+    turkish = "Berbat",
+    czech = "Hrozne",
+    french = "Horrible"
+})
+
+CreateLocalization("l_ui_bad", {
+    english = "Bad",
+    german = "Schlecht",
+    spanish = "Malo",
+    russian = "Ploho",
+    turkish = "Kotu",
+    czech = "Spatne",
+    french = "Mauvais"
+})
+
+CreateLocalization("l_ui_decent", {
+    english = "Decent",
+    german = "Anstaendig",
+    spanish = "Decente",
+    russian = "Pristojnyj",
+    turkish = "Duzgun",
+    czech = "Slusny",
+    french = "Decent"
+})
+
+CreateLocalization("l_ui_good", {
+    english = "Good",
+    german = "Gut",
+    spanish = "Bueno",
+    russian = "Horosho",
+    turkish = "Iyi",
+    czech = "Dobry",
+    french = "Bon"
+})
+
+CreateLocalization("l_ui_verygood", {
+    english = "Very Good",
+    german = "Sehr Gut",
+    spanish = "Muy Bueno",
+    russian = "Ochen' horosho",
+    turkish = "Cok Iyi",
+    czech = "Velmi dobry",
+    french = "Tres Bon"
+})
+
+CreateLocalization("l_ui_perfect", {
+    english = "Perfect",
+    german = "Perfekt",
+    spanish = "Perfecto",
+    russian = "Sovershenno",
+    turkish = "Mukemmel",
+    czech = "Perfektni",
+    french = "Parfait"
+})
+
+CreateLocalization("l_ui_godlike", {
+    english = "Godlike",
+    german = "Goettlich",
+    spanish = "Divino",
+    russian = "Bozhestvenno",
+    turkish = "Ilahi",
+    czech = "Bozske",
+    french = "Divin"
+})
+
+CreateLocalization("l_ui_capturedForTeam", {
+    english = "Captured for Team",
+    german = "Erobert fuer das Team",
+    spanish = "Capturado para el Equipo",
+    russian = "Zahvacheno dlya komandy",
+    turkish = "Takim Icin Ele Gecirildi",
+    czech = "Zajato pro tym",
+    french = "Capture pour l'Equipe"
+})
+
+CreateLocalization("l_ui_captured", {
+    english = "Captured",
+    german = "Erobert",
+    spanish = "Capturado",
+    russian = "Zahvacheno",
+    turkish = "Ele Gecirildi",
+    czech = "Zajato",
+    french = "Capture"
+})
+
+CreateLocalization("l_ui_uncapturedFromTeam", {
+    english = "Removed from Team",
+    german = "Vom Team entfernt",
+    spanish = "Eliminado del Equipo",
+    russian = "Ubran iz komandy",
+    turkish = "Takimdan Cikarildi",
+    czech = "Odebrano z tymu",
+    french = "Retire de l'Equipe"
+})
+
+CreateLocalization("l_ui_noBuildingToCaptureFound", {
+    english = "No building to Capture was found",
+    german = "Kein Gebaeude zum Erobern gefunden",
+    spanish = "No se encontro ningun edificio para Capturar",
+    russian = "Zdanie dlya zahvata ne najdeno",
+    turkish = "Ele Gecirilecek Bina Bulunamadi",
+    czech = "Nenalezena zadna budova pro zajeti",
+    french = "Aucun batiment a capturer trouve"
+})
+
+CreateLocalization("l_ui_allBuildings", {
+    english = "All Buildings",
+    german = "Alle Gebaeude",
+    spanish = "Todos los Edificios",
+    russian = "Vse zdaniya",
+    turkish = "Tum Binalar",
+    czech = "Vsechny budovy",
+    french = "Tous les Batiments"
+})
+
+CreateLocalization("l_ui_unknownBuilding", {
+    english = "Unknown Building",
+    german = "Unbekanntes Gebaeude",
+    spanish = "Edificio Desconocido",
+    russian = "Neizvestnoe zdanie",
+    turkish = "Bilinmeyen Bina",
+    czech = "Neznama budova",
+    french = "Batiment Inconnu"
+})
+
+CreateLocalization("l_ui_bName_Prototype", {
+    english = "Prototype Factory",
+    german = "Prototypenfabrik",
+    spanish = "Fabrica de Prototipos",
+    russian = "Zavod po proizvodstvu prototipov",
+    turkish = "Prototip Fabrikasi",
+    czech = "Prototypova tovarna",
+    french = "Usine de Prototype"
+})
+
+
+CreateLocalization("l_ui_bName_Air", {
+    english = "Aviation Factory",
+    german = "Luftfahrtfabrik",
+    spanish = "Fabrica de Aviacion",
+    russian = "Aviacionnyj zavod",
+    turkish = "Havacilik Fabrikasi",
+    czech = "Letecka tovarna",
+    french = "Usine d'Aviation"
+})
+
+CreateLocalization("l_ui_bName_Naval", {
+    english = "Naval Factory",
+    german = "Marinefabrik",
+    spanish = "Fabrica Naval",
+    russian = "Morskoy zavod",
+    turkish = "Deniz Fabrikasi",
+    czech = "Namorni tovarna",
+    french = "Usine Navale"
+})
+
+CreateLocalization("l_ui_bName_Small", {
+    english = "Vehicle Factory",
+    german = "Fahrzeugfabrik",
+    spanish = "Fabrica de Vehiculos",
+    russian = "Avtomobil'nyj zavod",
+    turkish = "Arac Fabrikasi",
+    czech = "Tovarna na vozidla",
+    french = "Usine de Vehicules"
+})
+
+CreateLocalization("l_ui_bName_War", {
+    english = "Vehicle Factory",
+    german = "Fahrzeugfabrik",
+    spanish = "Fabrica de Vehiculos",
+    russian = "Avtomobil'nyj zavod",
+    turkish = "Arac Fabrikasi",
+    czech = "Tovarna na vozidla",
+    french = "Usine de Vehicules"
+})
+
+CreateLocalization("l_ui_bName_SpawnB", {
+    english = "Spawn Base",
+    german = "Erscheinungsbasis",
+    spanish = "Base de Aparicion",
+    russian = "Baza pojavlenija",
+    turkish = "Dogma ussu",
+    czech = "Zakladna pro spawn",
+    french = "Base de Spawn"
+})
+
+CreateLocalization("l_ui_bName_Spawn", {
+    english = "Spawn Bunker",
+    german = "Erscheinungsbunker",
+    spanish = "Bunker de Aparicion",
+    russian = "Pojavlenie v bunkere",
+    turkish = "Dogma Siginagi",
+    czech = "Spawn bunker",
+    french = "Bunker de Spawn"
+})
+
+CreateLocalization("l_ui_bName_Alien", {
+    english = "Energy Site",
+    german = "Energieanlage",
+    spanish = "Sitio de Energia",
+    russian = "Energeticheskij ob'ekt",
+    turkish = "Enerji Saha",
+    czech = "Energeticke misto",
+    french = "Site Energetique"
+})
+
+CreateLocalization("l_ui_bName_HQ", {
+    english = "HQ",
+
+})
+
+CreateLocalization("l_ui_hereIsYour", {
+    english = "Here is your ${1}",
+    german = "Hier ist dein ${1}",
+    spanish = "Aqui esta tu ${1}",
+    russian = "Vot vash ${1}",
+    turkish = "Iste senin ${1}",
+    czech = "Tady je tvuj ${1}",
+    french = "Voici votre ${1}"
+})
+
+CreateLocalization("l_ui_taxi", {
+    english = "Taxi",
+    german = "Taxi",
+    spanish = "Taxi",
+    russian = "Taksi",
+    turkish = "Taksi",
+    czech = "Taxi",
+    french = "Taxi"
+})
+
+CreateLocalization("l_ui_boat", {
+    english = "Boat",
+    german = "Boot",
+    spanish = "Barco",
+    russian = "Lodka",
+    turkish = "Tekne",
+    czech = "Lod'",
+    french = "Bateau"
+})
+
+CreateLocalization("l_ui_value", {
+    english = "Value",
+    german = "Wert",
+    spanish = "Valor",
+    russian = "Znachenie",
+    turkish = "Deger",
+    czech = "Hodnota",
+    french = "Valeur"
+})
+
+CreateLocalization("l_ui_value_d", {
+    english = "The new value for the object",
+    german = "Der neue Wert fur das Objekt",
+    spanish = "El nuevo valor para el objeto",
+    russian = "Novoe znachenie dlya ob'ekta",
+    turkish = "Obje icin yeni deger",
+    czech = "Nova hodnota pro objekt",
+    french = "La nouvelle valeur de l'objet"
+})
+
+CreateLocalization("l_ui_prestigeReceived", {
+    english = "Transfer Received",
+    german = "ubertragung erhalten",
+    spanish = "Transferencia recibida",
+    russian = "Perevod poluchen",
+    turkish = "Transfer Alindi",
+    czech = "Prenos prijat",
+    french = "Transfert reçu"
+})
+
+CreateLocalization("l_ui_prestigeTransferred", {
+    english = "Prestige Transferred",
+    german = "Prestige ubertragen",
+    spanish = "Prestigio Transferido",
+    russian = "Prestizh peredana",
+    turkish = "Prestij Aktarildi",
+    czech = "Prestiz prevedena",
+    french = "Prestige Transfere"
+})
+
+CreateLocalization("l_ui_prestigeReceivedC", {
+    english = "You Received - ( ${1} ) - Prestige from ${2}",
+    german = "Du hast - ( ${1} ) - Prestige von ${2} erhalten",
+    spanish = "Has recibido - ( ${1} ) - Prestigio de ${2}",
+    russian = "Vy poluchili - ( ${1} ) - prestizh ot ${2}",
+    turkish = "${2}'den - ( ${1} ) - prestij aldin",
+    czech = "Obdrzel jsi - ( ${1} ) - prestiz od ${2}",
+    french = "Vous avez reçu - ( ${1} ) - Prestige de ${2}"
+})
+
+CreateLocalization("l_ui_prestigeTransferredC", {
+    english = "You transferred - ( ${1} ) - Prestige to ${2}",
+    german = "Du hast - ( ${1} ) - Prestige an ${2} ubertragen",
+    spanish = "Has transferido - ( ${1} ) - Prestigio a ${2}",
+    russian = "Vy peredali - ( ${1} ) - prestizh ${2}",
+    turkish = "${2}'ye - ( ${1} ) - prestij aktardiniz",
+    czech = "Prenesl jsi - ( ${1} ) - prestiz k ${2}",
+    french = "Vous avez transfere - ( ${1} ) - Prestige a ${2}"
+})
+
+CreateLocalization("l_ui_projectileEleminated", {
+    english = "${1}Projectile Eliminated",
+    german = "${1}Geschoss eliminiert",
+    spanish = "${1}Proyectil eliminado",
+    russian = "${1}Snarad unichtozhen",
+    turkish = "${1}Mermi Imha Edildi",
+    czech = "${1}Strela eliminovana",
+    french = "${1}Projectile elimine"
+})
+
+CreateLocalization("l_ui_Eliminated", {
+    english = "Eliminated",
+    german = "Eliminiert",
+    spanish = "Eliminado",
+    russian = "Unichtozhen",
+    turkish = "Imha Edildi",
+    czech = "Eliminovan",
+    french = "Elimine"
+})
+
+CreateLocalization("l_ui_friendly", {
+    english = "Friendly",
+    german = "Freundlich",
+    spanish = "Amistoso",
+    russian = "Druzhestvennyj",
+    turkish = "Dostca",
+    czech = "Pratelsky",
+    french = "Amical"
+})
+
+CreateLocalization("l_ui_entitiesTagged", {
+    english = "${1}Entities Tagged",
+    german = "${1}Einheiten markiert",
+    spanish = "${1}Entidades Marcadas",
+    russian = "${1}Obekty otmecheny",
+    turkish = "${1}Varlik Isaretlendi",
+    czech = "${1}Subjekty oznaceny",
+    french = "${1}Entites Marquees"
+})
+
+CreateLocalization("l_ui_hostilesOnRadar", {
+    english = "Warning: Detected ${1} Hostiles Nearby!",
+    german = "Warnung: ${1} Feinde in der Nähe entdeckt!",
+    spanish = "Advertencia: ¡Detectado ${1} Hostiles cerca!",
+    russian = "Vnimanie: obnaruzheno ${1} vragov!",
+    turkish = "Uyari: Yakinda ${1} Dusman Tespit Edildi!",
+    czech = "Varovani: Detekovano ${1} nepratel pobliz!",
+    french = "Attention : ${1} Ennemis detectes a proximite !"
+})
+
+CreateLocalization("l_ui_noEntitiesTagged", {
+    english = "RADAR: No Entities Found",
+    german = "RADAR: Keine Einheiten gefunden",
+    spanish = "RADAR: No se encontraron entidades",
+    russian = "RADAR: Ob'ekty ne najdeny",
+    turkish = "RADAR: Varlik Bulunamadi",
+    czech = "RADAR: Nalezeny zadne subjekty",
+    french = "RADAR : Aucune Entite Trouvee"
+})
+
+CreateLocalization("l_ui_thisIsYourExplosive", {
+    english = "This is your Explosive!",
+    german = "Das ist dein Sprengstoff!",
+    spanish = "¡Este es tu explosivo!",
+    russian = "Eto vash vzryvchatka!",
+    turkish = "Bu senin Patlayicin!",
+    czech = "To je tvoje vybusnina!",
+    french = "C'est votre explosif !"
+})
+
+CreateLocalization("l_ui_insufficientParams", {
+    english = "Insufficient Arguments",
+    german = "Unzureichende Argumente",
+    spanish = "Argumentos insuficientes",
+    russian = "Nedostatochno argumentov",
+    turkish = "Yetersiz Argumanlar",
+    czech = "Nedostatecne argumenty",
+    french = "Arguments Insuffisants"
+})
+
+CreateLocalization("l_ui_chooseDifferentLevel", {
+    english = "Choose a different Map",
+    german = "Wähle eine andere Karte",
+    spanish = "Elige un mapa diferente",
+    russian = "Vyberite druguju kartu",
+    turkish = "Farkli bir Harita Secin",
+    czech = "Vyberte jinou mapu",
+    french = "Choisissez une autre Carte"
+})
+
+CreateLocalization("l_ui_votingSucceeded", {
+    english = "VOTING $3Succeeded$9",
+    german = "ABSTIMMUNG $3Erfolgreich$9",
+    spanish = "VOTACION $3Exitosa$9",
+    russian = "GOLOSOVANIE $3Udachno$9",
+    turkish = "OYLAMA $3Basarili$9",
+    czech = "HLASOVANI $3Uspech$9",
+    french = "VOTE $3Reussi$9"
+})
+
+CreateLocalization("l_ui_votingSucceeded_c", {
+    english = "VOTING Succeeded",
+    german = "ABSTIMMUNG erfolgreich",
+    spanish = "VOTACION exitosa",
+    russian = "GOLOSOVANIE udachno",
+    turkish = "OYLAMA Basarili",
+    czech = "HLASOVANI uspech",
+    french = "VOTE reussi"
+})
+
+CreateLocalization("l_ui_votingFailed", {
+    english = "VOTING $4FAILED$9",
+    german = "ABSTIMMUNG $4GESCHEITERT$9",
+    spanish = "VOTACION $4Fallida$9",
+    russian = "GOLOSOVANIE $4Neudachno$9",
+    turkish = "OYLAMA $4Basarisiz$9",
+    czech = "HLASOVANI $4Selhalo$9",
+    french = "VOTE $4Échoue$9"
+})
+
+CreateLocalization("l_ui_votingFailed_c", {
+    english = "VOTING FAILED",
+    german = "ABSTIMMUNG gescheitert",
+    spanish = "VOTACION fallida",
+    russian = "GOLOSOVANIE neudachno",
+    turkish = "OYLAMA Basarisiz",
+    czech = "HLASOVANI selhalo",
+    french = "VOTE echoue"
+})
+
+CreateLocalization("l_ui_stoppedBy", {
+    english = "Stopped by",
+    german = "Gestoppt von",
+    spanish = "Detenido por",
+    russian = "Ostanovleno",
+    turkish = "Tarafindan durduruldu",
+    czech = "Zastaveno",
+    french = "Arrête par"
+})
+
+CreateLocalization("l_ui_cancelledBy", {
+    english = "Cancelled by",
+    german = "Abgebrochen von",
+    spanish = "Cancelado por",
+    russian = "Otmeneno",
+    turkish = "Tarafindan iptal edildi",
+    czech = "Zruseno",
+    french = "Annule par"
+})
+
+CreateLocalization("l_ui_cancelled", {
+    english = "Cancelled",
+    german = "Abgebrochen",
+    spanish = "Cancelado",
+    russian = "Otmeneno",
+    turkish = "Iptal Edildi",
+    czech = "Zruseno",
+    french = "Annule"
+})
+
+CreateLocalization("l_ui_repaired", {
+    english = "Repaired",
+    german = "Repariert",
+    spanish = "Reparado",
+    russian = "Otreparirovano",
+    turkish = "Onarildi",
+    czech = "Opraveno",
+    french = "Repare"
+})
+
+CreateLocalization("l_ui_turret", {
+    english = "Turret",
+    german = "Geschutzturm",
+    spanish = "Torreta",
+    russian = "Bashnya",
+    turkish = "Kule",
+    czech = "Vez",
+    french = "Tourelle"
+})
+
+CreateLocalization("l_ui_stolen", {
+    english = "Stolen",
+    german = "Gestohlen",
+    spanish = "Robado",
+    russian = "Ukradeno",
+    turkish = "Calindi",
+    czech = "Odcizeno",
+    french = "Vole"
+})
+
+CreateLocalization("l_ui_hq", {
+    english = "HQ",
+
+})
+
+CreateLocalization("l_ui_disarmed", {
+    english = "Disarmed",
+    german = "Entwaffnet",
+    spanish = "Desarmado",
+    russian = "Razoruzhen",
+    turkish = "Silahsızlandırıldı",
+    czech = "Zneškodněn",
+    french = "Desarme"
+})
+
+CreateLocalization("l_ui_disarmed_u", {
+    english = "DISARMED",
+    german = "ENTWAFFNET",
+    spanish = "DESARMADO",
+    russian = "RAZORUZHEN",
+    turkish = "SILAHSIZLANDIRILDI",
+    czech = "ZNESKODNĚN",
+    french = "DÉSARMÉ"
+})
+
+CreateLocalization("l_ui_suicide", {
+    english = "Suicide",
+    german = "Selbstmord",
+    spanish = "Suicidio",
+    russian = "Suicid",
+    turkish = "Intihar",
+    czech = "Sebevrazda",
+    french = "Suicide"
+})
+
+CreateLocalization("l_ui_explosive", {
+    english = "Explosive",
+    german = "Sprengstoff",
+    spanish = "Explosivo",
+    russian = "Vzrivchatka",
+    turkish = "Patlayici",
+    czech = "Vybušnina",
+    french = "Explosif"
+})
+
+CreateLocalization("l_ui_factoryDefended", {
+    english     = "${1} Defended our ${2}",
+    german      = "${1} Verteidigte unsere ${2}",
+    spanish     = "${1} Defendio nuestra ${2}",
+    russian     = "${1} Zashchishchali nash ${2}",
+    turkish     = "${1} Bizim ${2} Savundu",
+    czech       = "${1} Obrazil nasi ${2}",
+    french      = "${1} A Defendu notre ${2}"
+})
+
+CreateLocalization("l_ui_factoryDefense", {
+    english     = "Factory Defense",
+    german      = "Verteidigung der Fabrik",
+    spanish     = "Defensa de la Fabrica",
+    russian     = "Zashchita Zavoda",
+    turkish     = "Fabrika Savunmasi",
+    czech       = "Obrana Tovarny",
+    french      = "Defense de l'Usine"
+})
+
+CreateLocalization("l_ui_explosiveBarrel", {
+    english     = "Explosive Barrel",
+    german      = "Explosiver Fass",
+    spanish     = "Barril Explosivo",
+    russian     = "Vzryvchatelnaya Barera",
+    turkish     = "Patlayici Varil",
+    czech       = "Explozivni Sud",
+    french      = "Baril Explosif"
+})
+
+CreateLocalization("l_ui_woodenBox", {
+    english     = "Wooden Box",
+    german      = "Holzkiste",
+    spanish     = "Caja de Madera",
+    russian     = "Derevo Korpus",
+    turkish     = "Ahsap Kutu",
+    czech       = "Drevena Krabice",
+    french      = "Boite en Bois"
+})
+
+CreateLocalization("l_ui_team", {
+    english     = "Team",
+    german      = "Team",
+    spanish     = "Equipo",
+    russian     = "Komanda",
+    turkish     = "Takim",
+    czech       = "Tym",
+    french      = "Equipe"
+})
+
+CreateLocalization("l_ui_team_d", {
+    english     = "The ID of the Team to Apply",
+    german      = "Die ID des Teams zum Anwenden",
+    spanish     = "El ID del equipo a aplicar",
+    russian     = "ID komandy dlya primeneniya",
+    turkish     = "Uygulanacak Takim ID'si",
+    czech       = "ID tymu k aplikaci",
+    french      = "L'ID de l'equipe a appliquer"
+})
+CreateLocalization("l_ui_noSpawnGroupSelected", {
+    english     = "No Spawn Point Selected!",
+    german      = "Kein Spawn-Punkt ausgewahlt!",
+    spanish     = "Ningun punto de aparicion seleccionado!",
+    russian     = "Tochka spauna ne vybrana!",
+    turkish     = "Spawn noktasi secilmedi!",
+    czech       = "Nebyl vybran zadny bod pro spawnovani!",
+    french      = "Aucun point de spawn selectionne!"
+})

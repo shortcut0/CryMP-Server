@@ -105,3 +105,20 @@ AddCommand({
         return true
     end
 })
+
+------------
+AddCommand({
+    Name = "mapsetup",
+    Access = RANK_ADMIN, -- Must be accessible to all!
+
+    Arguments = {
+    },
+
+    Properties = {
+    },
+
+    -- self is the user unless specified otherwise
+    Function = function(self)
+        ServerMapSetup:OnMapStart()
+    end
+})

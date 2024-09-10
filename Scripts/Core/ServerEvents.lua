@@ -17,7 +17,7 @@ eServerEvent_ScriptMinuteTick   = 5  -- ()           When Server Initialized
 eServerEvent_ScriptHourTick     = 6  -- ()           When Server Initialized
 eServerEvent_OnClientInit       = 7  -- ()           When Server Initialized
 eServerEvent_OnClientTick       = 8  -- ()           When Server Initialized
-eServerEvent_OnUpdate           = 9  -- ()           When Server Initialized
+eServerEvent_OnUpdate           = 3  -- ()           When Server Initialized
 eServerEvent_OnClientValidated  = 10  -- ()           When Server Initialized
 eServerEvent_OnClientDisconnect = 11  -- ()           When Server Initialized
 eServerEvent_SavePlayerData     = 12  -- ()           When Server Initialized
@@ -44,15 +44,15 @@ ServerEvents.Init = function(self)
     self:ResetEvents()
 
     EventCall = function(...)
-        return self:CallEvent(...)
+        return ServerEvents:CallEvent(...)
     end
 
     EventLink = function(...)
-        return self:LinkEvent(...)
+        return ServerEvents:LinkEvent(...)
     end
 
-    CallEvent = EventCall
-    LinkEvent = EventLink
+    CallEvent = EventCall -- ?
+    LinkEvent = EventLink -- ??
 end
 
 ------------------------------------
@@ -61,9 +61,18 @@ ServerEvents.PostInit = function(self)
 
     --------
     -- test
+
+    --testFUNCTION = function()ServerLog("called!!")  end
+
+    -- All these below are working and can be used!
     -- LinkEvent(eServerEvent_ScriptTick, "ServerEvents", "Error")
     -- LinkEvent(eServerEvent_ScriptTick, "ServerEvents", "this_function_does_not_exist")
     -- LinkEvent(eServerEvent_ScriptTick, "this_host_does_not_exist", "this_function_does_not_exist")
+    --LinkEvent(eServerEvent_ScriptTick, "ServerEvents.TestTick")
+    --LinkEvent(eServerEvent_ScriptTick, ServerEvents, "ServerEvents.TestTick2")
+    --LinkEvent(eServerEvent_ScriptTick, self, self.TestTick3)
+    --LinkEvent(eServerEvent_ScriptTick, self, testFUNCTION)
+    --LinkEvent(eServerEvent_ScriptTick, self, "testFUNCTION")
 
     --------
     local iTotalLinks = table.it(self.LinkedEvents, function(x, i, v) return ((x or 0) + table.count(v)) end)
@@ -76,6 +85,24 @@ ServerEvents.PostInit = function(self)
     end
 
     Logger:LogEventTo(GetDevs(), eLogEvent_ServerScripts, "Linked ${red}%d${gray} Server Events..", iTotalLinks)
+end
+
+------------------------------------
+--- Init
+ServerEvents.TestTick = function(self)
+  ServerLog("test tick.. self is %s",table.lookup(_G,self))
+end
+
+------------------------------------
+--- Init
+ServerEvents.TestTick2 = function(self)
+  ServerLog("[2] test tick.. self is %s",table.lookup(_G,self))
+end
+
+------------------------------------
+--- Init
+ServerEvents.TestTick3 = function(self)
+  ServerLog("[3] test tick.. self is %s",table.lookup(_G,self))
 end
 
 ------------------------------------
@@ -103,6 +130,14 @@ end
 --- Init
 ServerEvents.CallEvent = function(self, iEvent, ...)
 
+
+    -- =================================================================================
+    -- > We want a rewrite of this whole entire system
+    -- > There is nothing wrong with using global pointers
+    -- > In fact, it might even be faster than looking up their _G values all the time!!
+    -- ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+
     local sError
     if (not isNumber(iEvent)) then
         sError = throw_error("attempt to call invalid event (bad identifier (" .. g_ts(iEvent) .. ")")
@@ -128,20 +163,24 @@ ServerEvents.CallEvent = function(self, iEvent, ...)
 
     local hReturn
     local bOk, sErr
-    local sHost, sFunc
+    local sHost, sFunc, hHost
     local aArgs = { ... }
     table.insert(aArgs, iEvent)
 
     for _, aInfo in pairs(aEvents) do
 
+        hHost = aInfo.Global
         sHost = aInfo.Host
         sFunc = aInfo.Func
+
+        --ServerLog(sHost.."."..sFunc)
+
         if (aInfo.Active) then
             if (DebugMode()) then
-                hReturn = aInfo.Function(checkGlobal(sHost), unpack(aArgs))
+                hReturn = aInfo.Function(hHost, unpack(aArgs))
             else
-                bOk, sErr = pcall(aInfo.Function, checkGlobal(sHost), unpack(aArgs))
-                if (not bOk) then
+                bOk, sErr = pcall(aInfo.Function, hHost, unpack(aArgs))
+                if (not bOk or sErr) then
 
                     HandleError("Execute Event (%d) Failed (%s)", sErr)
 
@@ -155,6 +194,8 @@ ServerEvents.CallEvent = function(self, iEvent, ...)
                         ServerLogError("Event %d for Host \"%s\" for function \"%s\" disabled", iEvent, g_ts(sHost), g_ts(sFunc))
                     end
                     aInfo.Errors.Last  = timernew(1)
+                else
+                   -- ServerLog(sHost.."."..sFunc or "nul")
                 end
             end
         end
@@ -168,26 +209,106 @@ end
 
 ------------------------------------
 --- Init
-ServerEvents.LinkEvent = function(self, iEvent, hThis, hFunc)
+ServerEvents.LinkEvent = function(self, iEvent, sThis, hFunc)
 
     local sError
     if (not isNumber(iEvent)) then
         sError = ("attempt to link invalid event (bad identifier (" .. g_ts(iEvent) .. "))  ")
     elseif (iEvent <= eServerEvent_Begin or iEvent >= eServerEvent_End) then
         sError = ("attempt to link invalid event (out of range)")
-    elseif (not isString(hThis)) then
-        sError = ("due to performance issues, host for events cannot be a table")
+    elseif (not isString(sThis)) then
+       -- sError = ("due to performance issues, host for events cannot be a table")
     end
 
     if (sError) then
         if (DebugMode()) then
             error(sError)
         else
-
             HandleError("Event Linking Error (%s)", sError)
-            return ServerLogError(sError)
+            return -- already done in func above ==> ServerLogError(sError)
         end
     end
+
+    local hThis = sThis
+    local hFirst, hLast
+    local sFirst, sLast
+    local sFunc, sHost
+    local fFunc
+
+    if (hFunc) then
+        fFunc = hFunc
+        sFunc = g_ts(hFunc)
+        if (isString(fFunc)) then
+            if (isString(sThis)) then
+                fFunc = table.getnested(_G, string.format("%s.%s", sThis, fFunc))
+                --ServerLog("func is string.. try lookup")
+                if (fFunc == nil) then -- try without host
+                    --ServerLog("try without host.. ")
+                    fFunc = table.getnested(_G,fFunc)
+                end
+            else
+               -- ServerLog("not found.. trying host lookup")
+                fFunc = table.getnested(sThis,hFunc)
+                if (fFunc == nil) then -- try with host prefixed
+                   -- ServerLog("func is string, host is global, try global lookup..")
+                    fFunc = table.getnested(_G,hFunc)
+                end
+            end
+        end
+    end
+
+    if (isString(hThis)) then
+        hThis, hFirst, hLast, sFirst, sLast = table.getnested(_G, sThis)
+        if (fFunc == nil) then
+            hThis = hFirst
+            fFunc = hLast
+            sFunc = sLast
+        end
+
+        sHost = sFirst
+    else
+        sHost = g_ts(table.lookup(_G, hThis) or "<null>")
+    end
+
+    sFunc = g_ts(table.lookup(hThis,fFunc) or table.lookup(_G,fFunc) or "<null>")
+
+    if ( DebugMode()) then
+        ServerLog("[Event] %s", g_ts(iEvent))
+        ServerLog(" ==> This  : %s",g_ts(sThis))
+        ServerLog(" ==> Host  : %s",g_ts(hThis))
+        ServerLog(" ==> Global: %s",sHost)
+        ServerLog(" ==> Func  : %s",g_ts(fFunc))
+        ServerLog(" ==> FuncID: %s",sFunc)
+    end
+
+    if (fFunc == nil) then
+        if (DebugMode()) then
+            throw_error("fFunc is nil")
+        else
+            HandleError("function %s to link to event %d for host %s not found", g_ts(sFunc), g_ts(iEvent), g_ts(sHost))
+            return
+        end
+    end
+
+    table.insert(self.LinkedEvents[iEvent], {
+
+        Active   = true,
+
+        Function = fFunc,
+        Func     = sFunc,
+        Host     = sHost,
+        Global   = hThis,
+
+        Errors = {
+            Count = 0,
+            Last  = timernew(0),
+            KillCount = self.EventKillCount
+        }
+    })
+
+
+
+    --[[
 
     local fFunc = hFunc
     if (isString(fFunc)) then
@@ -211,5 +332,5 @@ ServerEvents.LinkEvent = function(self, iEvent, hThis, hFunc)
             Last  = timernew(0),
             KillCount = self.EventKillCount
         }
-    })
+    })]]
 end

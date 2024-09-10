@@ -33,8 +33,8 @@ local ServerGameRulesBuying = {
             self.buyList["gauss"].price = 650
 
             -- Ammo!
-            self.weaponList["sell_1"]  = { id = "sell",   name = "Sell Current Item", 		weapon = true, category = "@mp_catWeapon", 	price = 0, 		loadout = 1};
-            self.ammoList["sell_2"]  = { id = "sell",   name = "Sell Current Item", 		ammo = true, category = "@mp_catAmmo", 	price = 0, 		loadout = 1};
+            self.weaponList["sell_1"]  = { id = "sell_1",   name = "Sell Current Item", 		weapon = true, category = "@mp_catWeapon", 	price = 0, 		loadout = 1};
+            self.ammoList["sell_2"]  = { id = "sell_2",   name = "Sell Current Item", 		ammo = true, category = "@mp_catAmmo", 	price = 0, 		loadout = 1};
             self.buyList["rocket"]   = { id = "rocket", name = "@mp_eRocket",        ammo = true, price = 25, amount = 1, category="@mp_catAmmo", loadout = 1 }
 
             -- Update!
@@ -284,7 +284,7 @@ local ServerGameRulesBuying = {
 
                     -- ---: ---()
                     -- ---()
-                    hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest("@l_ui_vehicle " .. aDef.class .. " @l_ui_bought ( -" .. iPrice .. " PP )")..[[")]])
+                    hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest("@l_ui_vehicle %1 @l_ui_bought ( -" .. iPrice .. " PP )")..[[","]]..(aDef.name or "")..[[")]])
 
                     self:AwardPPCount(hPlayerID, -iPrice, nil, hPlayer:HasClientMod())
                     self:AwardCPCount(hPlayerID, self.cpList.BUYVEHICLE)
@@ -325,6 +325,7 @@ local ServerGameRulesBuying = {
 
             -- FIXME: AntiCheat()
             -- CheckFlood()
+            Debug("sItem",sItem)
 
             local bOk = false
             local iChannel = hPlayer:GetChannel()
@@ -389,7 +390,7 @@ local ServerGameRulesBuying = {
             local iPrice
             local aDef
 
-            if (sItem == "sell") then
+            if (string.match(sItem, "^sell_%d$")) then
                 return ServerItemHandler:SellItem(hPlayerID, sItem)
             end
 
@@ -442,7 +443,6 @@ local ServerGameRulesBuying = {
             local iAmmoCurr, iAmmoMax, iNeed
 
             if (aAmmo and aAmmo.ammo) then
-                Debug("1")
                 iPrice = self:GetPrice(sItem)
 
                 -- ignore vehicles with buyzones here (we want to buy ammo for the player not the vehicle in this case)
@@ -504,7 +504,7 @@ local ServerGameRulesBuying = {
 
                             if (bAlive) then
 
-                                hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest("@l_ui_ammo @l_ui_bought ( -" .. iPrice .. " PP )")..[[")]])
+                                hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest("%1 @l_ui_ammo @l_ui_bought ( -" .. iPrice .. " PP )")..[[","]]..(aDef.name or "")..[[")]])
                                 self:AwardPPCount(hPlayerID, -iPrice, nil, hPlayer:HasClientMod())
                             else
                                 aReviveQueue.ammo_price = (aReviveQueue.ammo_price + iPrice)
@@ -531,15 +531,13 @@ local ServerGameRulesBuying = {
         ------------------------
         Function = function(self, hPlayerID, sItem)
 
-            Debug("FUCK!")
             -- !!hook
             local hPlayer = GetEntity(hPlayerID)
             if (not hPlayer) then
                 return false
             end
 
-            Debug("sItem",sItem)
-            if (sItem == "sell") then
+            if (string.match(sItem, "^sell_%d$")) then
                 return ServerItemHandler:SellItem(hPlayerID, sItem)
             end
 
@@ -552,7 +550,6 @@ local ServerGameRulesBuying = {
                 return false
             end
 
-            Debug("TEST TEST EST")
             if (not ServerItemHandler:CanBuyItem(hPlayer, sItem, aDef)) then
                 return false
             end
@@ -731,7 +728,7 @@ local ServerGameRulesBuying = {
 
                     ServerItemHandler:OnItemBought(hPlayer, hItem, aDef, iPrice, aFactory)
 
-                    hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest("@l_ui_item " .. aDef.class .. " @l_ui_bought ( -" .. iPrice .. " PP )")..[[")]])
+                    hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest("@l_ui_item %1 @l_ui_bought ( -" .. iPrice .. " PP )")..[[","]]..(aDef.name or "")..[[")]])
                     self:AwardPPCount(hPlayerID, -iPrice, nil, hPlayer:HasClientMod())
                     if (iEnergy and iEnergy > 0) then
                         self:SetTeamPower(iTeam, self:GetTeamPower(iTeam) - iEnergy)

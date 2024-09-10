@@ -13,13 +13,14 @@ ServerPunish = {
             --                Admin  = { "0", "Server" },
             --                Player = { "0", "Player !!" },
             --                IPs    = { "!127.0.0.1" },
+            --                Host   = { "!1234.net.com" },
             --                IDs    = { "!1007757" },
             --                HWIDs  = { }
             --            }
         },
         Mutes = {},
         Warns = {},
-    }
+    },
 
 }
 
@@ -86,11 +87,17 @@ ServerPunish.Init = function(self)
     self.MaxMuteTime = ConfigGet("Server.Punishment.MaximumMuteTime", ONE_YEAR, eConfigGet_Number)
     self.DefaultMuteTime = ConfigGet("Server.Punishment.DefaultMuteTime", ONE_DAY, eConfigGet_Number)
     self.UseHardwareBans = ConfigGet("Server.Punishment.UseHardwareBans", true, eConfigGet_Boolean)
+
+    self.Mangers = {
+        Bans = RANK_ADMIN,
+        Mutes = RANK_MODERATOR,
+        Warns = RANK_MODERATOR
+    }
 end
 
 -----------------
 ServerPunish.FormatBanReason = function(self, aBanInfo)
-    return string.format("%s | Admin: %s | Time Remaining: %s", (aBanInfo.Reason or "No Reason."), aBanInfo:GetAdmin(), math.calctime(aBanInfo:GetRemaining(), nil, 5))
+    return string.format("%s | Admin: %s | Time Remaining: %s", (aBanInfo.Reason or "No Reason."), aBanInfo:GetAdmin(), math.calctime(aBanInfo:GetRemaining(), nil, 3))
 end
 
 -----------------
@@ -100,17 +107,19 @@ end
 -----------------
 ServerPunish.SendBanReason = function(self, iChannel, aBanInfo)
 
-    local f = function(m)
-        g_pGame:SendTextMessage(TextMessageConsole, m, TextMessageToClient, iChannel)
+    local hClient = g_pGame:GetPlayerByChannelId(iChannel)
+    local f = function(m, bNoSpace)
+        g_pGame:SendTextMessage(TextMessageConsole, string.mspace(string.rspace(m, (bNoSpace and 0 or 50), string.COLOR_CODE), CLIENT_CONSOLE_LEN, nil, string.COLOR_CODE), TextMessageToClient, hClient and hClient.id or iChannel)
     end
 
-    -- You can send messages to a channel but since game rules doesn't exist in the main menu, the client won't receive them unless they fully connected to the server.
-    --f ("$9Connection $4Denied.")
-    --f ("$9==========================")
-    --f (" > Banned By: " .. (aBanInfo:GetAdmin()))
-    --f (" > Reason:    " .. (aBanInfo:GetReason()))
-    --f (" > Remaining: " .. (aBanInfo:GetRemaining()))
-    --f ("$9==========================")
+    -- You can send messages to a channel but since game rules doesn't exist in the main menu, the client won't receive them unless they are fully connected to the server.
+    f ("$9====================================================")
+    f ("$9 Connection $4Denied.", 1)
+    f ("$9     > Banned By: $5" .. (aBanInfo:GetAdmin()))
+    f ("$9     > Reason:    $1" .. math.calctime(aBanInfo:GetReason()))
+    f ("$9     > Remaining: $4" .. (aBanInfo:GetRemaining()))
+    f ("$9     > Appeal:    $4" .. ("Discord.com @shortcut0"))
+    f ("$9====================================================")
 end
 
 -----------------
@@ -118,6 +127,7 @@ ServerPunish.Ban_CheckProfile = function(self, hPlayer, sID)
 
     local aBanInfo = self:GetInfoForType(ePunishType_Ban, sID)
     if (aBanInfo) then
+        self:SendBanReason(hPlayer:GetChannel(), aBanInfo)
         self:DisconnectPlayer(eKickType_Banned, hPlayer, self:FormatBanReason(aBanInfo), aBanInfo.Reason)
     end
 
@@ -129,6 +139,7 @@ ServerPunish.Ban_CheckHardware = function(self, hPlayer, sID)
 
     local aBanInfo = self:GetInfoForType(ePunishType_Ban, sID)
     if (aBanInfo) then
+        self:SendBanReason(hPlayer:GetChannel(), aBanInfo)
         self:DisconnectPlayer(eKickType_Banned, hPlayer, self:FormatBanReason(aBanInfo), aBanInfo.Reason)
     end
 
@@ -140,9 +151,12 @@ ServerPunish.Ban_CheckPlayer = function(self, hPlayer)
 
     local sIP   = hPlayer:GetIP()
     local sHost = hPlayer:GetHostName()
+    local sID   = hPlayer:IsValidated() and hPlayer:GetProfileID()
+    local sHWID = hPlayer:GetHWID()
 
-    local aBanInfo = self:GetInfoForType(ePunishType_Ban, { sIP, sHost })
+    local aBanInfo = self:GetInfoForType(ePunishType_Ban, { sIP, sHost, sID, sHWID })
     if (aBanInfo) then
+        self:SendBanReason(hPlayer:GetChannel(), aBanInfo)
         self:DisconnectPlayer(eKickType_Banned, hPlayer, self:FormatBanReason(aBanInfo), aBanInfo.Reason)
     end
 
@@ -349,8 +363,9 @@ ServerPunish.BanPlayer = function(self, hAdmin, hPlayer, sTime, sReason)
     local sStatic   = hPlayer:GetStaicID()
     local sHWID     = hPlayer:GetHWID()
 
-    if (self:GetInfoForType(ePunishType_Ban, { sIP, sHost, sID, sStatic, sHWID })) then
-        return false, hAdmin and hAdmin:Localize("@l_ui_playerAlreadyBanned", {hPlayer:GetName()})
+    local aOldInfo = self:GetInfoForType(ePunishType_Ban, { sIP, sHost, sID, sStatic, sHWID })
+    if (aOldInfo) then
+        return false, hAdmin and hAdmin:Localize("@l_ui_playerAlreadyBanned", {hPlayer:GetName(), aOldInfo:GetIndex()})
     end
 
     local iMax = self.MaxBanTime
@@ -367,7 +382,8 @@ ServerPunish.BanPlayer = function(self, hAdmin, hPlayer, sTime, sReason)
         Reason = (sReason or "Server Decision"),
         Admin  = { hAdmin and hAdmin:GetProfileID() or SERVERENT_ID, hAdmin and hAdmin:GetName() or "Server" },
         Player = { hPlayer:GetProfileID(), hPlayer:GetName() },
-        IPs    = { sIP, sHost },
+        Host   = { sHost },
+        IPs    = { sIP },
         IDs    = { sID, sStatic },
         HWIDs  = { sHWID }
     }
@@ -375,8 +391,121 @@ ServerPunish.BanPlayer = function(self, hAdmin, hPlayer, sTime, sReason)
 
     table.insert(self.Data.Bans, aBanInfo)
     self:SaveData()
+
+    self:SendBanReason(hPlayer:GetChannel(), aBanInfo)
     self:DisconnectPlayer(eKickType_Banned, hPlayer, self:FormatBanReason(aBanInfo), aBanInfo.Reason, hAdmin and hAdmin:GetName() or "Server")
     return true
+end
+
+-----------------
+ServerPunish.IsManager = function(self, hAdmin, iType)
+    local iAccess  = hAdmin:GetAccess()
+    local iManager = self.Mangers[iType]
+    return (iAccess >= iManager), iManager
+end
+
+-----------------
+ServerPunish.ListBans = function(self, hAdmin, hIndex, hOption)
+
+    local bManager, iManager = self:IsManager(hAdmin, ePunishType_Ban)
+    local aBans = DebugMode() and {
+        self:SetupEntry({
+            Date   = GetTimestamp() - 1000,
+            Expiry = GetTimestamp() + 60,
+            Reason = "Test Ban",
+            Admin  = { "0", "Server" },
+            Player = { "0", "Player !!" },
+            IPs    = { "!127.0.0.1" },
+            Host   = { "!1234.net.com" },
+            IDs    = { "!1007757" },
+            HWIDs  = { }
+        },1),
+        self:SetupEntry({
+            Date   = GetTimestamp() - 4000,
+            Expiry = GetTimestamp() + 80,
+            Reason = "Test Ban",
+            Admin  = { "10", "Server666" },
+            Player = { "10", "Player !!666" },
+            IPs    = { "!127.0.5.1" },
+            Host   = { "!123666.net.com" },
+            IDs    = { "!88838" },
+            HWIDs  = { }
+        },2),
+    } or self.Data.Bans
+    local iBans = table.count(aBans)
+    if (iBans == 0) then
+        return false, hAdmin:Localize("@l_ui_noBansFound")
+    end
+
+    hIndex = string.lower(hIndex or "list")
+    hOption = string.lower(hOption or "")
+
+    if (bManager) then
+        if (hIndex == "flush") then
+
+            self.Data.Bans = {}
+            self:QueueSaveFile()
+
+            Logger:LogEventTo(GetPlayers({ iManager }), eLogEvent_Punish, "@l_ui_bansFlushed", iBans, ("$4" .. hAdmin:GetName() .. " $9"))
+            return true, string.gsub(hAdmin:Localize("@l_ui_bansFlushed", { iBans, "" }), string.COLOR_CODE, "")--SendMsg(CHAT_SERVER, hAdmin, hAdmin:Localize("@l_ui_bansFlushed", { iBans, "" }))
+        end
+
+        if (hIndex == "refresh") then
+            for _, hPlayer in pairs(GetPlayers()) do
+                self:Ban_CheckPlayer(hPlayer)
+            end
+            return true, hAdmin:Localize("@l_ui_bansRefreshed", { iBans })
+        end
+    end
+
+    local aBanInfo = aBans[hIndex]
+    if (aBanInfo) then
+
+        if (bManager and IsAny(hOption, "unban", "remove", "erase", "delete", "flush")) then
+            self:RemoveType(ePunishType_Ban, aBanInfo, self.Data[ePunishType_Ban], aBanInfo:GetIndex(), "@l_ui_adminDecision")
+            return true, hAdmin:Localize("@l_ui_banRemovedId", { aBanInfo:GetName(), hIndex })
+        end
+
+        local iLeftWidth = 24 + 8
+        local iRightWidth = 45 - 8
+
+        local sBanName  = string.rspace(aBanInfo:GetName(),     iLeftWidth, string.COLOR_CODE)
+        local sBanAdmin = string.rspace(aBanInfo:GetAdmin(),    iRightWidth, string.COLOR_CODE)
+        local sBanIndex = string.rspace(aBanInfo:GetIndex(),    iRightWidth - 1, string.COLOR_CODE)
+        local sBanIP    = string.rspace(aBanInfo:GetIP(1),      iLeftWidth, string.COLOR_CODE)
+        local sBanHost  = string.rspace(aBanInfo:GetHost(1),    iRightWidth, string.COLOR_CODE)
+        local sBanID    = string.rspace(aBanInfo:GetProfile(1), iLeftWidth, string.COLOR_CODE)
+        local sBanAgo   = string.rspace(aBanInfo:GetElapsed(1),  iRightWidth, string.COLOR_CODE)
+        local sBanExpire= string.rspace(aBanInfo:GetExpiry(1),   iRightWidth, string.COLOR_CODE)
+        local sBanReason= string.rspace(aBanInfo:GetReason(),   iLeftWidth, string.COLOR_CODE)
+        local sBanDate  = string.rspace(aBanInfo:GetDate(1),     iLeftWidth, string.COLOR_CODE)
+
+        SendMsg(MSG_CONSOLE, hAdmin, '$9================================================================================================================')
+        SendMsg(MSG_CONSOLE, hAdmin, string.format('$9[           Name | $1%s $9]            Entry | #$8%s $9]', sBanName, sBanIndex))
+        SendMsg(MSG_CONSOLE, hAdmin, string.format('$9[             IP | $9%s $9]           Domain | $9%s $9]',  sBanIP, sBanHost))
+        SendMsg(MSG_CONSOLE, hAdmin, string.format('$9[        Profile | $9%s $9]          Elapsed | $4%s $9]',  sBanID, sBanAgo))
+        SendMsg(MSG_CONSOLE, hAdmin, string.format('$9[         Reason | $4%s $9]           Expiry | $4%s $9]',  sBanReason, sBanExpire))
+        SendMsg(MSG_CONSOLE, hAdmin, string.format('$9[      Timestamp | $9%s $9]        Banned by | $5%s $9]',  sBanDate, sBanAdmin))
+        SendMsg(MSG_CONSOLE, hAdmin, '$9================================================================================================================')
+        SendMsg(CHAT_SERVER, hAdmin, hAdmin:LocalizeNest("@l_ui_openYourConsoleToViewThe", {hIndex, "@l_ui_banEntry"}))
+    else
+        SendMsg(MSG_CONSOLE, hAdmin, '$9================================================================================================================')
+        SendMsg(MSG_CONSOLE, hAdmin, '$9       Name                   Reason                Admin                 Date                    Expiry')
+        --SendMsg(MSG_CONSOLE, hAdmin, '$9================================================================================================================')
+        for i, aInfo in pairs(aBans) do
+            local sLine = string.format('$9[ $1%02d $9] $9%s $9| $4%s $9| $5%s $9| $9%s $9| $4%s$9]',
+                    i,
+                    string.rspace(string.sub(aInfo:GetName(), 1, 20), 20, string.COLOR_CODE),
+                    string.rspace(string.sub(aInfo:GetReason(), 1, 19), 19, string.COLOR_CODE),
+                    string.rspace(string.sub(aInfo:GetAdmin(), 1, 19), 19, string.COLOR_CODE),
+                    string.rspace(aInfo:GetDate(1), 21, string.COLOR_CODE),
+                    string.rspace(aInfo:GetExpiry(1, 6), 21, string.COLOR_CODE)
+            )
+            SendMsg(MSG_CONSOLE, hAdmin, sLine)
+        end
+        SendMsg(MSG_CONSOLE, hAdmin, '$9================================================================================================================')
+        SendMsg(CHAT_SERVER, hAdmin, hAdmin:LocalizeNest("@l_ui_openYourConsoleToViewThe", {iBans, "@l_ui_bans"}))
+    end
 end
 
 -----------------
@@ -385,8 +514,9 @@ ServerPunish.BanChannel = function(self, hAdmin, iChannel, sTime, sReason)
     local sIP       = ServerDLL.GetChannelIP(iChannel)
     local sNick     = (ServerDLL.GetChannelNick(iChannel) or "Nomad")
 
-    if (self:GetInfoForType(ePunishType_Ban, { sIP })) then
-        return false, hAdmin:Localize("@l_ui_playerAlreadyBanned", {sNick})
+    local aBanInfo = self:GetInfoForType(ePunishType_Ban, { sIP })
+    if (aBanInfo) then
+        return false, hAdmin:Localize("@l_ui_playerAlreadyBanned", {aBanInfo:GetName(), aBanInfo:GetIndex()})
     end
 
     local iMax = self.MaxBanTime
@@ -410,6 +540,8 @@ ServerPunish.BanChannel = function(self, hAdmin, iChannel, sTime, sReason)
     self:SetupEntry(aBanInfo, (self:GetTypeCount(ePunishType_Ban) + 1))
 
     table.insert(self.Data.Bans, aBanInfo)
+
+    self:SendBanReason(iChannel, aBanInfo)
     self:DisconnectPlayer(eKickType_Banned, sNick, self:FormatBanReason(aBanInfo), aBanInfo.Reason, hAdmin:GetName())
     self:SaveData()
     return true
@@ -429,7 +561,9 @@ ServerPunish.DisconnectPlayer = function(self, iType, hPlayer, sReason, sLogReas
     Logger:LogEvent(eLogEvent_Punish, sLocale, hPlayer:GetName(), (sLogReason or sReason), sAdmin or "Server")
     hPlayer:SetBanned(true)
 
-    ServerDLL.KickChannel(iType, hPlayer:GetChannel(), sReason)
+    --Script.SetTimer(1, function()
+        ServerDLL.KickChannel(iType, hPlayer:GetChannel(), sReason)
+    --end)
 end
 
 -----------------
@@ -460,6 +594,7 @@ ServerPunish.GetInfoForType = function(self, hType, hIdentifier)
     for iBan, aInfo in pairs(aInfoList) do
         if (not aInfo:Expired()) then
             for _, sID in pairs({
+                unpack(aInfo.Host),
                 unpack(aInfo.IPs),
                 unpack(aInfo.IDs),
                 unpack(self:GetHardwareIDs(aInfo))
@@ -524,7 +659,7 @@ ServerPunish.RemoveType = function(self, hType, ...)
         return self:RemoveMute(...)
 
     elseif (hType == ePunishType_Warn) then
-        self:RemoveWarn(...)
+        return self:RemoveWarn(...)
 
     else
         throw_error("bad type for remove punishment")
@@ -538,6 +673,10 @@ ServerPunish.RemoveBan = function(self, aBanInfo, aList, hID, sReason)
     Logger:LogEvent(eLogEvent_Punish, "@l_ui_ban_removed", aBanInfo:GetName(), sReason)
 
     -- Delete
+    --if (not aList[hID]) then
+    --    return false
+    --end
+
     aList[hID] = nil
     self:QueueSaveFile()
 end
@@ -561,6 +700,7 @@ ServerPunish.RemoveMute = function(self, aBanInfo, aList, hID, sReason)
         bOk = false
 
         for __, sID in pairs({
+            unpack(aBanInfo.Host),
             unpack(aBanInfo.IPs),
             unpack(aBanInfo.IDs),
             unpack(self:GetHardwareIDs(aBanInfo))
@@ -568,10 +708,12 @@ ServerPunish.RemoveMute = function(self, aBanInfo, aList, hID, sReason)
             for ___, sCheck in pairs({
                 sIP, sHost, sID, sStatic, sHWID
             }) do
-                SendMsg(CHAT_SERVER_LOCALE, hPlayer, "@l_ui_youHaveBeenUnMuted", sReason)
-                hPlayer:RemoveMute()
-                bOk = true
-                break
+                if (sCheck == sID) then
+                    SendMsg(CHAT_SERVER_LOCALE, hPlayer, "@l_ui_youHaveBeenUnMuted", sReason)
+                    hPlayer:RemoveMute()
+                    bOk = true
+                    break
+                end
             end
             if (bOk) then break end
         end
@@ -647,15 +789,19 @@ ServerPunish.SetupEntry = function(self, aInfo, iID)
 
     -- Functions
     aInfo.Expired       = function(this) return (GetTimestamp() >= g_tn(this.Expiry))  end
-    aInfo.GetExpiry     = function(this) return g_tn(this.Expiry)  end
+    aInfo.GetExpiry     = function(this, fmt, x) local e = g_tn(this.Expiry) - GetTimestamp() return (fmt and math.calctime(e,x) or e)  end
     aInfo.GetRemaining  = function(this) return math.max(0, g_tn(this.Expiry) - GetTimestamp())  end
-    aInfo.GetDate       = function(this) return (this.Date)  end
+    aInfo.GetElapsed    = function(this, fmt, x) local e = math.max(0, GetTimestamp() - g_tn(this.Date)) return (fmt and math.calctime(e, x) or e)  end
+    aInfo.GetDate       = function(this, fmt) return (fmt and os.date("%Y-%m-%d %H:%M:%S", this.Date) or this.Date)  end
     aInfo.GetName       = function(this) return (this.Player[2])  end
     aInfo.GetPlayerID   = function(this) return (this.Player[1])  end
     aInfo.GetAdmin      = function(this) return (this.Admin[2])  end
     aInfo.GetAdminID    = function(this) return (this.Admin[1])  end
     aInfo.GetReason     = function(this) return (this.Reason)  end
     aInfo.GetIndex      = function(this) return (this.ID or iID)  end
+    aInfo.GetIP         = function(this, i) return (i and this.IPs[i] or this.IPs)  end--FIXME
+    aInfo.GetHost       = function(this, i) return (i and this.Host[i] or this.Host)  end--FIXME
+    aInfo.GetProfile    = function(this, i) return (i and this.IDs[i] or this.IDs)  end--FIXME
 
     return aInfo
 end

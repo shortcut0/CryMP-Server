@@ -13,7 +13,11 @@
 ---    > Internals
 ---
 ----------------
-ServerInit = {}
+ServerInit = {
+
+    ShowLogTimeDifference = false,
+    LastLogTimer = os.clock()
+}
 
 ----------------
 
@@ -38,7 +42,18 @@ ServerInit.Init = function(self)
     MOD_COMPILER = CRYMP_SERVER_COMPILER
 
     -----
-    SystemLog        = System.LogAlways
+    SystemLog        = function(sMsg, ...)
+        if (#{...} > 0) then
+            sMsg = string.format(sMsg, ...)
+        end
+        if (ServerInit.ShowLogTimeDifference and math.calctime ~= nil) then
+            local sDiff = string.lspace("+" .. math.calctime(os.clock() - ServerInit.LastLogTimer), 15)
+            sMsg = string.formatex("[%s] %s", sDiff, sMsg)
+        end
+
+        ServerInit.LastLogTimer = os.clock()
+        System.LogAlways(sMsg)
+    end
     ServerLog        = self:CreateLogAbstract(SystemLog, "$9[$4Server$9] ")
     ServerLogError   = self:CreateLogAbstract(SystemLog, "$9[$4Server$9] Error: ")
     ServerLogWarning = self:CreateLogAbstract(SystemLog, "$9[$4Server$9] Warning: ")

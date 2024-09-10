@@ -4,23 +4,23 @@ AddCommand({
     Access = GetLowestRank(),
 
     Arguments = {
-        {  "@l_ui_player", "@l_ui_player_d", IsPlayer = true, Required = true, Default = "self", SelfOk = true },
-        { "@l_ui_mode", "@l_ui_mode_d", IsNumber = true, Min = 0, Max = 3, Required = true, Default = 2 }
+        { "@l_ui_mode", "@l_ui_mode_d", IsNumber = true, Min = 0, Max = 3, Required = true, Default = 2 },
+        { "@l_ui_player", "@l_ui_player_d", IsPlayer = true, Required = true, Default = "self", SelfOk = true }
     },
 
     Properties = {
     },
 
     -- self is the user unless specified otherwise
-    Function = function(self, hPlayer, iMode)
+    Function = function(self, iMode, hPlayer)
 
         local bOn = iMode
-        if (iMode == 0) then
+        if (iMode == 0 or (iMode == hPlayer.ClientTemp.NoClip)) then
             bOn = false
         end
 
         hPlayer.ClientTemp.NoClip = bOn
-        hPlayer:Execute("g_Client.NO_CLIP = " .. g_ts(iMode))
+        hPlayer:Execute("g_Client.NO_CLIP = " .. g_ts(bOn))
 
         if (self == hPlayer) then
             SendMsg(CHAT_SERVER, self, self:Localize("@l_ui_noClipEnabled", { bOn and "@l_ui_enabled" or "@l_ui_disabled" }))

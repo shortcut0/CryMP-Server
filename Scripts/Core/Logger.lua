@@ -41,6 +41,7 @@ eLogEvent_Game              = 19
 eLogEvent_ClientMod              = 20
 eLogEvent_Cheat              = 21
 eLogEvent_Voting              = 22
+eLogEvent_Users              = 23
 
 --------------------------------
 --- Init
@@ -67,8 +68,10 @@ Logger.Init = function(self)
     Debug = function(...)
         local s = ""
         for _, v in pairs({...}) do
-            if (isArray(v)) then
-                LogEvent(eLogEvent_Debug, table.tostring(v))
+            if (vector.isvector(v)) then
+                s = s .. Vec2Str(v) .. ", "
+            elseif (isArray(v)) then
+                LogEvent(eLogEvent_Debug, s .. table.tostring(v)) s = ""
             end
             s = s .. g_ts(v) .. ", "
         end
@@ -103,6 +106,17 @@ Logger.InitLogEvents = function(self, iEvent, sMessage, ...)
             NoLocale        = false,
             PlayerMessages  = true,
             Tag             = "Connect",
+            Color           = self.DefaultColor,
+            Access          = {
+                Regular   = RANK_GUEST,
+                Extended  = RANK_MODERATOR
+            }
+        },
+
+        [eLogEvent_Users] = {
+            NoLocale        = false,
+            PlayerMessages  = true,
+            Tag             = "Users",
             Color           = self.DefaultColor,
             Access          = {
                 Regular   = RANK_GUEST,
@@ -599,6 +613,7 @@ Logger.Format = function(sMessage, aFormatAppend)
 
         -- debug
         ["dbg_scripterr"] = table.count(ErrorHandler:GetErrorList(1)),
+        ["sever_rpc_transferred_session"] = string.bytesuffix(ClientMod.TransferredData),
 
     }, (aFormatAppend or {}))
 
@@ -606,7 +621,7 @@ Logger.Format = function(sMessage, aFormatAppend)
     -- Server stats
     if (ServerStats ~= nil) then
         aFormat = table.merge(aFormat, {
-            [eServerStat_ServerTime]     = math.calctime(ServerStats:Get(eServerStat_ServerTime)),
+            [eServerStat_ServerTime]     = math.calctime(ServerStats:Get(eServerStat_ServerTime, 0)),
             [eServerStat_PlayerRecord]   = (ServerStats:Get(eServerStat_PlayerRecord)),
             [eServerStat_TotalChannels]  = (ServerStats:Get(eServerStat_TotalChannels)),
             [eServerStat_ConnectedCount] = string.format("%04d", g_tn(ServerStats:Get(eServerStat_ConnectedCount, 0))),
@@ -615,6 +630,8 @@ Logger.Format = function(sMessage, aFormatAppend)
             ["server_memPH"]         = string.bytesuffix(ServerStats:GetMemUsage(PROFILER_HOUR)),
             ["server_memPD"]         = string.bytesuffix(ServerStats:GetMemUsage(PROFILER_DAILY)),
             ["server_memPM"]         = string.bytesuffix(ServerStats:GetMemUsage(PROFILER_MINUTE)),
+
+            ["sever_rpc_transferred_total"] = string.bytesuffix(ServerStats:Get(eServerStat_TransferredRPCData, 0)),
         })
     end
 

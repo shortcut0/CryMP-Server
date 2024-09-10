@@ -10,6 +10,7 @@ eVE_AllEliminated       = 7
 eVE_OneEliminated       = 8
 eVE_OneEliminatedReply  = 9
 eVE_AllyEliminated      = 10
+eEV_EventFalling        = 11
 
 -- ==================================
 CreatePlugin("PlayerVoices", {
@@ -297,6 +298,10 @@ CreatePlugin("PlayerVoices", {
             return
         end
 
+        if (not iEvent) then
+            return HandleError("No event specified to SoundEvent()!")
+        end
+
         local aVoiceList = self.Voices[iEvent]
 
         if (not aVoiceList) then
@@ -332,8 +337,9 @@ CreatePlugin("PlayerVoices", {
         local iCM = hClient.CM.ID
         if (iCM ~= CM_NONE) then
 
-            if (IsAny(iCM, CM_EGIRL1, CM_EGIRL2, CM_EGIRL3, CM_EGIRL4)) then
-                Debug(CM_EGIRL1,CM_EGIRL2,CM_EGIRL3,CM_EGIRL4)
+            Debug(iCM,CM_BOOBS)
+            if (IsAny(iCM, CM_BOOBS, CM_EGIRL1, CM_EGIRL2, CM_EGIRL3, CM_EGIRL4)) then
+                Debug(CM_BOOBS,CM_EGIRL1,CM_EGIRL2,CM_EGIRL3,CM_EGIRL4)
                 iCM = "Females"
             end
         elseif (g_gameRules.IS_PS and hClient:GetTeam() == TEAM_NK) then

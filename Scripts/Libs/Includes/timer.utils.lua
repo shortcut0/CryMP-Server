@@ -24,6 +24,7 @@ timer.new = function(expiry)
 	hNew.created = timer.init()
 	hNew.timer = timer.init()
 	hNew.expiry = expiry
+	hNew.is_new = true
 
 	--------
 	hNew.setexpiry = function(i)
@@ -38,6 +39,11 @@ timer.new = function(expiry)
 	end
 	--------
 	hNew.expired = function(i)
+		--if (hNew.is_new and i==nil) then
+		--	hNew.is_new = false
+		--	return true
+		--end
+		 --hNew.is_new = false
 		return (timer.expired(hNew.timer, checkNumber(i, hNew.expiry)))
 	end
 	--------

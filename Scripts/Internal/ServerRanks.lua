@@ -43,6 +43,7 @@ ServerAccess.Init = function(self)
     GetLowestRank    = self.GetLowestRank
     GetHighestRank   = self.GetHighestRank
     GetRankInfo      = self.GetRankInfo
+    TryGetRankInfo   = self.TryGetRankInfo
     GetRankName      = self.GetRankName
     GetRankColor     = self.GetRankColor
     GetRankAuthority = self.GetRankAuthority
@@ -55,7 +56,9 @@ ServerAccess.Init = function(self)
     -- Reset this in case of changes
     RANK_DEFAULT = nil
 
-    self.RegisteredUsers = table.merge(self.RegisteredUsers, ConfigGet("Ranks.UserList", {}, eConfigGet_Array))
+    local aConfigUsers = ConfigGet("Ranks.UserList", {}, eConfigGet_Array)
+    self.HardCodedUsers = aConfigUsers
+    self.RegisteredUsers = table.merge(self.RegisteredUsers, aConfigUsers)
 
     self:LoadFile()
     self:RegisterRanks()
@@ -156,9 +159,141 @@ ServerAccess.IsProtectedName = function(self, sName, sExceptionID)
 end
 
 ----------------
-ServerAccess.AssignAccess = function(self, hClient, iRank, bPending)
+ServerAccess.ChangeAccess = function(self, hAdmin, hClient, iAccess)
 
-    if (hClient:HasAccess(iRank)) then
+    local bTesting = (hAdmin:GetAccess(GetHighestRank()) and hAdmin:IsTesting())
+
+    local iClientAccess = hClient:GetAccess()
+    local iAdminAccess  = hAdmin:GetAccess()
+
+    local sColor  = GetRankColor(iAccess)
+    local sAccess = GetRankName(iAccess)
+
+    if (not bTesting and (iAccess > iAdminAccess or hClient:GetAccess() >= iAdminAccess)) then
+        return false, hAdmin:Localize("@l_ui_insufficientAccess")
+    elseif (iAccess == iClientAccess) then
+        return false, hAdmin:Localize("@l_ui_accessEqual", { sAccess })
+    end
+
+    if (not hClient:IsValidated()) then
+        return false, hAdmin:Localize("@l_ui_clientNotValidated", { hClient:GetName() })
+    end
+
+    local sID = hClient:GetProfileID()
+    local bIsDelete = iAccess == GetLowestRank()
+    if (self:IsHardCodedUser(sID)) then
+        if (bIsDelete) then
+            return false, hAdmin:Localize("@l_ui_cannotRemoveHCUsers")
+        end
+    end
+
+    local bDemoted = (iClientAccess > iAccess)
+    Logger:LogEventTo(GetPlayers({ Force = hClient.id, Access = RANK_ADMIN }), eLogEvent_Users, "@l_ui_changedAccess", hClient:GetName(), (bDemoted and "@l_ui_demoted" or "@l_ui_promoted"), sAccess, sColor)
+
+    if (bIsDelete) then
+        self:DeleteUsers(sID, true)
+    else
+        local aUserInfo = (self:GetRegisteredUser(sID) or self:InsertUser(sID))
+        aUserInfo.Rank          = iAccess
+    end
+
+    self:AssignAccess(hClient, iAccess, false, true) -- not pending + quiet
+    self:SaveFile()
+end
+
+----------------
+ServerAccess.AddUserByID = function(self, hAdmin, sID, sName, iAccess)
+
+    local bTesting      = (hAdmin:GetAccess(GetHighestRank()) and hAdmin:IsTesting())
+    local iAdminAccess  = hAdmin:GetAccess()
+
+    local sColor  = GetRankColor(iAccess)
+    local sAccess = GetRankName(iAccess)
+
+    if (not bTesting and (iAccess > iAdminAccess)) then
+        return false, hAdmin:Localize("@l_ui_insufficientAccess")
+    end
+
+    local aUserInfo = self:GetRegisteredUser(sID)
+    local bIsDelete = iAccess == GetLowestRank()
+    if (aUserInfo) then
+
+        local iClientAccess = aUserInfo.Rank
+
+        if (self:IsHardCodedUser(sID)) then
+            if (bIsDelete) then
+                return false, hAdmin:Localize("@l_ui_cannotRemoveHCUsers")
+            end
+        end
+        if (bIsDelete) then
+            self:DeleteUsers(sID)
+            return true
+        end
+
+        if (not bTesting and (iClientAccess > iAdminAccess)) then
+            return false, hAdmin:Localize("@l_ui_insufficientAccess")
+        elseif (iAccess == iClientAccess) then
+            return false, hAdmin:Localize("@l_ui_accessEqual", { sAccess })
+        end
+
+        aUserInfo.Rank = iAccess
+
+        local bDemoted = (iClientAccess > iAccess)
+        Logger:LogEventTo(GetPlayers({ Access = RANK_ADMIN }), eLogEvent_Users, "@l_ui_assignedAccessTo", ("@l_ui_registeredUser " .. aUserInfo.Name), sColor, sAccess, (""))
+    elseif (bIsDelete) then
+        return false, hAdmin:Localize("@l_ui_chooseHigherValue")
+    else
+        Logger:LogEventTo(GetPlayers({ Access = RANK_ADMIN }), eLogEvent_Users, "@l_ui_addedRegisteredUser", sName, sID, sColor, sAccess)
+        self:InsertUser(sID, iAccess, sName)
+    end
+
+    self:SaveFile()
+end
+
+----------------
+ServerAccess.InsertUser = function(self, sID, iRank, sName)
+
+    local aUserInfo = self.RegisteredUsers[sID]
+    if (aUserInfo) then
+        return aUserInfo
+    end
+
+    self.RegisteredUsers[sID] = {
+        Name          = sName,
+        Rank          = iRank,
+        Login         = "1234", -- TODO
+        ProfileID     = sID,
+        ProtectedName = (not ServerNames:IsNomad(sName))
+    }
+
+    return self.RegisteredUsers[sID]
+end
+
+----------------
+ServerAccess.DeleteUsers = function(self, sID, bQuiet)
+
+    local aUserInfo = self.RegisteredUsers[sID]
+    if (aUserInfo) then
+        local sColor, sName = GetRankColor(aUserInfo.Rank), GetRankName(aUserInfo.Rank)
+        if (not bQuiet) then
+            Logger:LogEventTo(GetPlayers({ Access = RANK_ADMIN }), eLogEvent_Users, "@l_ui_userDeleted", aUserInfo.Name, aUserInfo.ProfileID, sName, sColor)
+        end
+        self.RegisteredUsers[sID] = nil
+        return true
+    end
+
+    return false
+end
+
+----------------
+ServerAccess.IsHardCodedUser = function(self, sID)
+    return self.HardCodedUsers[sID] ~= nil
+end
+
+----------------
+ServerAccess.AssignAccess = function(self, hClient, iRank, bPending, bQuiet)
+
+    if (hClient:IsAccess(iRank)) then
         return ServerLog("Client %s Already Rank %d", hClient:GetName(), iRank)
     end
 
@@ -166,6 +301,10 @@ ServerAccess.AssignAccess = function(self, hClient, iRank, bPending)
         hClient:SetPendingAccess(iRank)
     else
         hClient:SetAccess(iRank)
+    end
+
+    if (not bQuiet) then
+        Logger:LogEventTo(GetPlayers({ Force = hClient.id, Access = RANK_ADMIN }), eLogEvent_Users, "@l_ui_assignedAccessTo", hClient:GetName(), GetRankColor(iRank), GetRankName(iRank), (bPending and "@l_ui_pending-" or ""))
     end
     ServerLog("Assigned %sRank %d to %s", (bPending and "Pending " or ""), iRank, hClient:GetName())
 end
@@ -223,6 +362,7 @@ ServerAccess.LoadFile = function(self)
 
     local aParsed = self.RegisteredUsers
     for sProfileId, aUser in pairs(aData) do
+        aUser.Name = aUser.Name or "Nomad"
         aParsed[g_ts(aUser.ProfileID)] = aUser
     end
 
@@ -291,6 +431,33 @@ ServerAccess.GetRankInfo = function(iRank, sMember)
     end
 
     return aInfo
+end
+
+-------------------
+ServerAccess.TryGetRankInfo = function(hID)
+
+    local hFound
+    local sID       = (g_ts(hID) or "none") -- FIXME: what if a rank name starts with "none" ???
+    local sID_Lower = (g_ts(hID) or "none") -- FIXME: what if a rank name starts with "none" ???
+    local iID       = (g_tn(hID) or -1)
+
+    for _, aInfo in pairs(ServerAccess.RegisteredRanks) do
+        local sLowerID = string.lower(aInfo.ID)
+        local sLowerName = string.lower(aInfo.Name)
+        if (sLowerID == sID_Lower or sLowerName == sID_Lower or aInfo.Authority == iID) then
+            hFound = aInfo
+            break -- stop on complete matches
+        elseif (string.match(sLowerID, "^" .. string.escape(sID_Lower)) or string.match(sLowerName, "^" .. string.escape(sID_Lower))) then
+            if (hFound) then
+                hFound = nil
+                break
+            end
+            hFound = aInfo
+        end
+    end
+
+    ServerLog(table.tostring(hFound))
+    return hFound
 end
 
 -------------------

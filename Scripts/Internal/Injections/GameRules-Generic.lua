@@ -51,6 +51,7 @@ local ServerGameRules = {
         ---------
         self.KillAssistTimeout = ConfigGet("General.GameRules.HitConfig.KillAssistanceTimeout", 12.5, eConfigGet_Number)
         self.TeamKills = {}
+        self.RougeJets = {}
 
         ---------
         local iTeamKillDamage = ConfigGet("General.GameRules.HitConfig.TeamKill.DamageMultiplier", 0, eConfigGet_Number)
@@ -85,6 +86,81 @@ local ServerGameRules = {
     },
 
     ---------------------------------------------
+    --- RequestSpawnGroup
+    ---------------------------------------------
+    {
+        Class = "g_gameRules",
+        Target = { "Server.RequestSpawnGroup" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, playerId, groupId, force)
+            local player = System.GetEntity(playerId);
+            if (not player or not player.actor) then
+                return
+            end
+
+            local teamId=self.game:GetTeam(playerId);
+
+            if ((not force) and (teamId ~= self.game:GetTeam(groupId))) then
+                return;
+            end
+
+            if (groupId==player.spawnGroupId) then
+                return;
+            end
+
+            local group=System.GetEntity(groupId);
+            if (group and group.vehicle and (group.vehicle:IsDestroyed() or group.vehicle:IsSubmerged())) then
+                return;
+            end
+
+            if (group and group.vehicle) then
+                local vehicle=group.vehicle;
+                local seats=group.Seats;
+                local seatCount = 0;
+
+                for i,v in pairs(seats) do
+                    if ((not v.seat:IsGunner()) and (not v.seat:IsDriver()) and (not v.seat:IsLocked())) then
+                        seatCount=seatCount+1;
+                    end
+                end
+
+                local occupied=0;
+                local players=self.game:GetPlayers(true);
+                local mateGroupId;
+
+                if (players) then
+                    for i,player in pairs(players) do
+                        if (teamId==self.game:GetTeam(player.id)) then
+                            mateGroupId=self:GetPlayerSpawnGroup(System.GetEntity(player.id)) or NULL_ENTITY;
+                            if (mateGroupId==groupId) then
+                                occupied=occupied+1;
+                            end
+                        end
+                    end
+                end
+
+                if (occupied>=seatCount) then
+                    return;
+                end
+            end
+
+            self:SetPlayerSpawnGroup(playerId, groupId);
+
+            if ((not g_localActorId) or (g_localActorId~=playerId)) then
+                local channelId=player.actor:GetChannel();
+
+                if (channelId and channelId>0) then
+                    self.onClient:ClSetSpawnGroup(channelId, groupId);
+                end
+            end
+
+            self:UpdateSpawnGroupSelection(player.id);
+        end
+    },
+
+    ---------------------------------------------
     --- RequestSpectatorTarget
     ---------------------------------------------
     {
@@ -96,7 +172,7 @@ local ServerGameRules = {
         Function = function(self, hPlayerID, iMode)
 
             local hPlayer = GetEntity(hPlayerID)
-            if (not hPlayer) then
+            if (not hPlayer or not hPlayer.actor) then
                 return
             end
 
@@ -985,7 +1061,7 @@ local ServerGameRules = {
             self.works = {}
 
             -- Refresh
-            Server:Reset()
+            Server:OnMapReset()
             ServerChat:DeleteChatEntities()
             ServerLog("Game Reset")
         end
@@ -1024,6 +1100,21 @@ local ServerGameRules = {
                 end
             end
 
+            for hID, hVehicle in pairs(self.RougeJets) do
+                if (not GetEntity(hID) or hVehicle:GetDriver() or hVehicle.vehicle:IsDestroyed()) then
+                    self.RougeJets[hID] = nil
+                    --Debug("nun")
+                end
+
+                if (self.RougeJets[hID] and hVehicle.CLIENT_THRUSTERS) then
+
+                    local fImpulse = hVehicle:GetMass() * 10 * 1--(hVehicle.CLIENT_THRUSTERPOWER / 100)
+                    hVehicle:AddImpulse(-1, hVehicle:GetCenterOfMassPos(), hVehicle:GetDirectionVector(), fImpulse, 1)
+                    --Debug(hVehicle.CLIENT_THRUSTERPOWER)
+                end
+            end
+
+            --[[
             for _, aInfo in pairs(self.TaggedExplosives) do
                 if (not GetEntity(_)) then
                     self.TaggedExplosives[_] = nil
@@ -1035,7 +1126,7 @@ local ServerGameRules = {
                         aInfo.EffectTimer.refresh()
                     end
                 end
-            end
+            end]]
         end
     },
 
@@ -1287,11 +1378,15 @@ local ServerGameRules = {
                 end
 
                 if (self.IS_PS) then
-                    if (((hPlayer.actor:GetSpectatorMode() == 3 and self.game:GetTeam(hPlayerID) ~= 0) or (hPlayer:IsDead() and hPlayer.death_time and _time - hPlayer.death_time > 2.5)) and (not self:IsInReviveQueue(hPlayerID))) then
-                        self:QueueRevive(hPlayerID)
-                    elseif (self:IsInReviveQueue(hPlayerID)) then
-                        self:ResetRevive(hPlayerID)
-                        SendMsg(MSG_CENTER, hPlayer, "@l_ui_reviveQueuePaused")
+                    if (hPlayer.spawnGroupId and hPlayer.spawnGroupId ~= NULL_ENTITY) then
+                        if (((hPlayer.actor:GetSpectatorMode() == 3 and self.game:GetTeam(hPlayerID) ~= 0) or (hPlayer:IsDead() and hPlayer.death_time and _time - hPlayer.death_time > 2.5)) and (not self:IsInReviveQueue(hPlayerID))) then
+                            self:QueueRevive(hPlayerID)
+                        elseif (self:IsInReviveQueue(hPlayerID)) then
+                            self:ResetRevive(hPlayerID)
+                            SendMsg(MSG_CENTER, hPlayer, "@l_ui_reviveQueuePaused")
+                        end
+                    else
+                        SendMsg(MSG_ERROR, hPlayer, "@l_ui_noSpawnGroupSelected")
                     end
                 else
                     if (hPlayer.death_time and _time - hPlayer.death_time > 2.5 and hPlayer:IsDead()) then
@@ -1645,7 +1740,7 @@ local ServerGameRules = {
                 iKillType = eKillType_BotDeath
             end
 
-            if (hShooter and hShooter.IsPlayer and (iKillType ~= eKillType_Suicide)) then
+            if (hShooter and hShooter.IsPlayer and (iKillType ~= eKillType_Suicide) and not aHitInfo.explosion) then
 
                 local iAccuracy = hShooter:GetHitAccuracy()
                 local aMessageList = {
@@ -1668,6 +1763,171 @@ local ServerGameRules = {
             end
 
         end
+    },
+
+    ---------------------------------------------
+    --- CheckDefenseKill
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "CheckDefenseKill" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, aHitInfo)
+
+            -- check if inside a factory
+            local hTarget   = aHitInfo.target
+            local hShooter  = aHitInfo.shooter
+
+            local bDefense = false
+            local sType    = nil
+
+            if (hTarget ~= hShooter) then
+                local iTeam1 = self.game:GetTeam(hShooter.id)
+                local iTeam2 = self.game:GetTeam(hTarget.id)
+                for _, hFactory in pairs(self.factories) do
+                    local iFactoryTeam = self.game:GetTeam(hFactory.id)
+                    if (hFactory:IsPlayerInside(aHitInfo.targetId) and (iFactoryTeam ~= iTeam2) and (iFactoryTeam == iTeam1)) then
+                        bDefense = true
+                        sType    = hFactory.LocaleType
+                    end
+                end
+            end
+
+            return bDefense, sType
+        end
+
+    },
+
+    ---------------------------------------------
+    --- CalcKillPP
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "CalcKillPP" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, aHitInfo)
+            local target = aHitInfo.target
+            local shooter = aHitInfo.shooter
+            local headshot = self:IsHeadShot(aHitInfo)
+            local melee = aHitInfo.type=="melee"
+
+            if (target ~= shooter) then
+                local team1 = self.game:GetTeam(shooter.id)
+                local team2 = self.game:GetTeam(target.id)
+                if (team1 == 0 or team1 ~= team2) then
+                    local ownRank = self:GetPlayerRank(shooter.id)
+                    local enemyRank = self:GetPlayerRank(target.id)
+                    local bonus = 0
+
+                    if (headshot) then
+                        bonus = bonus + self.ppList.HEADSHOT
+                    end
+
+                    if (melee) then
+                        bonus = bonus + self.ppList.MELEE
+                    end
+
+                    local rankDiff = enemyRank-ownRank
+                    if (rankDiff ~= 0) then
+                        bonus = bonus + rankDiff * self.ppList.KILL_RANKDIFF_MULT
+                    end
+
+                    -- check if inside a factory
+                    local bFactoryDefended = false
+                    for _, hFactory in pairs(self.factories) do
+                        local factoryTeamId = self.game:GetTeam(hFactory.id);
+                        if (hFactory:IsPlayerInside(aHitInfo.targetId) and (factoryTeamId ~= team2) and (factoryTeamId == team1)) then
+                            bonus = (bonus + self.defenseValue[hFactory:GetCaptureIndex() or 0] or 0)
+                            bFactoryDefended = true
+                        end
+                    end
+
+                    local iPremiumBonus = ConfigGet("General.GameRules.PremiumKillPP", 1.25, eConfigGet_Number)
+                    return math.max(0, (self.ppList.KILL + bonus) * iPremiumBonus)
+                else
+                    return self.ppList.TEAMKILL
+                end
+            else
+                return self.ppList.SUICIDE
+            end
+        end
+
+    },
+
+    ---------------------------------------------
+    --- ProcessScores
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "ProcessScores" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, aHitInfo)
+            local target = aHitInfo.target
+            local shooter = aHitInfo.shooter
+            local headshot = self:IsHeadShot(aHitInfo)
+
+            local h=0;
+            if (headshot) then
+                h=1;
+            end
+
+            if (target.actor and target.actor:IsPlayer()) then
+                self:Award(target, 1, 0, 0)
+            end
+
+            if (shooter and shooter.actor and shooter.actor:IsPlayer()) then
+                if (target ~= shooter) then
+
+                    if (self.IS_IA) then
+                        self:Award(shooter, 0, 1, h)
+                    else
+                        local team1=self.game:GetTeam(shooter.id);
+                        local team2=self.game:GetTeam(target.id);
+
+                        if (team1 == 0 or team1~=team2) then
+                            self:Award(shooter, 0, 1, h);
+
+                            -- update team score
+                            self:SetTeamScore(team1, self:GetTeamScore(team1)+1);
+                        else
+                            self:Award(shooter, 0, -1, 0);--teamkill
+                            self:OnTeamKill(shooter.id);
+                        end
+                    end
+                else
+                    self:Award(shooter, 0, -1, 0)
+                end
+            end
+
+
+
+            if (self.IS_PS) then
+                if (shooter and shooter.actor and shooter.actor:IsPlayer()) then
+                    self:AwardKillPP(aHitInfo)
+                    self:AwardKillCP(aHitInfo)
+
+                    local bDefense, sType = self:CheckDefenseKill(aHitInfo)
+                    if (bDefense) then
+                        for _, hPlayer in pairs(GetPlayers({ TeamID = shooter:GetTeam() })) do
+                            if (hPlayer.id ~= shooter.id) then
+                                hPlayer:Execute(string.format("g_Client.Event(eEvent_BLE, eBLE_Information,\"%s\")", hPlayer:LocalizeNest("@l_ui_factoryDefended", { shooter:GetName(), sType })))
+                            end
+                        end
+                        Debug("mdfkn Defense")
+                    end
+                end
+            end
+        end
+
     },
 
     ---------------------------------------------
@@ -1731,6 +1991,8 @@ local ServerGameRules = {
             local sType = "@l_ui_enemy @l_ui_eliminated"
             if (aHitInfo.shooterId == aHitInfo.targetId) then
                 sType = "@l_ui_suicide"
+            elseif (self:CheckDefenseKill(aHitInfo)) then
+                sType = "@l_ui_factoryDefense"
             end
 
             if (iPP > 0) then
@@ -2920,6 +3182,430 @@ local ServerGameRules = {
                 elseif (hEntity.item and false) then
                     return self:CanHackTurret(hEntity, hPlayerID)
 
+                end
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- CanEnterVehicle
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "CanEnterVehicle" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hVehicle, hUserID)
+
+            local hPlayer = GetEntity(hUserID)
+            if (not hPlayer) then
+                return false
+            end
+
+            if (hPlayer:Distance(hVehicle) > 25) then
+                return false
+            end
+
+            if (hVehicle.vehicle:GetMovementType() == "sea" and not hVehicle.vehicle:IsSubmerged()) then
+                local aHitDown = hPlayer:GetHitPos(2, nil, g_Vectors.down, hPlayer:GetPos())
+                if (not aHitDown or aHitDown.entity ~= hVehicle) then
+                    ServerUtils.AddImpulse(hVehicle, hPlayer:GetDirectionVector(), hVehicle:GetMass() * (hPlayer:GetSuitMode(NANOMODE_STRENGTH) and 5 or 2.5))
+                    return false
+                end
+            end
+
+            if (hVehicle.vehicle:GetOwnerId() == hUserID) then
+                return true
+            end
+
+            -- Gods can do ANYTHING!
+            if (hPlayer:HasGodMode()) then
+                return true
+            end
+
+            local bCheck       = (hVehicle.SvCanEnter == nil or (hVehicle:SvCanEnter(hPlayer) == true))
+            local iVehicleTeam = self.game:GetTeam(hVehicle.id)
+            local iPlayerTeam  = self.game:GetTeam(hUserID)
+
+            if (iPlayerTeam == iVehicleTeam or iVehicleTeam == 0) then
+                local bOk = (hVehicle.vehicle:GetOwnerId() == nil)
+                Debug(g_ts(bCheck))
+                return (bOk and bCheck)
+
+            elseif (iPlayerTeam ~= iVehicleTeam) then
+
+                Debug("other team!",iPlayerTeam,iVehicleTeam)
+                return false
+            end
+
+            return bCheck
+        end
+
+    },
+
+    ---------------------------------------------
+    --- OnLeaveVehicleSeat
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "OnLeaveVehicleSeat" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, hVehicle, iSeat, hPlayerID, bExiting)
+
+            ---------
+            local hPlayer = System.GetEntity(hPlayerID)
+            if (hPlayer) then
+                if (bExiting) then
+                    hPlayer.ExitVehicleID = hVehicle.id
+                    hPlayer.ExitVehicleTimer.refresh()
+
+                    hPlayer:ResetServerFiring()
+
+                end
+
+
+               -- Debug(">",hVehicle.IsJetVM)
+                if (hVehicle.IsJetVM and not hVehicle:GetDriver()) then
+                    self.RougeJets[hVehicle.id] = hVehicle
+                   -- Debug("lefty")
+                end
+
+                if (not hVehicle:GetDriver()) then
+                    hVehicle:SetHeliMGOwner(NULL_ENTITY)
+                end
+            end
+
+            if (self.isServer) then
+                if (bExiting) then
+                    local empty=true
+                    for i,seat in pairs(hVehicle.Seats) do
+                        local passengerId = seat:GetPassengerId()
+                        if (passengerId and passengerId~=NULL_ENTITY and passengerId~=hPlayerID) then
+                            empty=false
+                            break
+                        end
+                    end
+
+                    if (empty) then
+                        --self.game:SetTeam(0, vehicle.id);
+                        hVehicle.lastOwnerId=hPlayerID
+                        if (hPlayer) then
+                            hPlayer.lastVehicleId = hVehicle.id
+                        end
+                    end
+
+                    if(hPlayerID==hVehicle.vehicle:GetOwnerId()) then
+                        hVehicle.vehicle:SetOwnerId(NULL_ENTITY)
+                    end
+                end
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- OnCollision
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "OnCollision" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, entity, hit)
+
+            local collider = hit.target;
+            local colliderMass = hit.target_mass; -- beware, collider can be null (e.g. entity-less rigid entities)
+            local contactVelocitySq;
+            local contactMass;
+
+            ServerItemHandler:OnCollision(entity, hit)
+
+            -- check if frozen
+            if (self.game:IsFrozen(entity.id)) then
+                if ((not entity.CanShatter) or (tonumber(entity:CanShatter())~=0)) then
+                    local energy = self:GetCollisionEnergy(entity, hit);
+
+                    local minEnergy = 1000;
+
+                    if (energy >= minEnergy) then
+                        if (not collider) then
+                            collider=entity;
+                        end
+
+                        local colHit = self.collisionHit;
+                        colHit.pos = hit.pos;
+                        colHit.dir = hit.dir or hit.normal;
+                        colHit.radius = 0;
+                        colHit.partId = -1;
+                        colHit.target = entity;
+                        colHit.targetId = entity.id;
+                        colHit.weapon = collider;
+                        colHit.weaponId = collider.id
+                        colHit.shooter = collider;
+                        colHit.shooterId = collider.id
+                        colHit.materialId = 0;
+                        colHit.damage = 0;
+                        colHit.typeId = g_collisionHitTypeId;
+                        colHit.type = "collision";
+
+                        if (collider.vehicle and collider.GetDriverId) then
+                            local driverId = collider:GetDriverId();
+                            if (driverId) then
+                                colHit.shooterId = driverId;
+                                colHit.shooter=System.GetEntity(colHit.shooterId);
+                            end
+                        end
+
+                        self:ShatterEntity(entity.id, colHit);
+                    end
+
+                    return;
+                end
+            end
+
+            if (not (entity.Server and entity.Server.OnHit)) then
+                return;
+            end
+
+            if (entity.IsDead and entity:IsDead()) then
+                return;
+            end
+
+            local minVelocity;
+
+            -- collision with another entity
+            if (collider or colliderMass>0) then
+                FastDifferenceVectors(self.tempVec, hit.velocity, hit.target_velocity);
+                contactVelocitySq = vecLenSq(self.tempVec);
+                contactMass = colliderMass;
+                minVelocity = self:GetCollisionMinVelocity(entity, collider, hit);
+            else	-- collision with world
+                contactVelocitySq = vecLenSq(hit.velocity);
+                contactMass = entity:GetMass();
+                minVelocity = 7.5;
+            end
+
+            -- marcok: avoid fp exceptions, not nice but I don't want to mess up any damage calculations below at this stage
+            if (contactVelocitySq < 0.01) then
+                contactVelocitySq = 0.01;
+            end
+
+            local damage = 0;
+
+            -- make sure we're colliding with something worthy
+            if (contactMass > 0.01) then
+                local minVelocitySq = minVelocity*minVelocity;
+                local bigObject = false;
+                --this should handle falling trees/rocks (vehicles are more heavy usually)
+                if(contactMass > 200.0 and contactMass < 10000 and contactVelocitySq > 2.25) then
+                    if(hit.target_velocity and vecLenSq(hit.target_velocity) > (contactVelocitySq * 0.3)) then
+                        bigObject = true;
+                        --vehicles and doors shouldn't be 'bigObject'-ified
+                        if(collider and (collider.vehicle or collider.advancedDoor)) then
+                            bigObject = false;
+                        end
+                    end
+                end
+
+                local collideBarbWire = false;
+                if(hit.materialId == g_barbWireMaterial and entity and entity.actor) then
+                    collideBarbWire = true;
+                end
+
+                --Log("velo : %f, mass : %f", contactVelocitySq, contactMass);
+                if (contactVelocitySq >= minVelocitySq or bigObject or collideBarbWire) then
+                    -- tell AIs about collision
+                    if(AI and entity and entity.AI and not entity.AI.Colliding) then
+                        g_SignalData.id = hit.target_id;
+                        g_SignalData.fValue = contactVelocitySq;
+                        AI.Signal(SIGNALFILTER_SENDER,1,"OnCollision",entity.id,g_SignalData);
+                        entity.AI.Colliding = true;
+                        entity:SetTimer(COLLISION_TIMER,4000);
+                    end
+                    --
+
+                    -- marcok: Uncomment this stuff when you need it
+                    --local debugColl = self.game:DebugCollisionDamage();
+
+                    --if (debugColl>0) then
+                    -- Log("------------------------- collision -------------------------");
+                    --end
+
+                    local contactVelocity = math.sqrt(contactVelocitySq)-minVelocity;
+                    if (contactVelocity < 0.0) then
+                        contactVelocitySq = minVelocitySq;
+                        contactVelocity = 0.0;
+                    end
+
+                    -- damage
+                    if(entity.vehicle) then
+                        if(not self:IsMultiplayer()) then
+                            damage = 0.0005*self:GetCollisionEnergy(entity, hit); -- vehicles get less damage SINGLEPLAYER ONLY.
+                        else
+                            damage = 0.0002*self:GetCollisionEnergy(entity, hit);	-- keeping the original values for MP.
+                        end
+                    else
+                        damage = 0.0025*self:GetCollisionEnergy(entity, hit);
+                    end
+
+                    -- apply damage multipliers
+                    damage = damage * self:GetCollisionDamageMult(entity, collider, hit);
+
+                    if(collideBarbWire and entity.id == g_localActorId) then
+                        damage = damage * (contactMass * 0.15) * (30.0 / contactVelocitySq);
+                    end
+
+                    if(bigObject) then
+                        if (damage > 0.5) then
+                            damage = damage * (contactMass / 10.0) * (10.0 / contactVelocitySq);
+                            if(entity.id ~= g_localActorId) then
+                                damage = damage * 3;
+                            end
+                        else
+                            return;
+                        end
+                    end
+
+                    -- subtract collision damage threshold, if available
+                    if (entity.GetCollisionDamageThreshold) then
+                        local old = damage;
+                        damage = __max(0, damage - entity:GetCollisionDamageThreshold());
+                    end
+
+                    if (entity.actor) then
+                        if(entity.actor:IsPlayer()) then
+                            if(hit.target_velocity and vecLen(hit.target_velocity) == 0) then --limit damage from running agains static objects
+                                damage = damage * 0.2;
+                            end
+                        end
+
+                        if(collider and collider.class=="AdvancedDoor")then
+                            if(collider:GetState()=="Opened")then
+                                entity:KnockedOutByDoor(hit,contactMass,contactVelocity);
+                            end
+                        end;
+
+                        if (collider and not collider.actor) then
+                            local contactVelocityCollider = __max(0, vecLen(hit.target_velocity)-minVelocity);
+                            local killVelocity = (entity.collisionKillVelocity or 20.0);
+
+                            if(contactVelocity > killVelocity and contactVelocityCollider > killVelocity and colliderMass > 50 and not entity.actor:IsPlayer()) then
+                                local bNoDeath = entity.Properties.Damage.bNoDeath;
+                                local bFall = bNoDeath and bNoDeath~=0;
+
+                                -- don't allow killing friendly AIs by collisions
+                                if(not AI.Hostile(entity.id, g_localActorId, false)) then
+                                    return;
+                                end
+
+
+                                --if (debugColl~=0) then
+                                --  Log("%s for <%s>, collider <%s>, contactVel %.1f, contactVelCollider %.1f, colliderMass %.1f", bFall and "FALL" or "KILL", entity:GetName(), collider:GetName(), contactVelocity, contactVelocityCollider, colliderMass);
+                                --end
+
+                                if(bFall) then
+                                    entity.actor:Fall(hit.pos);
+                                else
+                                    entity:Kill(true, NULL_ENTITY, NULL_ENTITY);
+                                end
+                            else
+                                if(g_localActorId and AI.Hostile(entity.id, g_localActorId, false)) then
+                                    if(not entity.isAlien and contactVelocity > 5.0 and contactMass > 10.0 and not entity.actor:IsPlayer()) then
+                                        if(damage < 50) then
+                                            damage = 50;
+                                            entity.actor:Fall(hit.pos);
+                                        end
+                                    else
+                                        if(not entity.isAlien and contactMass > 2.0 and contactVelocity > 15.0 and not entity.actor:IsPlayer()) then
+                                            if(damage < 50) then
+                                                damage = 50;
+                                                entity.actor:Fall(hit.pos);
+                                            end
+                                        end
+                                    end
+                                end
+                            end
+                        end
+                    end
+
+
+                    if (damage >= 0.5) then
+                        if (not collider) then collider = entity; end;
+
+                        --prevent deadly collision damage (old system somehow failed)
+                        if(entity.actor and not self:IsMultiplayer() and not AI.Hostile(entity.id, g_localActorId, false)) then
+                            if(entity.id ~= g_localActorId) then
+                                if(entity.actor:GetHealth() <= damage) then
+                                    entity.actor:Fall(hit.pos);
+                                    return;
+                                end
+                            end
+                        end
+
+                        local curtime = System.GetCurrTime();
+                        if (entity.lastCollDamagerId and entity.lastCollDamagerId==collider.id and
+                                entity.lastCollDamageTime+0.3>curtime and damage<entity.lastCollDamage*2) then
+                            return
+                        end
+                        entity.lastCollDamagerId = collider.id;
+                        entity.lastCollDamageTime = curtime;
+                        entity.lastCollDamage = damage;
+
+                        --if (debugColl>0) then
+                        --  Log("[SinglePlayer] <%s>: sending coll damage %.1f", entity:GetName(), damage);
+                        --end
+
+                        local colHit = self.collisionHit;
+                        colHit.pos = hit.pos;
+                        colHit.dir = hit.dir or hit.normal;
+                        colHit.radius = 0;
+                        colHit.partId = -1;
+                        colHit.target = entity;
+                        colHit.targetId = entity.id;
+                        colHit.weapon = collider;
+                        colHit.weaponId = collider.id
+                        colHit.shooter = collider;
+                        colHit.shooterId = collider.id
+                        colHit.materialId = 0;
+                        colHit.damage = damage;
+                        colHit.typeId = g_collisionHitTypeId;
+                        colHit.type = "collision";
+                        colHit.impulse=hit.impulse;
+
+                        if (collider.vehicle and collider.GetDriverId) then
+                            local driverId = collider:GetDriverId();
+                            if (driverId) then
+                                colHit.shooterId = driverId;
+                                colHit.shooter=System.GetEntity(colHit.shooterId);
+                            end
+                        end
+
+                        local deadly=false;
+
+                        if (entity.Server.OnHit(entity, colHit)) then
+                            -- special case for actors
+                            -- if more special cases come up, lets move this into the entity
+                            if (entity.actor and self.ProcessDeath) then
+                                self:ProcessDeath(colHit);
+                            elseif (entity.vehicle and self.ProcessVehicleDeath) then
+                                self:ProcessVehicleDeath(colHit);
+                            end
+
+                            deadly=true;
+                        end
+
+                        local debugHits = self.game:DebugHits();
+
+                        if (debugHits>0) then
+                            self:LogHit(colHit, debugHits>1, deadly);
+                        end
+                    end
                 end
             end
         end

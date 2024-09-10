@@ -16,12 +16,12 @@ AddCommand({
 
     Function = function(self, hClient, hTarget, iAmount)
 
-        if (hClient == ALL_PLAYERS) then
+        if (hTarget == ALL_PLAYERS) then
             for _, hUser in pairs(GetPlayers()) do
                 hUser:AwardPrestige(iAmount, hUser:Localize("@l_ui_admindecision"))
             end
 
-            SendMsg(CHAT_SERVER, self, string.format("(%s)", self:Localize("@l_ui_prestigeAwardedAll")))
+            SendMsg(CHAT_SERVER, hClient, string.format("(%s)", hClient:Localize("@l_ui_prestigeAwardedAll")))
             return true
         end
 

@@ -8,6 +8,8 @@ EarlyInit = {
 
         System.LogAlways("EarlyInit.Init()")
 
+        -- fix non-unique entity name
+
         --fixme mapsetup
         System.OldSpawnEntity = (System.OldSpawnEntity or System.SpawnEntity)
         System.SpawnEntity = function(aParams, ...)

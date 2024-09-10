@@ -1,43 +1,27 @@
 return {
- ["0"] = {
-  ["last_visit"] = 1724114641,
-  ["last_name"] = "[Nomad.CV] ::  (0001)",
- },
- ["1011669"] = {
+ ["1064253"] = {
   ["equipment"] = {
-   ["DSG1"] = {
-    [1] = "FY71NormalAmmo",
-    [2] = "SCARNormalAmmo",
-    [3] = "LAMRifle",
-   },
-   ["GaussRifle"] = {
-    [1] = "FY71NormalAmmo",
-    [2] = "SCARNormalAmmo",
-    [3] = "LAMRifle",
-   },
-   ["SOCOM"] = {
-    [1] = "FY71NormalAmmo",
-    [2] = "SCARNormalAmmo",
-    [3] = "SOCOMSilencer",
-   },
-   ["SMG"] = {
-    [1] = "FY71NormalAmmo",
-    [2] = "SCARNormalAmmo",
-    [3] = "LAMRifle",
-   },
    ["FY71"] = {
-    [2] = "SCARNormalAmmo",
-    [3] = "LAMRifle",
     [1] = "FY71NormalAmmo",
-    [4] = "SniperScope",
-    [5] = "FY71NormalAmmo",
+    [2] = "SCARNormalAmmo",
+    [4] = "FY71NormalAmmo",
+    [3] = "LAMRifle",
    },
   },
-  ["last_name"] = "Nomad.CV :: (#0296)",
-  ["play_time"] = 46396.537000,
-  ["last_cm"] = 8,
-  ["last_kicked_by_vote"] = 1724742361,
-  ["language"] = "english",
-  ["last_visit"] = 1724742361,
+  ["last_name"] = "Nomad.CV :: (#0411)",
+  ["play_time"] = 6182.230000,
+  ["last_kicked_by_vote"] = 1725649209,
+  ["last_visit"] = 1725649209,
+ },
+ ["0"] = {
+  ["last_kicked_by_vote"] = 1725682078,
+  ["last_name"] = "meowrisa",
+  ["last_visit"] = 1725682078,
+ },
+ ["1011669"] = {
+  ["last_kicked_by_vote"] = 1725933090,
+  ["last_name"] = "meowrisa",
+  ["play_time"] = 10985.372000,
+  ["last_visit"] = 1725933090,
  },
 }

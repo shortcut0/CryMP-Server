@@ -228,10 +228,65 @@ ServerRPC.Callbacks.OnStartReload = function(self, nPlayer, ...)
     ServerItemHandler:OnStartReload(GetEntity(nPlayer), ...)
 end
 
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnEndReload = function(self, nPlayer, ...)
+
+    ServerItemHandler:OnEndReload(GetEntity(nPlayer), ...)
+end
+
 
 --------------------------------
 --- Init
 ServerRPC.Callbacks.OnWalljump = function(self, hPlayerID, hItemID)
 
+    AddServerStat(eServerStat_WallJumps, 1)
    --FIXME!!
+end
+
+
+
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnVehicleSpawn = function(self, hVehicleID)
+
+    local hVehicle = GetEntity(hVehicleID)
+    if (not hVehicle) then
+        return
+    end
+
+    VehicleBase.SvInit(hVehicle)
+    ServerLog("Init Vehicle!")
+end
+
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnEntitySpawn = function(self, hEntity, hEntityID, bIsVehicle, bIsItem)
+
+    if (not hEntity) then
+        return
+    end
+
+    if (bIsVehicle) then
+        VehicleBase.SvInit(hEntity)
+        ServerLog("Init Vehicle!")
+    end
+
+    ServerStats:SetEntityUpdateRate(hEntity)
+end
+
+--------------------------------
+--- Init
+--- Use Member 'SvReportCollisions' on any entity to start reporting collisions to the script
+--- Info Members:
+---  > normal, pos, impulse, penetration, radius
+ServerRPC.Callbacks.OnEntityCollision = function(self, hEntityID, hEntity, hTargetID, aInfo)
+
+    if (not hEntity) then
+        return
+    end
+
+    if (hEntity.SvOnCollision) then
+        hEntity:SvOnCollision(GetEntity(hTargetID), aInfo)
+    end
 end

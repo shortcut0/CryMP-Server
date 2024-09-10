@@ -111,10 +111,23 @@ ServerItemHandler.Init = function(self)
     self.UseWeaponEffects    = ConfigGet("General.Weapons.UseWeaponEffects", true, eConfigGet_Boolean)
     self.RPGGroundEffects    = ConfigGet("General.Weapons.RPGGroundEffects", true, eConfigGet_Boolean)
     self.EnhanceUWExplosions = ConfigGet("General.Weapons.EnhanceUWExplosions", true, eConfigGet_Boolean)
+    self.DoubleGrenadeLauncher = ConfigGet("General.Weapons.DoubleChamberGL", true, eConfigGet_Boolean)
 
     self.Equipment.PowerStruggle = ConfigGet("General.Equipment.SpawnEquipment.PowerStruggle", self.Equipment.PowerStruggle, eConfigGet_Array)
     self.Equipment.InstantAction = ConfigGet("General.Equipment.SpawnEquipment.InstantAction", self.Equipment.InstantAction, eConfigGet_Array)
 
+
+    self.OpenDoorsOnCollision = ConfigGet("General.Immersion.Doors.OpenOnCollision", true, eConfigGet_Boolean)
+
+    -- FIXME
+    self.AATracers = true
+
+    LinkEvent(eServerEvent_OnClientInit, "ServerItemHandler", self.InitClient)
+end
+
+----------------------
+ServerItemHandler.InitClient = function(self, hClient)
+    hClient.ExitVehicleTimer = timernew()
 end
 
 ----------------------
@@ -435,6 +448,7 @@ ServerItemHandler.CanPickObject = function(self, hPlayerID, hItemID)
     end
 
     if (hItem.SvPickup) then
+        --hPlayer.actor:DropItem(hItemID)
         hItem:SvPickup(hPlayer)
         return false
     end
@@ -451,6 +465,14 @@ ServerItemHandler.CanPickupWeapon = function(self, hPlayerID, hItemID)
     end
 
     local hItem = GetEntity(hItemID)
+    if (hItem.SvCannotGrab) then
+        return false
+    end
+
+    if (hItem and hItem.SvOnPickup) then
+        hItem:SvOnPickup(hPlayer)
+        return false
+    end
 
     return true
 end
@@ -529,10 +551,14 @@ end
 ServerItemHandler.OnItemHit = function(self, hItem, aHitInfo)
 
     local aCfg = hItem.HitConfig
+    local hShooter = aHitInfo.shooter
+
     if (aCfg) then
         hItem.HP = (hItem.HP or aCfg.HP) - aHitInfo.damage
         if (hItem.HP <= 0) then
-            if (aCfg.Explosion.Effect) then
+            if (aCfg.Explosion.Effect and not hItem.SvExploded) then
+
+                hItem.SvExploded = true
 
                 local sEffect = aCfg.Explosion.Effect
                 local vPos = hItem:GetPos()
@@ -540,7 +566,6 @@ ServerItemHandler.OnItemHit = function(self, hItem, aHitInfo)
                 local iDamage = aCfg.Explosion.Damage or 300
                 local iScale = aCfg.Explosion.Scale or 1
                 SpawnExplosion(sEffect, vPos, iRadius, iDamage, aHitInfo.normal or aHitInfo.dir or g_Vectors.up, aHitInfo.shooterId, aHitInfo.weaponId, iScale)
-
                 System.RemoveEntity(hItem.id)
             end
         elseif (aCfg.Burning) then
@@ -566,11 +591,37 @@ ServerItemHandler.OnItemHit = function(self, hItem, aHitInfo)
             end
         end
     end
+
+   -- Debug(aHitInfo.type)
+    if (hShooter and hShooter ~= aHitInfo.target and hShooter.IsPlayer and hShooter:IsSuperman() and aHitInfo.type == "melee") then
+        ServerUtils.AddImpulse(hItem, aHitInfo.dir, 9999999)
+    end
+
+    ServerItemSystem:CheckHit(hItem, aHitInfo)
 end
 
 ----------------------
 ServerItemHandler.OnStartReload = function(self, hPlayer, hWeapon)
     PluginSaveCall("PlayerVoices", "ProcessEvent", hPlayer, eVE_ReloadWeapon)
+end
+
+----------------------
+ServerItemHandler.OnEndReload = function(self, hPlayer, hWeapon)
+
+    if (not hWeapon) then
+        return
+    end
+
+    local sWeapon = hWeapon and hWeapon.class
+    local sAmmo   = hWeapon and hWeapon.weapon:GetAmmoType()
+
+    if (sAmmo == "scargrenade") then
+        if (self.DoubleGrenadeLauncher) then
+            Script.SetTimer(10, function()
+                hWeapon.weapon:SetAmmoCount("scargrenade", 2)
+            end)
+        end
+    end
 end
 
 ----------------------
@@ -608,7 +659,7 @@ ServerItemHandler.OnPlayerKilled = function(self, hShooter, hTarget, aHitInfo)
             if (hNearby:IsAlive() and not hNearby:IsSpectating()) then
                 if (g_gameRules.IS_PS) then
                     if (hNearby.id ~= hShooter.id) then
-                        if (hNearby:GetTeam() ~= hShooter:GetTeam()) then
+                        if (hNearby:GetTeam() ~= g_pGame:GetTeam(hShooter.id)) then
                             if (hNearby:GetTeam() == hTarget:GetTeam()) then
                                 table.insert(aNearbyEnemies, hNearby)
                             end
@@ -644,7 +695,44 @@ ServerItemHandler.OnPlayerKilled = function(self, hShooter, hTarget, aHitInfo)
 end
 
 ----------------------
+ServerItemHandler.OnCollision = function(self, hEntity, aInfo)
+
+    --ServerLog(hEntity:GetName().."===="..table.tostring(aInfo))
+    local hTarget = aInfo.target
+    if (hEntity and hTarget) then
+        if (hEntity.vehicle and hTarget.class == "Door") then
+            if (hTarget.action ~= DOOR_OPEN and self.OpenDoorsOnCollision) then
+                SpawnEffect("explosions.Deck_sparks.VTOL_explosion", aInfo.pos, aInfo.normal, 0.1)
+                hTarget:Open(hEntity, DOOR_OPEN, true)
+            end
+            --ServerLog(hEntity:GetName() .. " ==>" .. hTarget:GetName())
+        end
+    end
+
+   -- ServerItemSystem:CheckCollision(hEntity, aInfo.target, aInfo)
+end
+
+----------------------
+ServerItemHandler.CheckVehicleHit = function(self, hVehicle, aHitInfo)
+
+    local hShooter = aHitInfo.shooter
+    if (hShooter and hShooter ~= aHitInfo.target and hShooter.IsPlayer and hShooter:IsSuperman() and aHitInfo.type == "melee") then
+        ServerUtils.AddImpulse(hVehicle, aHitInfo.dir, 9999999)
+    end
+end
+
+----------------------
 ServerItemHandler.CheckHit = function(self, aHitInfo)
+
+    --ServerLog("Shooter    ==> " .. EntityName(aHitInfo.shooterId))
+    --ServerLog("ShooterID  ==> " .. g_ts(aHitInfo.shooterId))
+    --ServerLog("Target     ==> " .. EntityName(aHitInfo.targetId))
+    --ServerLog("TargetID   ==> " .. g_ts(aHitInfo.targetId))
+    --ServerLog("Weapon     ==> " .. EntityName(aHitInfo.weaponId))
+    --ServerLog("WeaponID   ==> " .. g_ts(aHitInfo.weaponId))
+   -- --ServerLog("Damage     ==> " .. g_ts(aHitInfo.damage))
+    --ServerLog("Pos        ==> " .. Vec2Str(aHitInfo.dir))
+    --ServerLog("Dir        ==> " .. Vec2Str(aHitInfo.pos))
 
     -----------
     local hShooter = GetEntity(aHitInfo.shooterId)
@@ -655,9 +743,39 @@ ServerItemHandler.CheckHit = function(self, aHitInfo)
 
     if (hShooter) then
 
+        local hCMParent = hShooter.VehicleCMParent
+        if (hShooter.vehicle and hCMParent and GetEntity(hCMParent)) then
+            aHitInfo.shooterId = hCMParent.id
+            aHitInfo.shooter = hCMParent
+            if (aHitInfo.weaponId == hCMParent.id) then
+                aHitInfo.weaponId = hCMParent.id
+                aHitInfo.weapon = hCMParent
+            end
+        end
+
+        local hOwner = GetEntity(hShooter.OwnerID)
+        if (hOwner) then
+            local hNewWeapon = GetEntity(hShooter.OwnerWeapon) or hOwner
+            aHitInfo.shooterId = hOwner.id
+            aHitInfo.shooter = hOwner
+            aHitInfo.weaponId = hNewWeapon.id
+            aHitInfo.weapon = hNewWeapon
+
+            if (hOwner.id == aHitInfo.targetId) then
+                aHitInfo.damage = 0
+                Debug("blocked object kill hit")
+            end
+            Debug("swap owner")
+        end
+
         -- we need extended god mode to kill in god mode..
-        if (hShooter.IsPlayer and hShooter:HasGodMode(1) and not hShooter:HasGodMode(2)) then
-            aHitInfo.damage = 0
+        if (hShooter.IsPlayer) then
+            if (hShooter:HasGodMode(1) and not hShooter:HasGodMode(2)) then
+                aHitInfo.damage = 0
+            end
+            if (hShooter ~= hTarget and aHitInfo.type == "melee" and hShooter:IsSuperman()) then
+                ServerUtils.AddImpulse(aHitInfo.target, aHitInfo.dir, 9999999, 99999)
+            end
         end
 
         if (hTarget.IsPlayer and hTarget:HasGodMode()) then
@@ -670,6 +788,13 @@ ServerItemHandler.CheckHit = function(self, aHitInfo)
 
         if (hShooter.IsPlayer and hTarget and hTarget.id ~= hShooter.id and hTarget.IsPlayer and (hTarget:GetTeam() == hShooter:GetTeam()) and (hShooter:IsTesting() or g_gameRules.IS_PS)) then
             PluginSaveCall("PlayerVoices", "ProcessEvent", hTarget, eVE_FriendlyFire)
+        end
+    end
+
+    if (hTarget and hTarget.IsPlayer and hShooter) then
+        if (aHitInfo.damage > 50 and hShooter.vehicle and ((hTarget.ExitVehicleID == hShooter.id and not hTarget.ExitVehicleTimer.expired()) or hShooter:GetSpeed() == 0)) then
+            Debug("blocked vehicle kill hit!")
+            aHitInfo.damage = 0
         end
     end
 
@@ -840,7 +965,7 @@ ServerItemHandler.OnProjectileExplosion = function(self, pWeapon, sWeapon, sProj
         end
     end
 
-    self:UpdateExplosionEffects(sWeapon, sProjectile, vPos, vNormal)
+    self:UpdateExplosionEffects(pWeapon, sWeapon, nProjectile, sProjectile, vPos, vNormal)
 
     local aReturn = {
         RemoveProjectile = bDelete,
@@ -852,13 +977,16 @@ end
 
 
 ----------------------
-ServerItemHandler.UpdateExplosionEffects = function(self, sWeapon, sProjectile, vPos, vNormal)
+ServerItemHandler.UpdateExplosionEffects = function(self, pWeapon, sWeapon, nProjectile, sProjectile, vPos, vNormal)
+
+    local hShooterID = ServerDLL.GetProjectileOwnerId(nProjectile)
+    local hShooter = GetEntity(hShooterID)
 
     if (not self.ExplosionEffects) then
         return
     end
 
-    local aHit = RWI_GetHit(vPos, g_Vectors.down, 5)
+    local aHit = RWI_GetHit(vector.modifyz(vPos,99), g_Vectors.down, 5)
     if (not aHit) then
         return
     end
@@ -880,11 +1008,13 @@ ServerItemHandler.UpdateExplosionEffects = function(self, sWeapon, sProjectile, 
                 "scargrenade"
             }
             if ((table.findv(aClasses, sWeapon) or table.findv(aClasses, sProjectile)) and not IsPointUnderwater(vPos)) then
-                ClientMod:OnAll(string.format([[g_Client:ExplosionEffect({x=%f,y=%f,z=%f},{x=%f,y=%f,z=%f})]],
-                        vPos.x, vPos.y, vPos.z,
-                        vNormal.x, vNormal.y, vNormal.z
-                ))
-                bCraterSpawned = true
+                if (aHit.entity == nil) then
+                    ClientMod:OnAll(string.format([[g_Client:ExplosionEffect({x=%f,y=%f,z=%f},{x=%f,y=%f,z=%f})]],
+                            aHit.pos.x, aHit.pos.y, aHit.pos.z,
+                            vNormal.x, vNormal.y, vNormal.z
+                    ))
+                    bCraterSpawned = true
+                end
             end
         end
 
@@ -921,6 +1051,9 @@ ServerItemHandler.UpdateExplosionEffects = function(self, sWeapon, sProjectile, 
                     Script.SetTimer(1, function()
                         hRock:AddImpulse(-1, hRock:GetPos(), vector.scaleInPlace(vNormal, 1), 300, 1)
                     end)
+
+                    hRock.OwnerWeapon = pWeapon.id
+                    hRock.OwnerID = hShooterID
                     hRock.DamageMultiplier = 50
                     g_pGame:ScheduleEntityRemoval(hRock.id, math.random(8,14), false)
                 end)
@@ -1063,9 +1196,45 @@ ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, hAmmo, sAmmo, vPos
     if (hShooter and hShooter.IsPlayer) then
         hShooter.Info.FiringTimer.refresh()
         if (hShooter:IsTesting()) then
-            self:UpdateExplosionEffects(hWeapon and hWeapon.class or "", "rocket", vHit, vDir)
+            self:UpdateExplosionEffects(hWeapon, hWeapon and hWeapon.class or "", hAmmo, sAmmo, vHit, vDir)
+            --self:UpdateExplosionEffects(hWeapon and hWeapon.class or "", "rocket", vHit, vDir)
+
+
+            ServerItemSystem:SpawnProjectile({
+                ID = hShooter.dev_test_ammo or "hellfire",
+                Pos = vector.add(vector.copy(vPos), vector.scale(vDir, 1.2)),
+                Dir = vDir,
+                Owner = hShooter,
+                Weapon = hWeapon
+            })
         end
     end
+
+    local hParent = hWeapon and hWeapon:GetParent()
+    if (hParent and hParent.vehicle) then
+        hParent.FiringTimer.refresh()
+        hParent:FireHeliMGs(hShooter, true)
+    end
+
+
+    -----------
+    --Debug(hWeapon.class)
+
+    --explosions.AA_TracerFire2.AA_harbor
+    --explosions.AA_TracerFire2.Large
+
+    --[[
+    if (self.AATracers and (hWeapon and hWeapon.class == "AACannon")) then
+        if (timerexpired(hWeapon.TracerTimer, 2)) then
+            ClientMod:OnAll(string.format("g_Client:AA_TRACER(%d,\"%s\",\"%s\")",
+                -1, hWeapon:GetName(), table.random({"explosions.AA_TracerFire2.Large"})
+            ))
+            hWeapon.TracerTimer = timerinit()
+        end
+       -- Debug("trace")
+       -- Debug("hWeapon:GetName()",hWeapon:GetParent():GetName())
+    end
+    ]]--Debug("hWeapon:GetName()",hWeapon:GetName())
 
     -----------
     --- check only weapons

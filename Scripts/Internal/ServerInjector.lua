@@ -117,6 +117,7 @@ ServerInjector.Inject = function(aParams, aInfo)
     local sTarget   = aParams.Target
     local fFunction = aParams.Function
     local iType     = (aParams.Type or eInjection_Replace)
+    local bCallFunc      = (aInfo.Execute or aParams.Execute)
     local bPatchEntities = aInfo.PatchEntities
 
     if (hEntity) then
@@ -134,6 +135,10 @@ ServerInjector.Inject = function(aParams, aInfo)
         if (sFile) then
             ServerLog("Reloading %s..",sFile)
             Script.ReloadScript(sFile, 1, 1)
+        end
+
+        if (_G[sEntity] == nil) then
+            return HandleError("failed to load script %s", g_ts(sFile or "<null>"))
         end
         --return
     end
@@ -181,6 +186,9 @@ ServerInjector.Inject = function(aParams, aInfo)
                     end
                 else
                     Replace(sTarget, hEnt, fFunction)
+                end
+                if (bCallFunc) then
+                    fFunction(hEnt)
                 end
             end
         end

@@ -10,6 +10,61 @@ local ServerPlayer = {
     end,
 
     ---------------------------------------------
+    --- Server.OnUpdate
+    ---------------------------------------------
+    {
+
+        Class = "Player",
+        Target = { "Server.OnUpdate" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, iFrameTime)
+
+            BasicActor.Server.OnUpdate(self,iFrameTime)
+
+            --FIXME:temporary
+            if (self.stopEPATime and self.stopEPATime < 0) then
+                self.actor:SetParams({followCharacterHead = 0,})
+                self.actor:SetMovementTarget(g_Vectors.v000,g_Vectors.v000,g_Vectors.v000,1)
+                self.stopEPATime = nil
+                self.hostageID = nil
+                self:HolsterItem(false)
+
+            elseif (self.stopEPATime) then
+                self.stopEPATime = self.stopEPATime - iFrameTime
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- OnInit
+    ---------------------------------------------
+    {
+
+        Class = "Player",
+        Target = { "OnInit" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self)
+
+            --	AI.RegisterWithAI(self.id, AIOBJECT_PLAYER, self.Properties)
+            self:SetAIName(self:GetName())
+            ----------------------------------------
+
+            --	self:InitSounds()
+            self:OnReset(true)
+            --self:SetTimer(0,1)
+
+            if (not self.actor:IsPlayer()) then
+                ServerStats:SetEntityUpdateRate(self)
+            end
+            ServerLog("%s.OnInit >> ",self:GetName())
+        end
+    },
+
+    ---------------------------------------------
     --- DoPainSounds
     ---------------------------------------------
     {
@@ -38,19 +93,6 @@ local ServerPlayer = {
                 return;
             end
 
-            if (aHitInfo.damage >= 1) then
-                if (g_gameRules and aHitInfo.target and aHitInfo.target.actor and aHitInfo.target.actor:IsPlayer()) then
-                    if(not aHitInfo.shooterId == nil or (aHitInfo.damage > 3.0)) then
-                        g_gameRules.game:SendDamageIndicator(aHitInfo.targetId, aHitInfo.shooterId or NULL_ENTITY, aHitInfo.weaponId or NULL_ENTITY);
-                    end
-                end
-                if (aHitInfo.shooter and aHitInfo.shooter.actor and aHitInfo.shooterId~=aHitInfo.targetId and aHitInfo.shooter.actor:IsPlayer()) then
-                    if (g_gameRules) then
-                        g_gameRules.game:SendHitIndicator(aHitInfo.shooterId,aHitInfo.explosion~=nil)
-                    end
-                end
-            end
-
 
             if (self:IsOnVehicle() and aHitInfo.type~="heal") then
                 local vehicle = System.GetEntity(self.actor:GetLinkedVehicleId());
@@ -76,11 +118,24 @@ local ServerPlayer = {
             --	Log("OnHit >>>>>>>>> "..self:GetName().."   damage: "..hit.damage);
 
             local died = g_gameRules:ProcessActorDamage(aHitInfo);
-
             if (died and not isPlayer and (aHitInfo.type == "collision" or aHitInfo.explosion == true)) then
 
                 if (self.lastHit and aHitInfo) then
                     self:LastHitInfo(self.lastHit, aHitInfo);
+                end
+            end
+
+
+            if (aHitInfo.damage >= 1) then
+                if (g_gameRules and aHitInfo.target and aHitInfo.target.actor and aHitInfo.target.actor:IsPlayer()) then
+                    if(not aHitInfo.shooterId == nil or (aHitInfo.damage > 3.0)) then
+                        g_gameRules.game:SendDamageIndicator(aHitInfo.targetId, aHitInfo.shooterId or NULL_ENTITY, aHitInfo.weaponId or NULL_ENTITY);
+                    end
+                end
+                if (aHitInfo.shooter and aHitInfo.shooter.actor and aHitInfo.shooterId~=aHitInfo.targetId and aHitInfo.shooter.actor:IsPlayer()) then
+                    if (g_gameRules) then
+                        g_gameRules.game:SendHitIndicator(aHitInfo.shooterId,aHitInfo.explosion~=nil)
+                    end
                 end
             end
 
@@ -170,7 +225,7 @@ local ServerPlayer = {
                 self:SelectItem(sOldClass)
                 local sMsg = self:GetEquipReason()
                 if (sMsg) then
-                    SendMsg(MSG_CENTER, self, Logger:Format(sMsg, { ["weapon"] = sOldClass }))
+                    SendMsg(MSG_CENTER, self, Logger.Format(sMsg, { ["weapon"] = sOldClass }))
                 end
             end
 

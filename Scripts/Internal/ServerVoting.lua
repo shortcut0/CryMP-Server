@@ -124,7 +124,7 @@ ServerVoting.StartVote = function(self, hUser, sName, sArg, ...)
         RequiredPercent = aVote.RequiredPercent or 51,
         RequiredYes = aVote.RequiredYes or 1,
 
-        EndTime = 1,
+        EndTime = 60,
 
         Timer = timernew(),
         MessageTimer = timernew(9.9)
@@ -186,12 +186,13 @@ ServerVoting.Tick = function(self, bForceMessage)
 
         if (aCurrent.Timer.expired(aCurrent.EndTime)) then
             --Debug("vote time bad")
+            Debug("stop now!")
             self:StopVote()
         elseif (aCurrent.MessageTimer.expired()) then
             self:VoteMessage()
             aCurrent.MessageTimer.refresh()
         end
-    else
+    elseif (not aCurrent.Reset) then
         self:ResetVote()
     end
 end
@@ -203,12 +204,15 @@ ServerVoting.ResetVote = function(self)
     g_pGame:SetSynchedGlobalValue(801, 1) -- vote ENDED
     g_pGame:SetSynchedGlobalValue(810, "ENDED") -- REMAINING TIME
 
+    ServerLog("end!")
+
     Script.SetTimer(2500, function()
         g_pGame:SetSynchedGlobalValue(801, 0) -- vote ENDED
     end)
 
     self.ActiveVote = {
-        Active = false
+        Active = false,
+        Reset  = true
     }
 
     for _, hPlayer in pairs(GetPlayers()) do

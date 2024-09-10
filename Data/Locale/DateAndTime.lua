@@ -96,3 +96,50 @@ CreateLocalization("l_ui_today", {
     spanish = "Hoy",
     czech = "Dnes"
 })
+
+
+CreateLocalization("l_ui_time", {
+    english = "Time",
+    czech   = "Cas",
+    german  = "Zeit",
+    spanish = "Tiempo",
+    turkish = "Zaman",
+    russian = "Vremya",
+})
+
+CreateLocalization("l_ui_time_d", {
+    english = "The time for the Action (eg. 5m10s, 1h30m)",
+    czech   = "Cas pro akci (napr. 5m10s, 1h30m)",
+    german  = "Die Zeit fur die Aktion (z. B. 5m10s, 1h30m)",
+    spanish = "El tiempo para la accion (por ejemplo, 5m10s, 1h30m)",
+    turkish = "Eylem icin sure (ornegin, 5m10s, 1h30m)",
+    russian = "Vremya dlya deistviya (naprimer, 5m10s, 1h30m)",
+})
+
+CreateLocalization("l_ui_timeofday", {
+    english = "Time of Day",
+    german = "Tageszeit",
+    spanish = "Hora del dia",
+    russian = "Vremya dnya",
+    turkish = "Gun Saati",
+    czech = "Cas dne",
+    french = "Heure du jour"
+})
+
+CreateLocalization("l_ui_TODChanged", {
+    english = "(Time Of Day : ${1}${2})",
+    german = "(Tageszeit : ${1}${2})",
+    spanish = "(Hora del dia : ${1}${2})",
+    russian = "(Vremya dnya : ${1}${2})",
+    turkish = "(Gun Saati : ${1}${2})",
+    czech = "(Cas dne : ${1}${2})",
+    french = "(Heure du jour : ${1}${2})"
+})
+
+
+CreateLocalization("l_ui_am", {
+    english = "AM"
+})
+CreateLocalization("l_ui_pm", {
+    english = "PM"
+})

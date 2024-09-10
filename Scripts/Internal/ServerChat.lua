@@ -32,6 +32,7 @@ ServerChat.Init = function(self)
         { ID = "DEBUG",     Name = "Server-Debug" },
         { ID = "EQUIP",     Name = "Server-Equip" },
         { ID = "VOTING",    Name = "Voting" },
+        { ID = "DEFENSE",   Name = "Defense" },
     }
 
     ----------
@@ -95,6 +96,9 @@ ServerChat.Init = function(self)
     self.ForbiddenWords = ConfigGet("Messages.Chat.ForbiddenWords", {
         "gay", "shit", "fuck", "bitch"
     }, eConfigGet_Array)
+
+    -- limit to 15.. this shouldnt be done anyway..
+    self.ChatFilterMatchingLevel = math.max(0, math.min(15, ConfigGet("Messages.Chat.FilterAggressiveness", 2, eConfigGet_Number)))
 
     --------------
     LinkEvent(eServerEvent_ScriptUpdate, "ServerChat", "OnUpdate")
@@ -171,7 +175,8 @@ ServerChat.DeleteChatEntities = function(self)
         hEntity     = GetEntity(aInfo.Entity)
         sEntityID   = string.format("SV_CHAT_ENTITY_%s", aInfo.ID)
         if (hEntity and hEntity.IsChatEntity and hEntity.ChatName) then
-            RemoveEntity(hEntity.id)
+            ServerLog("Deleted [%s]", hEntity:GetName())
+            System.RemoveEntity(hEntity.id)
         end
 
         _G[sEntityID] = nil
@@ -220,6 +225,7 @@ end
 ServerChat.FilterMessage = function(self, sMessage)
 
     local aForbidden = self.ForbiddenWords
+    local iMatchDots = self.ChatFilterMatchingLevel
 
     local function getVariations(char)
         local map = ({
@@ -237,10 +243,12 @@ ServerChat.FilterMessage = function(self, sMessage)
     local function createPattern(word)
         local pattern = ""
         local sVars = ""
+        local sDots = ""
         for i = 1, #word do
             local c = word:sub(i, i)
             sVars = getVariations(c)
-            pattern = pattern .. string.format("[%s%s%s]+", c:lower(), c:upper(), sVars)
+            sDots = string.rep(".?", iMatchDots)
+            pattern = pattern .. string.format("[%s%s%s]+%s", c:lower(), c:upper(), sVars, sDots)
         end
         return pattern
     end
@@ -269,6 +277,8 @@ ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage,
         ShowMessage = true,
         NewMessage  = sMessage
     }
+
+  --  do return aReturn end
 
     local hSender = GetEntity(iSenderID)
     local hTarget = GetEntity(iTargetID)
@@ -555,15 +565,19 @@ ServerChat.SendChatMessage = function(self, iType, aTargetList, sMessage, ...)
         iRealType = ChatToTeam
     end
 
-    local sLocalized, sExtended
-    local sFinalMsg
-
     if (iRealType == nil) then
         error("bad type!")
     end
 
     local aFormat = { ... }
     local function fSendTo(hClient)
+
+        if (not isArray(hClient)) then
+            throw_error("bad client to fSendTo")
+        end
+
+        local sLocalized, sExtended
+        local sFinalMsg
 
         -- FIXME: use localize nest??
         -- tried.. its hard..
@@ -590,6 +604,9 @@ ServerChat.SendChatMessage = function(self, iType, aTargetList, sMessage, ...)
         if (not aInfo.IgnoreID or (aInfo.IgnoreID ~= hClient.id)) then
 
             -- FIXME: Some client could be used as the chat entity, in case of loggin, add something to prevent recursion!!
+            --ServerLog("aInfo.Entity=%s",g_ts(aInfo))
+            --ServerLog("hClient=%s",g_ts(hClient))
+            --ServerLog("hClient=%s",g_ts(hClient:GetName()))
             g_pGame:SendChatMessage(iRealType, aInfo.Entity.id, hClient.id, (sFinalMsg or sMessage), iForcedTeam)
 
             -- FIXME: Proper logging
@@ -611,3 +628,6 @@ ServerChat.SendChatMessage = function(self, iType, aTargetList, sMessage, ...)
         end
     end
 end
+
+---------------
+Server.Register(ServerChat, "ServerChat")

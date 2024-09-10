@@ -111,7 +111,7 @@ AddCommand({
     Properties = {
         Cooldown = 10,
     },
-    Function = function(self) return ClientMod:RequestCharacter(self, CM_TURTLE) end
+    Function = function(self) return ClientMod:RequestCharacter(self, CHAR_TURTLE) end
 })
 
 ------------
@@ -122,7 +122,7 @@ AddCommand({
     Properties = {
         Cooldown = 10,
     },
-    Function = function(self) return ClientMod:RequestCharacter(self, CM_SHARK) end
+    Function = function(self) return ClientMod:RequestCharacter(self, CHAR_SHARK) end
 })
 
 ------------
@@ -133,7 +133,7 @@ AddCommand({
     Properties = {
         Cooldown = 10,
     },
-    Function = function(self) return ClientMod:RequestCharacter(self, CM_TURTLE) end
+    Function = function(self) return ClientMod:RequestCharacter(self, CHAR_TROOPER) end
 })
 
 ------------
@@ -144,7 +144,7 @@ AddCommand({
     Properties = {
         Cooldown = 10,
     },
-    Function = function(self) return ClientMod:RequestCharacter(self, CM_CRAB) end
+    Function = function(self) return ClientMod:RequestCharacter(self, CHAR_CRAB) end
 })
 
 ------------

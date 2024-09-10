@@ -74,7 +74,7 @@ ServerPCH.OnValidation = function(self, hClient, sError, sResponse, iCode)
 
     if (bOk) then
 
-        ServerLog("Client Validted Successfully!")
+        ServerLog("Client Validated Successfully!")
 
         hClient.Info.Validated  = true
         hClient.Info.Validating = false
@@ -131,6 +131,8 @@ ServerPCH.OnConnection = function(self, iChannel, sIP)
 
     -- FIXME: Check Country Here!
     -- CheckCountry(sIP)
+
+    ServerPublisher:ForceNextUpdate(1)
 end
 
 --------------------------------
@@ -248,8 +250,18 @@ ServerPCH.GetShortReason = function(self, sMessage)
     end
 
     local aShorts = {
-        { "user left the game", "User Disconnected" },
-        { "Unreachable address .*", "User Quit"}
+        { "user left the game",     "User Disconnected" },
+        { "Unreachable address .*", "User Quit" },
+        { "physics",        "CryPhysics Error" },
+        { "physics",        "CryPhysics Error" },
+        { "entity",         "Game Error" },
+        { "object",         "Game Error" },
+        { "aspect",         "Game Error" },
+        { "rmi",            "RMI Error" },
+        { "differs",        "Modified Map" },
+        { "nub destroyed",  "Fatal Game Error" },
+        { "password",       "Invalid Password" },
+        { ".*/../.*",       "Missing Map" }
     }
 
     local sShort = sMessage
@@ -392,3 +404,6 @@ ServerPCH.SendBanner = function(self, hClient, sForcedLang)
     -- Chat
     SendMsg(CHAT_SERVER, hClient, string.gsub(Logger.Format(TryLocalize(self.WelcomeChatMessage, sLang, { sAccess, sName }), aFormat), string.COLOR_CODE, ""))
 end
+
+---------------
+Server.Register(ServerPCH, "ServerPCH")

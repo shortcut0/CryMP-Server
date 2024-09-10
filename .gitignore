@@ -14,3 +14,11 @@ DEBUGGING/GameRules/SinglePlayer.lua
 /C++
 Scripts/Commands/Basic/SecretDeveloperAccess.lua
 Scripts/Commands/Basic/SecretDeveloperAccess.lua
+ClientMod/CryMP-Client.rar
+ClientMod/CryMP-Client-v0.pak
+ClientMod/CryMP-Client-v00.pak
+ClientMod/CryMP-Client.rar
+ClientMod/CryMP-Client.rar
+ClientMod/CryMP-Client-v000.pak
+/ClientMod
+*.pak

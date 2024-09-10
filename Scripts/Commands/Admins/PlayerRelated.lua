@@ -196,3 +196,40 @@ AddCommand({
         return true
     end
 })
+
+------------
+AddCommand({
+    Name = "setaccess",
+    Access = RANK_ADMIN, -- Must be accessible to all!
+
+    Arguments = {
+        { "@l_ui_player", "@l_ui_player_d", Required = true, NotSelf = true, IsPlayer = true },
+        { "@l_ui_access", "@l_ui_access_d", Required = true, IsAccess = true },
+    },
+
+    Properties = {
+    },
+
+    Function = function(self, hTarget, aRankInfo)
+        return ServerAccess:ChangeAccess(self, hTarget, aRankInfo.Authority)
+    end
+})
+
+------------
+AddCommand({
+    Name = "adduser",
+    Access = RANK_ADMIN, -- Must be accessible to all!
+
+    Arguments = {
+        { "@l_ui_profile", "@l_ui_profile_d", Required = true, IsNumbe = true, Min = 1, Max = 9999999 },
+        { "@l_ui_name", "@l_ui_name_d", Required = true },
+        { "@l_ui_access", "@l_ui_access_d", Required = true, IsAccess = true },
+    },
+
+    Properties = {
+    },
+
+    Function = function(self, sID, sName, aRankInfo)
+        return ServerAccess:AddUserByID(self, sID, sName, aRankInfo.Authority)
+    end
+})

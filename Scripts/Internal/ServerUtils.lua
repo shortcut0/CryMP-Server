@@ -133,6 +133,56 @@ end
 
 ----------------
 
+ServerUtils.IsEntityUnderwater = function(hEntity, iThreshold)
+    return IsPointUnderwater(hEntity:GetPos(), iThreshold)
+end
+
+----------------
+
+ServerUtils.IsEntityUnderground = function(hEntity, iThreshold)
+    return IsPointUnderground(hEntity:GetPos(), iThreshold)
+end
+
+----------------
+
+ServerUtils.EntityName = function(hID, hDefault)
+    local hEntity = GetEntity(hID)
+    if (hEntity) then
+        return (hEntity:GetName() or hDefault)
+    end
+    return (hDefault or "")
+end
+
+----------------
+
+ServerUtils.AddImpulse = function(hEntity, vDir, iStrength, iPlayerStrength)
+
+    if (not hEntity) then
+        return
+    end
+
+    local bClient = false
+    local hClient = hEntity
+    if (hEntity.vehicle) then
+        hClient = hEntity:GetDriver()
+    end
+
+    if (hClient and hClient.IsPlayer) then
+        hClient:Execute(string.format([[local g=g_localActor;g:AddImpulse(-1,g:GetCenterOfMassPos(),{x=%f,y=%f,z=%f},%f,1)]],
+            vDir.x, vDir.y, vDir.z,
+            math.min(99999, iPlayerStrength or iStrength) -- low mass objects (like players) cannot take such huge impulses
+        )) bClient = true
+    end
+
+    if (not bClient) then
+        hEntity:AddImpulse(-1, hEntity:GetCenterOfMassPos(), vDir, iStrength, 1)
+        Debug("impulse")
+    end
+
+end
+
+----------------
+
 ServerUtils.PlaySound = function(aParams)
 
     --Debug(aParams.File)
@@ -158,7 +208,7 @@ ServerUtils.SpawnGUI = function(aParams)
 
     local sName = "gui_" .. UpdateCounter(eCounter_Spawned)
 
-    sName = string.format("%s,Model={%s}",   sName, aParams.Model)
+    sName = string.format("%s,Model={%s}",   sName, aParams.Model or "")--, aParams.ModelSlot2 or "")
     sName = string.format("%s,Resting={%d}", sName, (aParams.Resting == true and 1 or 0))
     sName = string.format("%s,Physics={%d}", sName, (aParams.Physics == true and 1 or 0))
     sName = string.format("%s,Rigid={%d}",   sName, ((aParams.Rigid == false or aParams.Static == true) and 0 or 1))
@@ -167,17 +217,27 @@ ServerUtils.SpawnGUI = function(aParams)
     sName = string.format("%s,Use={%d}",     sName, (aParams.Usable and 1 or 0))
     sName = string.format("%s,Scale={%f}",   sName, (aParams.Scale or 1))
     sName = string.format("%s,Sound={%s}",   sName, (aParams.Sound or ""))
-    sName = string.format("%s,PProps={%s}",   sName, (aParams.Effect or ""))
+    sName = string.format("%s,PProps={%s}",  sName, (aParams.Effect or ""))
+    sName = string.format("%s,UseM={%s}",     sName, (aParams.Usability or ""))
 
+   -- ServerLog(sName)
     -- name = "xyz,Model={file.cfg}Physics={1},Mass={69},Rigid={1},Resting={0}"
     local hGUI = System.SpawnEntity({
         class = "GUI",
         name = sName,
-        properties = {},
+        properties = {
+            ServerModel = aParams.ServerModel
+        },
         position = aParams.Pos,
         orientation = aParams.Dir,
         fMass = (aParams.Mass or 0)
     })
+
+
+    if (aParams.Dir) then
+        hGUI:SetAngles(vector.toang(aParams.Dir))
+    end
+    hGUI:SetPhysicParams(PHYSICPARAM_SIMULATION, { mass = (aParams.Mass or 0), density = nil })
     --SpawnEffect(ePE_Light,aParams.Pos)
 
     hGUI.HitConfig = aParams.HitCfg
@@ -361,6 +421,15 @@ end
 
 ----------------
 
+ServerUtils.GetVehiclePaints = function(sClass)
+    local aPaintJobs = {
+        ["Civ_car1"] = { "black", "blue", "green", "police", "red", "silver", "utility" }
+    }
+    return aPaintJobs[sClass]
+end
+
+----------------
+
 ServerUtils.GetVehicleClasses = function()
     return ServerDLL.GetVehicleClasses()
 end
@@ -497,7 +566,7 @@ ServerUtils.ListToConsole = function(aParams)
 
         sLine = sLine .. "$1(" .. string.lspace((bPIndex and g_ts(i) or iCurrent), string.len(iTotal)) .. ". $9" .. string.rspace(sItem, iWidth) .. "$1)" .. (iCurrent == iTotal and "" or " ")
         if (iCurrent % iItems == 0 or iCurrent == iTotal) then
-            SendMsg(MSG_CONSOLE, hPlayer, "$9[ " .. string.rspace(sLine, (iBoxWidth - 4), string.COLOR_CODE)  .. " $9]")
+            SendMsg(MSG_CONSOLE, hPlayer, "$9[ " .. string.mspace(string.rspace(string.ridtrail(sLine, "%s", 1), (iBoxWidth - 4), string.COLOR_CODE), iBoxWidth - 4, nil, string.COLOR_CODE)  .. " $9]")
             sLine = ""
         else
 
@@ -508,18 +577,29 @@ end
 
 ----------------
 
-ServerUtils.GetFacingPos = function(hEntityID, iFace, iDistance, iFollowType, iFollowThreshold)
-
-
-    local hEntity = GetEntity(hEntityID)
-
-    local vPos    = hEntity:GetPos()
-    local vDir    = hEntity:GetDirectionVector()
-    if (hEntity.IsPlayer) then
-        vDir = hEntity:GetHeadDir()
-    end
+ServerUtils.GetFacingPos = function(hEntityID, iFace, iDistance, iFollowType, iFollowMax, iFollowMin)
 
     iDistance = (iDistance or 1.5)
+
+    local hEntity = GetEntity(hEntityID)
+    local vPos    = hEntity:GetPos()
+    -- fixme
+    --[[
+    if (vPos.z < 0) then vPos.z = 0 end
+    if (vPos.y < 0) then vPos.y = 0 end
+    if (vPos.x < 0) then vPos.x = 0 end
+    if (vPos.z > 10000) then vPos.z = 10000 end
+    if (vPos.y > 10000) then vPos.y = 10000 end
+    if (vPos.x > 10000) then vPos.x = 10000 end
+
+    if (iDistance == 0) then iDistance = 1 end
+]]
+    local vDir    = hEntity:GetDirectionVector(1)
+    if (hEntity.IsPlayer) then
+        vDir = hEntity:SmartGetDir(1)
+        Debug(Vec2Str(vDir))
+    end
+
     if (iFace == eFacing_Front) then
         vDir = vector.scaleInPlace(vDir, iDistance)
 
@@ -541,7 +621,9 @@ ServerUtils.GetFacingPos = function(hEntityID, iFace, iDistance, iFollowType, iF
     end
 
 
-    vector.fastsum(vPos,vPos,vDir)
+    ServerLog("pos before%s",Vec2Str(vPos))
+    vector.fastsum(vPos, vPos, vDir)
+    ServerLog("%s",Vec2Str(vPos))
 
     local iFollowed
     local iGround = System.GetTerrainElevation(vPos)
@@ -549,34 +631,37 @@ ServerUtils.GetFacingPos = function(hEntityID, iFace, iDistance, iFollowType, iF
     local iDiff
     if (iFollowType == eFollow_Terrain) then
         if (iGround) then
-            iDiff = (vPos.z - iGround)
-            if (iFollowThreshold == nil or iDiff < iFollowThreshold) then
+            iDiff = (iGround - vPos.z)
+           -- Debug("tdiff",iDiff,iFollowMax,iFollowMin)
+            if ((iFollowMax == nil or iDiff < iFollowMax) and (iFollowMin == nil or iDiff > iFollowMin)) then
                 vPos.z = iGround
+               -- Debug(">>now",Vec2Str(vPos))
                 iFollowed = eFollow_Terrain
             end
         end
 
     elseif (iFollowType == eFollow_Water) then
         if (iWater) then
-            iDiff = (vPos.z - iWater)
-            if (iFollowThreshold == nil or iDiff < iFollowThreshold) then
+            iDiff = (iWater - vPos.z)
+            if (iFollowMax == nil or iDiff < iFollowMax and (iFollowMin == nil or iDiff > iFollowMin)) then
                 vPos.z = iWater
                 iFollowed = eFollow_Water
             end
         end
 
     elseif (iFollowType == eFollow_Auto) then
-        local iFollow = math.max(iGround, iWater)
+        local iFollow = math.max(iGround or 0, iWater or 0)
         if (iFollow) then
-            iDiff = (vPos.z - iFollow)
-            if (iFollowThreshold == nil or iDiff < iFollowThreshold) then
+            iDiff = iFollow - vPos.z--math.abs()
+           -- Debug("auto",iDiff,"w",iWater,"g",iGround)
+            if (iFollowMax == nil or iDiff < iFollowMax and (iFollowMin == nil or iDiff > iFollowMin)) then
                 vPos.z = iFollow
-                iFollowed = ((iGround > iWater) and eFollow_Terrain or eFollow_Water)
+                iFollowed = (((iGround or 0) > (iWater or 0)) and eFollow_Terrain or eFollow_Water)
             end
         end
 
     end
-    return vPos, iFollowed
+    return vector.modifyz(vPos, 0.15), iFollowed
 end
 
 ----------------
@@ -607,6 +692,51 @@ ServerUtils.GetOtherTeam = function(iTeam)
     end
 
     throw_error("INVALID team. learn to code.")
+end
+
+----------------
+ServerUtils.FindItemByClass = function(hClient, sClass)
+
+    local aItems = GetItemClasses(1)
+    local iItems = table.size(aItems)
+    if (iItems == 0) then
+        return nil, hClient:Localize("@l_ui_noItemsFound")
+    end
+
+    local aFound
+    if (sClass) then
+        aFound = table.it(aItems, function(x, i, v)
+            local t = x
+            local a = string.lower(v)
+            local b = string.lower(sClass)
+            if (a == b) then
+                return { v }, 1
+            elseif (string.len(b) > 1 and string.match(a, "^" .. b)) then
+                if (t) then
+                    table.insert(t, v)
+                    return t
+                end
+                return { v }
+            end
+            return t
+        end)
+
+        if (table.count(aFound) == 0) then aFound = nil end
+    end
+
+    if (sClass == nil or (not aFound or table.count(aFound) > 1)) then
+        ListToConsole({
+            Client      = hClient,
+            List        = (aFound or aItems),
+            Title       = hClient:Localize("@l_ui_itemList"),
+            ItemWidth   = 20,
+            PerLine     = 4,
+            Value       = 1
+        })
+        return nil, hClient:Localize("@l_ui_entitiesListedInConsole", { table.count((aFound or aItems)) })
+    end
+
+    return aFound[1]
 end
 
 ----------------
@@ -713,6 +843,9 @@ end
 ServerUtils.GetPlayer = function(hId, bGreedy, bNoChannel)
 
     if (isString(hId)) then
+
+        hId = string.escape(hId)
+
         local aFound = {}
         local aChanFound = {}
         local sId = string.lower(hId)
@@ -831,6 +964,10 @@ ServerUtils.GetPlayers = function(aParams)
                 if (hPlayer.id ~= aParams.ThisID) then
                     bInsert = false
                 end
+            end
+
+            if (aParams.Force and hPlayer.id == aParams.Force) then
+                bInsert = true
             end
         end
 
@@ -971,22 +1108,30 @@ ServerUtils.SvSpawnEntity = function(aParams)
     end
 
     -- Vehicles ?
-    aProperties.properties.Respawn  = {
-        nTimer		= g_gameRules.WEAPON_ABANDONED_TIME,
-        bUnique		= 0,
-        bRespawn	= (aParams.Respawn and 1 or 0),
-    }
+    aProperties.properties.Respawn  = (aProperties.properties.Respawn or {
+        nTimer = g_gameRules.WEAPON_ABANDONED_TIME,
+        bUnique = 0,
+        bRespawn = (aParams.Respawn and 1 or 0),
+    })
 
     local hLastSpawned
     local aEquip = aParams.Equipment
     local hItem
 
+    -- FIXME:
+    -- TEMPORARY
+    local iZAdd = 0
+    if (aProperties.class == "US_vtol") then
+        iZAdd = iZAdd + 5.5
+    end
+
     -- Apply timer by default because of Vehicles
     --Script.SetTimer(1, function()
-        local iZAdd = 0
         for i = 1, iCount do
 
-            aProperties.name = (sName .. UpdateCounter(eCounter_Spawned, 1))
+            if (not aParams.FixedName) then
+                aProperties.name = (sName .. UpdateCounter(eCounter_Spawned, 1))
+            end
 
             vSpawn = vector.modifyz(vSpawn, iZAdd)
             aProperties.position = vSpawn
@@ -994,6 +1139,9 @@ ServerUtils.SvSpawnEntity = function(aParams)
             local hEntity = SpawnEntity(aProperties)
 
             if (hEntity) then
+
+                hEntity.ServerSpawned = true
+
                 iZAdd = math.positive(vector.length(hEntity:GetLocalBBox()))
                 if (aTagList) then
                     table.it(aTagList, function(x, i, v) hEntity[i] = v  end)
@@ -1034,22 +1182,25 @@ ServerUtils.SvSpawnEntity = function(aParams)
 end
 
 ----------------
-ServerUtils.IsPointUnderwater = function(vPoint)
+ServerUtils.IsPointUnderwater = function(vPoint, iThreshold)
 
     local iWaterInfo = CryAction.GetWaterInfo(vPoint)
     if (iWaterInfo) then
-        return iWaterInfo > vPoint.z
+        local iDiff = iWaterInfo - vPoint.z
+        return (iDiff > (iThreshold or 0))
     end
 
     return false
 end
 
 ----------------
-ServerUtils.IsPointUnderground = function(vPoint)
+ServerUtils.IsPointUnderground = function(vPoint, iThreshold)
 
     local iTerrain = System.GetTerrainElevation(vPoint)
     if (iTerrain) then
-        return iTerrain > vPoint.z
+        local iDiff = iTerrain - vPoint.z
+        --Debug(iDiff, iThreshold)
+        return (iDiff > (iThreshold or 0))
     end
 
     return false
@@ -1103,14 +1254,20 @@ ServerUtils.GetEntitiesInFront = function(hEntityID, iType, iDistance, iRadius)
     iDistance     = iDistance or 5
     iRadius       = iRadius or 3
 
-    local vDir   = hEntity:GetDirectionVector(1)
+    local vDir   = hEntity:GetDirectionVector()
     local vStart = hEntity:GetPos()
 
     vector.add(vStart, vector.scaleInPlace(vDir, iDistance))
 
     local aCollected = {}
     if (iType == eGet_Physicalized) then
-        aCollected = System.GetPhysicalEntitiesInBox(vStart, iRadius)
+        aCollected = table.it(System.GetPhysicalEntitiesInBox(vStart, iRadius) or {}, function(x, i, v)
+            x = x or {}
+            if (v.GetMass and v:GetMass() >= 80) then
+                table.insert(x, v)
+            end
+            return x
+        end)
     else
         aCollected = System.GetEntitiesInSphere(vStart, iRadius)
     end
@@ -1124,7 +1281,7 @@ ServerUtils.GetEntitiesInFront = function(hEntityID, iType, iDistance, iRadius)
     end
 
     local aInfo = {
-        Indoors     = System.IsPointIndoors(vStart),
+        Indoors     = (not IsPointUnderground(vStart, 1) and System.IsPointIndoors(vStart)),
         Underwater  = IsPointUnderwater(vStart),
         Underground = IsPointUnderground(vStart),
 

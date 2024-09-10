@@ -1,6 +1,8 @@
 --------------
 ClientMod = (ClientMod or {
 
+    TransferredData = 0,
+
     JETPACKS_ENABLED = false,
 
     ModURL = "http://nomad.nullptr.one/~finch/CryMP-Client.lua",
@@ -43,7 +45,7 @@ eClientResp_CloseChat = 21
 
 eClientResp_WantEnterLastVehicle = 30
 
-eClientResp_ModifiedCVars = { 40, 50 }
+eClientResp_ModifiedCVars = { 45, 50 }
 
 eClientResp_MeleeAttack = 60
 eClientResp_StopMelee = 61
@@ -56,10 +58,40 @@ eClientResp_ChairEffectsOn = 68
 eClientResp_ChairEffectsOff = 69
 eClientResp_ChairRemove = 70
 
+eClientResp_JetModeOn = 71
+eClientResp_JetModeOff = 72
+
+eClientResp_DropItem = 73
+
+eClientResp_AttackStart = 74
+eClientResp_AttackStop = 75
+
 eClientResp_MCX = { 100, 107 }
 eClientResp_MCY = { 110, 117 }
 
+eClientResp_NumKeys = { 120, 129 }
+
+eClientResp_CheatStart = 33
+eClientResp_CheatSpeed = 34
+eClientResp_CheatFly = 35
+eClientResp_CheatPhys = 36
+eClientResp_CheatNoRecoil = 37
+eClientResp_CheatNoSpread = 38
+eClientResp_CheatFireRate = 39
+eClientResp_CheatEnd = 40
+
 ---------------
+
+CHAR_TROOPER    = 1
+CHAR_ALIEN      = 2
+CHAR_SHARK      = 3
+CHAR_CHICKEN    = 4
+CHAR_TURTLE     = 5
+CHAR_CRAB       = 6
+CHAR_FINCH      = 7
+CHAR_TERN       = 8
+CHAR_FROG       = 9
+CHAR_BUTTERFLY  = 10
 
 CM_NONE         = 0
 CM_DEFAULT      = 1
@@ -105,6 +137,7 @@ CM_FROG         = 40
 CM_ALIENWORK    = 41
 CM_BUTTERFLY    = 42
 CM_BOOBS        = 43
+CM_SNOWMAN        = 44
 CM_HEADLESS     = 1000
 
 HEAD_NONE = 0
@@ -153,6 +186,8 @@ VM_TANKER     = 38
 VM_SHARK      = 39
 VM_PALM       = 40
 VM_ROCK       = 41
+VM_DODGE69    = 42
+VM_MITSUBISHI = 43
 
 
 ---------------
@@ -173,6 +208,9 @@ ClientMod.UpdateClient = function(self, hClient)
         end
         hClient.Chair = nil
     end
+
+    hClient.inventory:SetAmmoCount("tagbullet", 0)
+    hClient.actor:SetInventoryAmmo("tagbullet", 0)
 end
 
 ---------------
@@ -183,10 +221,16 @@ ClientMod.InitClient = function(self, hClient)
     hClient.Execute       = function(this, sCode, ...) sCode = string.formatex(sCode, ...) ClientMod.ExecuteOn({ this }, sCode) end
     hClient.ExecuteOthers = function(this, sCode, ...) sCode = string.formatex(sCode, ...) ClientMod.ExecuteOn(GetPlayers({ NotID = this.id }), sCode) end
 
-    hClient.GetMapCoords  = function(this) return string.format("%s%d", unpack(this.ClientTemp.Coords))  end
+    hClient.GetMapCoords  = function(this) return string.format("%s%d", unpack(this.ClientTemp.Coords)) end
+    hClient.GetClientHash = function(this) local h = this.ClientTemp.Hash if (this.ClientTemp.Hash == nil) then ClientMod:SetClientHash(this) end return this.ClientTemp.Hash end
 
     -------
-    table.checkM(hClient, "CM", { Restored = false, ID = CM_NONE, File = "" })
+    table.checkM(hClient, "CM", {
+        Restored = false,
+        ID       = CM_NONE,
+        File     = ""
+    })
+
     table.checkM(hClient, "ClientTemp", {
         Coords = { "A", 1 }
     })
@@ -296,6 +340,13 @@ ClientMod.SyncAll = function(self, hClient)
     if (self.JETPACKS_ENABLED) then
         self:SyncPart(hClient, "g_Client:Jetpack("..hClient:GetChannel()..",true)")
     end
+
+    self:SetClientHash(hClient)
+
+    if (not hClient:GetClientMod("InfoReceived")) then
+        self:SyncPart(hClient, "g_Client:WANT_INFO(\"" .. hClient:GetClientHash() .. "\")")
+    end
+
     self:SyncPart(hClient, "", true)
     Logger:LogEventTo(RANK_ADMIN, eLogEvent_ClientMod, "@l_ui_clm_syncFinished", hClient:GetName(), iDeleted, iOk)
 end
@@ -332,11 +383,19 @@ ClientMod.ExecuteOn = function(aClients, sCode)
         sCode = "L:" .. sCode
     end
 
+    local iLen = string.len(sCode)
+    ClientMod.TransferredData = (ClientMod.TransferredData or 0) + 1
+    AddServerStat(eServerStat_TransferredRPCData, iLen)
+
     for _, hPlayer in pairs(aClients) do
 
-        UpdateCounter(eCounter_ClientMod)
-        g_gameRules.onClient:ClWorkComplete(hPlayer:GetChannel(), hPlayer.id, sCode)
-        ServerLog("Executing %s",sCode)
+        if (not hPlayer:GetClientMod("InstallFailed")) then
+            UpdateCounter(eCounter_ClientMod)
+            g_gameRules.onClient:ClWorkComplete(hPlayer:GetChannel(), hPlayer.id, sCode)
+            ServerLog("Executing %s",sCode)
+        else
+            ServerLog("Ignoring Client %s, they failed to install the client!", hPlayer:GetName())
+        end
     end
 end
 
@@ -351,6 +410,7 @@ ClientMod.Install = function(self, hClient, bDeveloper)
     end
 
     hClient:SetClientMod("IsInstalled", false)
+    hClient:SetClientMod("InstallFailed", false)
     Logger:LogEventTo(RANK_ADMIN, eLogEvent_ClientMod, "@l_ui_clm_InstallStart", hClient:GetName())
 end
 
@@ -359,10 +419,11 @@ ClientMod.OnInstalled = function(self, hClient)
 
     local iTime = math.calctime(hClient.ClientInstallTimer.diff(), nil, 2)
     Logger:LogEventTo(RANK_ADMIN, eLogEvent_ClientMod, "@l_ui_clm_Installed", hClient:GetName(), iTime)
-    hClient:SetClientMod("IsInstalled", true)
 
     --fixme: code queue
     self:SyncAll(hClient)
+    hClient:SetClientMod("IsInstalled", true)
+    hClient:SetClientMod("InstallFailed", false)
 end
 
 ---------------
@@ -386,6 +447,9 @@ ClientMod.OnInstallFailed = function(self, hClient)
 
     local iTime = math.calctime(hClient.ClientInstallTimer.diff(), nil, 2)
     Logger:LogEventTo(RANK_ADMIN, eLogEvent_ClientMod, "@l_ui_clm_InstalledFailed", hClient:GetName(), iTime)
+
+    hClient:SetClientMod("IsInstalled", false)
+    hClient:SetClientMod("InstallFailed", true)
 end
 
 ---------------
@@ -421,15 +485,24 @@ end
 
 ---------------
 ClientMod.DecodeSpecRequest = function(self, hClient, iMessage)
+
     local bResolved = true
-    local hWeapon = hClient:GetCurrentItem()
-    local hFists = hClient:GetItemByClass("Fists")
-    local sWeapon = hWeapon and hWeapon.class or ""
+
+    local aStats    = hClient.actorStats
+    local hVehicle  = hClient:GetVehicle()
+    local hWeapon   = hClient:GetCurrentItem()
+    local hFists    = hClient:GetItemByClass("Fists")
+    local sWeapon   = hWeapon and hWeapon.class or ""
+
+    local bParachuting = (--[[sWeapon == "Fists" and ]]aStats.inFreeFall == 2 and aStats.inAir > 0)
+
     local hRHEntity, aRH
     local bMeleeFix = IsAny(sWeapon,
         "RadarKit", "RepairKit", "Lockpick",
-            "AVMine", "Claymore", "C4"
+            "AVMine", "Claymore", "C4", "Golfclub"
     )
+
+    local bDropFix = hVehicle or IsAny(sWeapon, "ShiTen", "AVMine", "Claymore", "C4")
 
     if (iMessage < 0) then
     --    iMessage = iMessage * -1
@@ -461,30 +534,150 @@ ClientMod.DecodeSpecRequest = function(self, hClient, iMessage)
     elseif (iMessage > eClientResp_ModifiedCVars[1] and iMessage < eClientResp_ModifiedCVars[2]) then
         self:OnModifiedCVar(hClient, iMessage)
 
+    elseif (iMessage == eClientResp_DropItem) then
+      --  Debug("TWF",bDropFix,sWeapon)
+        if (bDropFix) then
+          --  Debug("TWF")
+            if (hWeapon.class == "ShiTen") then
+
+              --  Debug("TWF")
+
+                local hShiten = System.SpawnEntity({
+                    class = "CustomAmmoPickup",
+                    ammoClass = "ShiTen",
+                    name = UpdateCounter(eCounter_Spawned) .. ",Usability={Take ShiTen}",
+                    position = hClient:GetFacingPos(eFacing_Front, 1),
+                    orientation = hClient:GetDirectionVector(),
+                    properties = {
+                        AmmoName = "tagbullet",
+                        AmmoCount = 0,
+                        count = 0,
+                        bPhysics = 1,
+                        objModel = "Objects/weapons/asian/shi_ten/shi_ten_vehicle.chr",
+                        fMass = 10,
+                    }
+                })--[[SpawnInteractive({
+                    Model = "Objects/weapons/asian/shi_ten/shi_ten_vehicle.chr",
+                    Pos = hClient:GetFacingPos(eFacing_Front, 1),
+                    Dir = hWeapon:GetDirectionVector(),
+
+                    Resting = false,
+                    Rigid = true,
+                    Physics = true,
+                    Mass = 20,
+                    Network = true,
+
+                }) orSpawnGUI({
+                    Physics = true,
+                    Static = true,
+                    Mass = 0,
+                    Rigid = true,
+                    Resting = false,
+                    Pickable = false,
+                    Usable = true,
+
+                    Model = "Objects/weapons/asian/shi_ten/shi_ten_vehicle.chr",
+                    Pos = hClient:GetPos(),
+                    Dir = hClient:SmartGetDir(1),
+                    Network = true
+                }) or SpawnGUI({
+                    Physics = true,
+                    Mass = 10,
+                    Rigid = true,
+                    Resting = false,
+                    Pickable = true,
+                    Usable = true,
+
+                    Model = getrandom({ "objects/library/storage/barrels/barrel_blue.cgf", "objects/library/storage/barrels/barrel_green.cgf", "objects/library/storage/barrels/barrel_black.cgf", "objects/library/storage/barrels/barrel_red.cgf" }),
+                    Pos = hClient:GetPos(),
+                    Dir = hClient:SmartGetDir(1),
+                    Network = true
+                }) or SpawnGUI({
+                    Model = getrandom({ "Objects/library/storage/barrels/barrel_explosiv_black.cgf", "Objects/library/storage/barrels/barrel_explosive_red.cgf"}),-- "Objects/weapons/asian/shi_ten/shi_ten_vehicle.chr",
+                    Pos = hClient:GetFacingPos(eFacing_Front, 1),
+                    Dir = hWeapon:GetDirectionVector(),
+
+                    Resting = false,
+                    Rigid = true,
+                    Physics = true,
+                    Mass = 100,
+                    Network = true,
+                    Pickable = true,
+                    Usable = true,
+
+                   -- Usability = "piiiieeeeca shiaaaaat",
+
+
+                    Physics = true,
+                    Mass = 10,
+                    Rigid = true,
+                    Resting = false,
+                    Pickable = true,
+                    Usable = true,
+                })]]
+
+                hShiten.SvOnPickup = function(this, hUser)
+                    hUser:GiveItem("ShiTen")
+                    hUser:Execute("g_Client:SelectShiTen(g_localActor)")
+                    System.RemoveEntity(this.id)
+                end
+
+                Debug("drop shiten")
+
+                g_pGame:ScheduleEntityRemoval(hShiten.id, g_gameRules.WEAPON_ABANDONED_TIME, false)
+                System.RemoveEntity(hWeapon.id)
+                hClient:SelectItem("Fists")
+            else
+                hClient.actor:DropItem(hWeapon.id)
+            end
+        end
+
+    elseif (iMessage == eClientResp_AttackStart or iMessage == eClientResp_AttackStop) then
+
+        if (hVehicle or bParachuting) then
+
+            if (hWeapon) then
+                if (iMessage == eClientResp_AttackStart and ((hWeapon.weapon:GetAmmoCount() or 0) > 0)) then
+                    local vDir = hClient:SmartGetDir()
+                    local vHand = hClient:GetBonePos("Bip01 R Hand") or hClient:GetPos()
+                    --SpawnEffect(ePE_Flare,vHand,vDir)
+                    -- SpawnEffect(ePE_Flare,vHand,hClient.actor:GetLookDirection())
+                    hWeapon.weapon:Sv_RequestStartFire(vDir, vHand, vector.sum(vHand, vDir, 2024))--vDir, vHand, vHit)
+                    hWeapon.SvFiring = true
+                else
+                    hWeapon.weapon:Sv_RequestStopFire()
+                    hWeapon.SvFiring = false
+                end
+            end
+
+            Debug("faia")
+            hVehicle.FiringTimer.refresh()
+            hVehicle:FireHeliMGs(hClient, (iMessage == eClientResp_AttackStart), true)
+        end
+
     elseif (iMessage == eClientResp_MeleeAttack or iMessage == eClientResp_StopMelee) then
         if (iMessage == eClientResp_MeleeAttack) then
             if (bMeleeFix) then
-                Debug("melee on otehrs")
                 ClientMod:OnAll(string.format([[g_Client:ANIM(%d,"combat_weaponPunchUB_dualpistol_01")]], hClient:GetChannel()))
-            end
-            if (hFists) then
-                aRH = hClient:GetHitPos(2.5)
-                hRHEntity = aRH and aRH.entity
-                if (hRHEntity) then
-                    hClient:CreateHit({
-                        Pos = aRH.pos,
-                        Dir = aRH.dir,
-                        Normal = aRH.normal,
-                        Type = "melee",
-                        Shooter = hClient,
-                        Target = hRHEntity,
-                        Material = "mat_torso",
-                        Damage = 90,
-                        Radius = 0,
-                        Part = 23,
-                    })
+                if (hFists) then
+                    aRH = hClient:GetHitPos(2.5)
+                    hRHEntity = aRH and aRH.entity
+                    if (hRHEntity) then
+                        hClient:CreateHit({
+                            Pos = aRH.pos,
+                            Dir = aRH.dir,
+                            Normal = aRH.normal,
+                            Type = "melee",
+                            Shooter = hClient,
+                            Target = hRHEntity,
+                            Material = "mat_torso",
+                            Damage = 90,
+                            Radius = 0,
+                            Part = 23,
+                        })
+                    end
+                    hFists.weapon:Sv_Melee()
                 end
-                hFists.weapon:Sv_Melee()
             end
         end
 
@@ -505,12 +698,177 @@ ClientMod.DecodeSpecRequest = function(self, hClient, iMessage)
     elseif ((iMessage >= 110 and iMessage <= 117)) then
         hClient.ClientTemp.Coords[2] = iMessage - 110
 
+    elseif ((iMessage >= eClientResp_NumKeys[1] and iMessage <= eClientResp_NumKeys[2])) then
+        self:HandleNumKey(hClient, (eClientResp_NumKeys[1] - iMessage) * -1)
+
+    elseif (iMessage == eClientResp_JetModeOn or iMessage == eClientResp_JetModeOff) then
+        --[[if (hVehicle) then
+            local bOn = (iMessage == eClientResp_JetModeOn)
+            if (not bOn) then
+                self:StopSync(hVehicle, "thrustersync")
+            end
+        end]]
+
+    elseif (iMessage > eClientResp_CheatStart and iMessage < eClientResp_CheatEnd) then
+        self:OnCheat(hClient, iMessage)
+
     else
         Logger:LogEventTo(RANK_DEVELOPER, eLogEvent_ClientMod, "@l_ui_clm_invalidResponse", hClient:GetName(),g_tn(iMessage or 0))
-        bResolved = false
+        bResolved = true -- dont put players into spectator mode....
     end
 
     return (bResolved == true)
+end
+
+---------------
+ClientMod.OnCheat = function(self, hClient, iMsg)
+
+    local aInfo = {
+        [eClientResp_CheatSpeed]    = { ID = eCheat_ClientSpeed,    Positive = false, Description = "Speeding on Client" },
+        [eClientResp_CheatFly]      = { ID = eCheat_ClientFly,      Positive = false, Description = "Client Fly Mode" },
+        [eClientResp_CheatPhys]     = { ID = eCheat_ClientPhys,     Positive = false, Description = "Client Collider Mode" },
+        [eClientResp_CheatNoRecoil] = { ID = eCheat_NoRecoil,       Positive = false, Description = "0 Client Recoil" }, -- make positive once fixed..
+        [eClientResp_CheatNoSpread] = { ID = eCheat_NoSpread,       Positive = true,  Description = "0 Client Spread" },
+        [eClientResp_CheatFireRate] = { ID = eCheat_WeaponRate,     Positive = false, Description = "0 Client Rate" }
+    }
+
+    local aCheat = aInfo[iMsg]
+    if (not aCheat) then
+        return
+    end
+
+    ServerDefense:HandleCheater(hClient:GetChannel(), aCheat.ID, aCheat.Description, hClient.id, aCheat.Positive)
+end
+
+---------------
+ClientMod.HandleNumKey = function(self, hClient, iKey)
+
+    local F1 = 1
+    local F2 = 2
+    local F3 = 3
+    local F4 = 4
+    local F5 = 5
+    local F6 = 6
+    local F7 = 7
+    local F8 = 8
+    local F9 = 9
+   -- Debug("iKey",iKey)
+
+    local hVehicle = hClient:GetVehicle()
+
+    if (iKey == F1) then
+    elseif (iKey == F2) then
+    elseif (iKey == F3) then
+        if (hVehicle and hVehicle:GetDriverId() == hClient.id) then
+            if (IsAny(hVehicle.class, "Civ_car1", "Asian_ltv", "US_ltv") or hVehicle.vehicle:GetMovementType() == "sea") then
+                local bPaid, iLacking = hClient:PayPrestige(50, "NITRO @l_ui_bought")
+                if (bPaid) then
+                    self:OnAll(string.format([[g_Client:NITRO(%d)]], hClient:GetChannel()))
+                else
+                    hClient:Execute("HUD.BattleLogEvent(eBLE_Warning,'NITRO: " .. hClient:Localize("@l_commandresp_insufficientPrestige", {iLacking}).."')")
+                end
+            else
+                hClient:Execute("HUD.BattleLogEvent(eBLE_Warning,'NITRO: "..hVehicle.class .. " " .. hClient:Localize("@l_ui_unsupportedVehicle").."')")
+            end
+        end
+
+    elseif (iKey == F4) then
+        if (hVehicle) then
+            if (hVehicle.CMID == VM_VTOLTRANS) then
+                Debug("FUCK")
+                local aRH = hClient:GetHitPos(10, nil, g_Vectors.down, hVehicle:GetCenterOfMassPos())
+                local aAvailable = {
+                    "US_tank",
+                    "Asian_tank",
+                    "US_ltv",
+                    "Asian_ltv",
+                    "Civ_car1",
+                    "Asian_speedboat",
+                    "Asian_truck",
+                    "Asian_aaa",
+                    "US_truck",
+                    "GUI"
+                }
+
+                local bCargo = false
+                local hRHEntity = aRH and aRH.entity
+                if (hRHEntity and table.findv(aAvailable, hRHEntity.class)) then
+                    hVehicle.TransCargoID = hRHEntity.id
+                    bCargo = true
+                end
+                if (hVehicle.CargoAttached) then
+                    self:AttachCargo(hVehicle, hVehicle.CargoAttached, false)
+                else
+                    local hCargo = bCargo and hRHEntity
+                    if (hCargo) then
+                        self:AttachCargo(hVehicle, hCargo, true)
+                    else
+                        hClient:Execute("HUD.BattleLogEvent(eBLE_Warning,'CARGO: " .. hClient:Localize("@l_ui_noEntitiesFound").."')")
+                    end
+                end
+            elseif (hVehicle.IsJetVM) then
+                if (hVehicle.BombTimer.expired(15) or hClient:IsTesting()) then
+                    hVehicle.BombTimer.refresh()
+
+                    for i = 1, 10 do
+                        Script.SetTimer(i * 300, function()
+                            local hBomb = ServerItemSystem:SpawnProjectile({
+                                ID = "bomb",
+                                Pos = vector.modifyz(hVehicle:GetPos(), -5),
+                                Dir = { x = 1, y = 1, z = 0},
+                                Owner = hClient,
+                                Weapon = hVehicle,
+                            }):GetEntity()
+                            hBomb:AddImpulse(-1, hBomb:GetCenterOfMassPos(), vector.modifyz(hVehicle:GetDirectionVector(), -1, true), 300, 1)
+                        end)
+                    end
+                else
+                    hClient:Execute("HUD.BattleLogEvent(eBLE_Warning,'BOMBS: Wait " .. math.calctime(hVehicle.BombTimer.getexpiry()) .. "')")
+                end
+            end
+        end
+    elseif (iKey == F5) then
+    elseif (iKey == F6) then
+    elseif (iKey == F7) then
+    elseif (iKey == F8) then
+    elseif (iKey == F9) then
+    end
+
+end
+
+---------------
+ClientMod.AttachCargo = function(self, hVehicle, hCargo, bAttach)
+
+    local vVehicle = hVehicle:GetPos()
+    if (not bAttach) then
+
+        hCargo:DetachThis()
+        hCargo:AwakePhysics(1)
+        hCargo:SetPos(vector.modifyz(vVehicle, -7))
+        ClientMod:StopSync(hVehicle, "Cargo")
+        ClientMod:OnAll(string.format("g_Client:D_CARGO(\"%s\",\"%s\",false)",
+                hVehicle:GetName(), hCargo:GetName()
+        ))
+        if (hCargo.vehicle and not hCargo:GetDriver()) then
+            hCargo:AddImpulse(-1, hCargo:GetCenterOfMassPos(), hVehicle:GetDirectionVector(), hCargo:GetMass() * hVehicle:GetSpeed())
+        end
+        hVehicle.CargoAttached = nil
+        return
+    end
+
+    ClientMod:OnAll(string.format("g_Client:D_CARGO(\"%s\",\"%s\",true)",
+            hVehicle:GetName(), hCargo:GetName()
+    ), {
+        Sync = true,
+        SyncID = "Cargo",
+        BindID = hVehicle,
+        Dependencies = { hVehicle.id, hCargo. id }
+    })
+
+    hVehicle:AttachChild(hCargo.id, -1)
+    hCargo:SetLocalPos({ x = 0, y = 0, z = - 7 })
+    hCargo:SetDirectionVector(hVehicle:GetDirectionVector())
+    hVehicle.CargoAttached = hCargo
 end
 
 ---------------
@@ -579,7 +937,7 @@ ClientMod.ChatEffect = function(self, hClient, enable)
             BindID = hClient.id,
             Sync = true,
             SyncID = "chateffect",
-            Check = function(x)Debug("OPEN:",hClient.ChatOpen) return hClient.ChatOpen == true  end
+            Check = function(x)return hClient.ChatOpen == true  end
         })
     end
 
@@ -592,7 +950,7 @@ ClientMod.GetModels = function()
 
     local aModels = {
         [CM_DEFAULT]    = { "Nomad", "objects/characters/human/us/nanosuit/nanosuit_us_multiplayer.cdf" , true},
-        [CM_BOOBS]      = {"General Kyong", "G:MODEL_NOMAD_BOOBS"},
+        [CM_BOOBS]      = {"Nanogirl", "G:MODEL_NOMAD_BOOBS"},
         [CM_KYONG]      = {"General Kyong", "objects/characters/human/story/Kyong/Kyong.cdf", true},
         [CM_KOREANAI]   = {"Korean AI", { "objects/characters/human/asian/nk_soldier/nk_soldier_camp_cover_heavy_04.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_cover_heavy_05.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_cover_heavy_07.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_cover_heavy_09.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_cover_light_01.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_cover_light_02.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_light_leader_04.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_light_leader_02.cdf", "objects/characters/human/asian/nk_soldier/nk_soldier_camp_light_leader_03.cdf", }},
         [CM_AZTEC]      = {"Aztec", "objects/characters/human/story/Harry_Cortez/harry_cortez_chute.cdf", 1},
@@ -634,23 +992,25 @@ ClientMod.GetModels = function()
         [CM_TERN]       = {"Tern", "Objects/characters/animals/birds/tern/tern.chr" },
         [CM_FROG]       = {"Frog", "objects/characters/animals/frog/frog.chr" },
         [CM_BUTTERFLY]  = {"Butterfly", "objects/characters/animals/insects/butterfly/butterfly_brown.chr" },
+        [CM_SNOWMAN]    = {"Snowman", "G:MODEL_SNOWMAN" },
         [CM_HEADLESS]   = { "Headless", "MODEL_NOMAD_HEADLESS" }, --"CryMP-Objects/characters/nomad/headless.cdf" }
     }
     return aModels
 end
 ----------
+
 ClientMod.GetCharacters = function(self)
     local aCharacters = {
-        { "Alien Trooper", 	CM_TROOPER, { "Fists", "FastLightMOAC" } },
-        { "Alien Worker", 	CM_ALIEN,   { "Fists", "FastLightMOAC" } },
-        { "Shark", 	        CM_SHARK,   { "Fists" } },
-        { "Chicken",        CM_CHICKEN, { "Fists" } },
-        { "Turtle",	        CM_TURTLE,  { "Fists" } },
-        { "Crab", 	        CM_CRAB,    { "Fists" } },
-        { "Finch", 	        CM_FINCH,   { "Fists" } },
-        { "Tern", 	        CM_TERN,    { "Fists" } },
-        { "Frog", 	        CM_FROG,    { "Fists" } },
-        { "Butterfly", 	        CM_BUTTERFLY,    { "Fists" } },
+        [CHAR_TROOPER]  = { "Alien Trooper", 	CM_TROOPER, { "Fists", "FastLightMOAC" } },
+        [CHAR_ALIEN]    = { "Alien Worker", 	CM_ALIEN,   { "Fists", "FastLightMOAC" } },
+        [CHAR_SHARK]    = { "Shark", 	        CM_SHARK,   { "Fists" } },
+        [CHAR_CHICKEN]  = { "Chicken",        CM_CHICKEN, { "Fists" } },
+        [CHAR_TURTLE]   = { "Turtle",	        CM_TURTLE,  { "Fists" } },
+        [CHAR_CRAB]     = { "Crab", 	        CM_CRAB,    { "Fists" } },
+        [CHAR_FINCH]    = { "Finch", 	        CM_FINCH,   { "Fists" } },
+        [CHAR_TERN]     = { "Tern", 	        CM_TERN,    { "Fists" } },
+        [CHAR_FROG]     = { "Frog", 	        CM_FROG,    { "Fists" } },
+        [CHAR_BUTTERFLY]= { "Butterfly", 	        CM_BUTTERFLY,    { "Fists" } },
     }
     return aCharacters
 end
@@ -708,7 +1068,11 @@ ClientMod.RequestCharacter = function(self, hClient, iCharacter, bQuiet)
     self:RequestModel(hClient, aInfo[2], true, true)
     hClient:SetAllowedEquip(aInfo[3] or eAllowedEquip_All, hClient:LocalizeNest("@l_ui_CMEquipBlock", {aInfo[1]}))
     hClient.inventory:Destroy()
-    for _, sClass in pairs(aInfo[3]) do hClient:GiveItem(sClass) end
+    Script.SetTimer(1, function()
+        for _, sClass in pairs(aInfo[3]) do
+            hClient:GiveItem(sClass)
+        end
+    end)
 end
 
 ---------------
@@ -915,12 +1279,16 @@ end
 ClientMod.OnModifiedCVar = function(self, hClient, iCVar)
 
     local iStart = eClientResp_ModifiedCVars[1]
-    local aList = {
-        [iStart + 1] = { "R_ATOC" }
-    }
+    local aInfo =(({
+        [iStart + 1] = { ID = "r_ATOC", Default = GetCVar("r_ATOC") }
+    })[iCVar])
+
+    if (not aInfo) then
+        return self:Log("@l_ui_clm_InvalidCVar", hClient:GetName(), iCVar)
+    end
 
     --FIXME: Locale
-    Logger:LogEventTo(GetPlayers({ Access = hClient:GetElevatedAccess(RANK_MODERATOR) }), eLogEvent_ClientMod, "Illegal CVar " .. (aList[g_tn(iCVar)] or {"Unknown"})[1])
+    Logger:LogEventTo(GetPlayers({ Access = hClient:GetElevatedAccess(RANK_MODERATOR) }), eLogEvent_ClientMod, "@l_ui_clm_IllegalCVar", hClient:GetName(), aInfo.ID, aInfo.Default)
 end
 
 ---------------
@@ -982,6 +1350,8 @@ ClientMod.GetVehicleModels = function(self)
         [VM_SHARK]          = { "Shark ",		    { "objects/characters/animals/whiteshark/greatwhiteshark.chr",		{ x = 0, y = 0.0, z = 0.8 }, makeVec(0,0,3.1),			false,		  }},
         [VM_PALM]           = { "Palm ",			{ "Objects/natural/trees/palm_tree/palm_tree_large_b.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
         [VM_ROCK]           = { "Rock ",			{ "objects/natural/rocks/suitjump_rocks/cliff_rock_cover_a.cgf",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
+        [VM_DODGE69]        = { "Dodge Charger ",   { "objects/vehicles/Dodge_Charger_69_Blade/Dodge_Charger_69_Blade.cga",		{ x = 0, y = 0.2, z = 0.1 }, makeVec(0,0,0),			false,		  }},
+        [VM_MITSUBISHI]     = { "Mitsubishi ",   { "objects/vehicles/Mitsubishi_Lancer_Evolution_X/Mitsubishi_Lancer_Evolution_X.cga",		{ x = 0, y = 0.0, z = 0.0 }, makeVec(0,0,0),			false,		  }},
     }
 
     return aList
@@ -994,26 +1364,39 @@ ClientMod.ChangeVehicleModel = function(self, hClient, hVehicle, iModel, bQuiet)
     local aInfo = iModel and aList[iModel]
 
     if (not aInfo) then
-        ListToConsole({
-            Client      = hClient,
-            List        = table.sortI(aList),
-            Title       = hClient:Localize("@l_ui_VMList"),
-            ItemWidth   = 15,
-            PerLine     = 5,
-            PrintIndex  = true,
-            Index       = 1
-        })
-        return true, hClient:LocalizeNest("@l_ui_CMListedInConsole", { table.count(aList) })
+        if (hClient) then
+            ListToConsole({
+                Client      = hClient,
+                List        = table.sortI(aList),
+                Title       = hClient:Localize("@l_ui_VMList"),
+                ItemWidth   = 15,
+                PerLine     = 5,
+                PrintIndex  = true,
+                Index       = 1
+            })
+            return true, hClient:LocalizeNest("@l_ui_CMListedInConsole", { table.count(aList) })
+        end
+        return true
     end
 
     local function f()
-        hVehicle = hVehicle or hClient:GetVehicle() or SvSpawnEntity({
-            Class = "Civ_car1",
-            Pos = hClient:GetFacingPos(eFacing_Front, 7.5, eFollow_Auto, 1),
-            Dir = hClient:SmartGetDir(1),
+        if (isString(hVehicle)) then
+            hVehicle = SvSpawnEntity({
+                Class = hVehicle,
+                Pos = hClient:GetFacingPos(eFacing_Front, 7.5, eFollow_Auto, 1),
+                Dir = hClient:SmartGetDir(1),
 
-            Instant = true,
-        })
+                Instant = true,
+            })
+        else
+            hVehicle = hVehicle or hClient:GetVehicle() or SvSpawnEntity({
+                Class = "Civ_car1",
+                Pos = hClient:GetFacingPos(eFacing_Front, 7.5, eFollow_Auto, 1),
+                Dir = hClient:SmartGetDir(1),
+
+                Instant = true,
+            })
+        end
 
 
         local sModel = aInfo[2][1]
@@ -1033,6 +1416,7 @@ ClientMod.ChangeVehicleModel = function(self, hClient, hVehicle, iModel, bQuiet)
         end
 
         local CM = System.SpawnEntity({ class = "BasicEntity", position = vehicle:GetPos(), orientation = vehicle:GetDirectionVector(), name = vehicle:GetName() .. "_cm", properties = { object_Model = sModel }})
+        CM.VehicleCMParent = vehicle
         CM:LoadObject(0, sModel)
         CM:PhysicalizeSlot(0, { flags = 1.8537e+008 }) -- special flags for correct collision.
 
@@ -1040,6 +1424,8 @@ ClientMod.ChangeVehicleModel = function(self, hClient, hVehicle, iModel, bQuiet)
         --vehicle:EnablePhysics(0)
         vehicle:AttachChild(CM.id, PHYSICPARAM_SIMULATION)
         vehicle.CM = CM.id
+        vehicle.CMID = iModel
+        vehicle.IsJetVM = (iModel==VM_TRANSPLANE or iModel==VM_AIRCRAFT or iModel==VM_CARGOPLANE or iModel==VM_USPLANE or iModel==VM_NKPLANE)
 
         if (vPos) then CM:SetLocalPos(vPos) end
         if (vDir) then CM:SetLocalAngles(vDir) end
@@ -1069,13 +1455,27 @@ ClientMod.ChangeVehicleModel = function(self, hClient, hVehicle, iModel, bQuiet)
             self:CreatePlane(vehicle, IsAny(iMode, VM_USPLANE, VM_NKPLANE))
         end
 
-        if (not bQuiet) then
+        if (not bQuiet and hClient ~= nil) then
             SendMsg(CHAT_SERVER, hClient, hClient:Localize("@l_ui_playerVM", { aInfo[1] }))
         end
 
+        hVehicle.Properties.CM = iModel
     end
 
     Script.SetTimer(1, f)
+end
+
+---------------
+ClientMod.SetClientHash = function(self, hClient)
+
+    local sHash = string.random(24)
+    hClient.ClientTemp.Hash = sHash
+    hClient:Execute("g_localActor.SYNC_HASH = \"" .. sHash .. "\"")
+end
+
+---------------
+ClientMod.CheckHash = function(self, hClient, sHash)
+    return (hClient.ClientTemp.Hash == sHash)
 end
 
 ---------------
@@ -1092,3 +1492,6 @@ end
 ClientMod.DecodeNameRequest = function(self, hClient, sMessage)
     Debug("Hello, name request!!")
 end
+
+---------------
+Server.Register(ClientMod, "ClientMod")

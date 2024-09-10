@@ -44,6 +44,35 @@ AddCommand({
 
 ------------
 AddCommand({
+    Name = "mypos",
+    Access = RANK_DEVELOPER, -- Must be accessible to all!
+
+    Arguments = {
+    },
+
+    Properties = {
+        NoLogging = true
+    },
+
+    Function = function(self)
+
+        local vPos = self:GetPos()
+        local vDir = self:GetDirectionVector()
+
+        local sPos = string.format("Pos = { x = %f, y = %f, z = %f }", vPos.x, vPos.y, vPos.z)
+        local sDir = string.format("Dir = { x = %f, y = %f, z = %f }", vDir.x, vDir.y, vDir.z)
+
+        Logger:LogEventTo({ self }, eLogEvent_Debug, sPos)
+        Logger:LogEventTo({ self }, eLogEvent_Debug, sDir)
+
+        SendMsg(CHAT_SERVER, self, sPos)
+        SendMsg(CHAT_SERVER, self, sDir)
+        return true
+    end
+})
+
+------------
+AddCommand({
     Name = "debugmode",
     Access = RANK_DEVELOPER, -- Must be accessible to all!
 

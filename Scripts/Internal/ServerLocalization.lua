@@ -150,7 +150,7 @@ ServerLocale.LocalizeText = function(self, sId, sLang, bForceExt, noReturn)
     local sLocalized = aContent.regular
     local sExtra = aContent.extended
 
-    if (bForceExt and sExtra) then
+    if ((bForceExt or sLocalized == nil) and sExtra) then
         return sExtra
     end
 

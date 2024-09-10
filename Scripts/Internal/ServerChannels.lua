@@ -131,13 +131,12 @@ ServerChannels.ResolveIPData = function(self, aChannel, sIP)
         PlayerHandler:SetClientInfo(aChannel.ID, aData)
         self:PostResolve(aChannel.ID)
 
-        ServerLog("Data already resolved!")
-        ServerLog(table.tostring(self.IPData[sIP]))
+        ServerLog("Data for IP %s already resolved!", sIP)
+        --ServerLog(table.tostring(self.IPData[sIP]))
         return
     end
 
     ServerLog("Resolving Data for IP %s", sIP)
-
     ServerDLL.Request({
         url = string.gsub(self.MasterServerAPI, "{ip}", sIP),
         header = self.MasterServerHeaders,
@@ -157,7 +156,7 @@ ServerChannels.PostResolve = function(self, iChannel)
 
     local aChannel = self.ChannelData[iChannel]
 
-    ServerNames:HandleChannelNick(aChannel.ID, { Country = self:GetCountryCode(iChannel), Channel = aChannel.ID, Profile = aChannel.ID })
+    ServerNames:HandleChannelNick(aChannel.ID, { Country = self:GetCountryCode(aChannel.IP), Channel = aChannel.ID, Profile = aChannel.ID })
     ServerPCH:LogOnConnection(aChannel.ID, aChannel.IP)
 end
 
@@ -224,14 +223,14 @@ ServerChannels.GetDefaultData = function(self)
 end
 
 -------------------
-ServerChannels.GetCountryCode = function(self, iChannel)
-    local aInfo = self.IPData[iChannel]
+ServerChannels.GetCountryCode = function(self, sIP)
+    local aInfo = self.IPData[sIP]
     if (not aInfo) then
         return
     end
 
-    ServerLog(table.tostring(aInfo))
-    return (aInfo.countryCode or aInfo.countrycode or aInfo.CountryCode or aInfo.country_code)
+    --ServerLog("info===>\n%s",table.tostring(aInfo))
+    return (aInfo.isocode or aInfo.countryCode or aInfo.countrycode or aInfo.CountryCode or aInfo.country_code)
 end
 
 -------------------
@@ -262,6 +261,7 @@ ServerChannels.CountryToLanguage = function(self, sCountry, hDef)
         kazakhstan = "russian",
         usa = "english",
         canada = "english",
+        france = "french"
         --france = NO_LANGUAGE,
         --italy = NO_LANGUAGE,
         --japan = NO_LANGUAGE,
@@ -269,4 +269,7 @@ ServerChannels.CountryToLanguage = function(self, sCountry, hDef)
         --india = NO_LANGUAGE
     })[string.lower(sCountry)] or hDef
 end
+
+---------------
+Server.Register(ServerChannels, "ServerChannels")
 

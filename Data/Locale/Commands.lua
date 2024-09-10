@@ -114,6 +114,138 @@ CreateLocalization("l_commandresp_con_reserved", {
 
 
 
+CreateLocalization("l_commandarg_nottime", {
+    english     = "Argument <${1}> Expects a Time Value",
+    german      = "Argument <${1}> erwartet einen Zeitwert",
+    spanish     = "El argumento <${1}> espera un valor de tiempo",
+    russian     = "Argument <${1}> ozhidaet vremyanoe znachenie",
+    turkish     = "Arguman <${1}> bir zaman degeri bekliyor",
+    czech       = "Argument <${1}> ocekava casovou hodnotu",
+    french      = "L'argument <${1}> attend une valeur temporelle"
+})
+
+CreateLocalization("l_commandresp_cooldown", {
+    english     = "Usable again in ${1}",
+    german      = "Wieder verwendbar in ${1}",
+    spanish     = "Se puede usar de nuevo en ${1}",
+    russian     = "Snova mozno ispolzovat cherez ${1}",
+    turkish     = "${1} sonra tekrar kullanilabilir",
+    czech       = "Lze pouzit znovu za ${1}",
+    french      = "Utilisable a nouveau dans ${1}"
+})
+
+CreateLocalization("l_commandresp_notIndoors", {
+    english     = "Not usable Indoors",
+    german      = "Innen nicht verwendbar",
+    spanish     = "No utilizable en interiores",
+    russian     = "Ne ispolzuetsya v pomeshcheniyakh",
+    turkish     = "Kapali alanda kullanilamaz",
+    czech       = "Nepouzitelne uvnitr",
+    french      = "Non utilisable a l'interieur"
+})
+
+CreateLocalization("l_commandresp_notOutdoors", {
+    english     = "Not usable Outdoors",
+    german      = "Im Freien nicht verwendbar",
+    spanish     = "No utilizable en exteriores",
+    russian     = "Ne ispolzuetsya na ulitse",
+    turkish     = "Disarida kullanilamaz",
+    czech       = "Nepouzitelne venku",
+    french      = "Non utilisable a l'exterieur"
+})
+
+CreateLocalization("l_commandresp_insufficientPrestige", {
+    english     = "Insufficient Prestige (Need ${1} More)",
+    german      = "Unzureichendes Prestige (Benoetigt ${1} mehr)",
+    spanish     = "Prestigio insuficiente (Necesita ${1} mas)",
+    russian     = "Nedostatochno prestizha (Neobkhodimo ${1} bolshe)",
+    turkish     = "Yetersiz prestij (${1} daha gerekiyor)",
+    czech       = "Nedostatecny prestige (Potrebujete ${1} vice)",
+    french      = "Prestige insuffisant (Besoin de ${1} de plus)"
+})
+
+CreateLocalization("l_ui_insufficientPrestige", {
+    english     = "Insufficient Prestige",
+    german      = "Unzureichendes Prestige",
+    spanish     = "Prestigio insuficiente",
+    russian     = "Nedostatochno prestizha",
+    turkish     = "Yetersiz prestij",
+    czech       = "Nedostatecny prestige",
+    french      = "Prestige insuffisant"
+})
+
+CreateLocalization("l_commandresp_notVehicle", {
+    english     = "Not usable inside Vehicles",
+    german      = "Nicht verwendbar in Fahrzeugen",
+    spanish     = "No utilizable dentro de vehiculos",
+    russian     = "Ne ispolzuetsya vnutri transportnykh sredstv",
+    turkish     = "Arac icinde kullanilamaz",
+    czech       = "Nelze pouzit uvnitr vozidla",
+    french      = "Non utilisable a l'interieur des vehicules"
+})
+
+CreateLocalization("l_commandresp_onlyVehicle", {
+    english     = "Only usable inside Vehicles",
+    german      = "Nur verwendbar in Fahrzeugen",
+    spanish     = "Solo utilizable dentro de vehiculos",
+    russian     = "Ispolzuetsya tolko vnutri transportnykh sredstv",
+    turkish     = "Sadece arac icinde kullanilabilir",
+    czech       = "Lze pouzit pouze uvnitr vozidla",
+    french      = "Uniquement utilisable a l'interieur des vehicules"
+})
+
+CreateLocalization("l_commandresp_notFlying", {
+    english     = "Not usable while Flying",
+    german      = "Nicht verwendbar beim Fliegen",
+    spanish     = "No utilizable mientras se vuela",
+    russian     = "Ne ispolzuetsya vo vremya poleta",
+    turkish     = "Ucarken kullanilamaz",
+    czech       = "Nelze pouzit behem letu",
+    french      = "Non utilisable en volant"
+})
+
+CreateLocalization("l_commandresp_onlyFlying", {
+    english     = "Only usable when Flying",
+    german      = "Nur beim Fliegen verwendbar",
+    spanish     = "Solo utilizable al volar",
+    russian     = "Ispolzuetsya tolko vo vremya poleta",
+    turkish     = "Sadece ucarken kullanilabilir",
+    czech       = "Lze pouzit pouze behem letu",
+    french      = "Uniquement utilisable en volant"
+})
+
+CreateLocalization("l_commandresp_notAlive", {
+    english     = "Not usable while being Alive",
+    german      = "Nicht verwendbar wenn lebendig",
+    spanish     = "No utilizable mientras esta vivo",
+    russian     = "Ne ispolzuetsya v zhivom sostoyanii",
+    turkish     = "Hayatta iken kullanilamaz",
+    czech       = "Nelze pouzit kdyz jste na zivu",
+    french      = "Non utilisable en etant vivant"
+})
+
+CreateLocalization("l_commandresp_onlyAlive", {
+    english     = "Only usable while being Alive",
+    german      = "Nur verwendbar wenn lebendig",
+    spanish     = "Solo utilizable mientras esta vivo",
+    russian     = "Ispolzuetsya tolko v zhivom sostoyanii",
+    turkish     = "Sadece hayatta iken kullanilabilir",
+    czech       = "Lze pouzit pouze kdyz jste na zivu",
+    french      = "Uniquement utilisable en etant vivant"
+})
+
+CreateLocalization("l_commandresp_onlyWhenValidated", {
+    english     = "You must be validated to use this Command",
+    german      = "Sie muessen validiert sein, um diesen Befehl zu verwenden",
+    spanish     = "Debe ser validado para usar este comando",
+    russian     = "Vy dolzhny byt validirovany, chtoby ispolzovat etu komandu",
+    turkish     = "Bu komutu kullanmak icin dogrulanmis olmaniz gerekir",
+    czech       = "Musite byt overeni, abyste mohli pouzit tento prikaz",
+    french      = "Vous devez etre valide pour utiliser cette commande"
+})
+
+
+
 ------------------------------------------------------
 ------------------------------------------------------
 --- CHAT MESSAGES
@@ -293,7 +425,7 @@ CreateLocalization("l_commandarg_toolow", {
 CreateLocalization("l_commandarg_toohigh", {
     english = "Argument ${1} Upper Limit ${2}",
     russian = "Argument ${1} verkhniy predel ${2}",
-    turkish = "Arguman ${1} üst sinir ${2}",
+    turkish = "Arguman ${1} ust sinir ${2}",
     german = "Argument ${1} obere Grenze ${2}",
     spanish = "Argumento ${1} limite superior ${2}"
 })
@@ -312,16 +444,16 @@ CreateLocalization("l_ui_no_description", {
 CreateLocalization("l_ui_command_desc_commands", {
     english = "Lists all Available Commands to your Console",
     russian = "Spisok vsekh dostupnykh komand dlya vashey konsoli",
-    turkish = "Konsolunuzdaki Tüm Kullanilabilir Komutlari Listeler",
-    german = "Listet alle verfügbaren Befehle auf Ihrer Konsole auf",
+    turkish = "Konsolunuzdaki Tum Kullanilabilir Komutlari Listeler",
+    german = "Listet alle verfugbaren Befehle auf Ihrer Konsole auf",
     spanish = "Lista todos los comandos disponibles en tu consola"
 })
 
 CreateLocalization("l_ui_commands_openconsole", {
     english = "Open your Console to View the List of Available Commands!",
     russian = "Otkroyte konsol dlya prosmotra spiska dostupnykh komand!",
-    turkish = "Mevcut Komutlarin Listesini Görmek Icin Konsolunuzu Acin!",
-    german = "Öffnen Sie Ihre Konsole, um die Liste der verfügbaren Befehle anzuzeigen!",
+    turkish = "Mevcut Komutlarin Listesini Gormek Icin Konsolunuzu Acin!",
+    german = "Oeffnen Sie Ihre Konsole, um die Liste der verfugbaren Befehle anzuzeigen!",
     spanish = "¡Abre tu consola para ver la lista de comandos disponibles!"
 })
 
@@ -331,6 +463,27 @@ CreateLocalization("l_ui_commands_help", {
     turkish = "${yellow}BILGI: ${gray}${white}!${gray}Komut ${yellow}--yardim ${gray} yazarak bir komut hakkinda bilgi edinebilirsiniz",
     german = "${yellow}INFO: ${gray}Geben Sie ${white}!${gray}Befehl ${yellow}--hilfe ${gray} ein, um Informationen zu einem Befehl anzuzeigen",
     spanish = "${yellow}INFO: ${gray}Escribe ${white}!${gray}Comando ${yellow}--ayuda ${gray} para ver información sobre un comando"
+})
+
+CreateLocalization("l_commandarg_not_user", {
+    english     = "Argument <${1}> Cannot target yourself",
+    german      = "Argument <${1}> Kann nicht auf sich selbst zielen",
+    spanish     = "El argumento <${1}> No puede dirigirse a ti mismo",
+    russian     = "Argument <${1}> Ne mozhet tseleitsya na sebya",
+    turkish     = "Arguman <${1}> Kendini hedef alamaz",
+    czech       = "Argument <${1}> Nemůže cilit na sebe",
+    french      = "L'argument <${1}> Ne peut pas cibler vous-même"
+})
+
+
+CreateLocalization("l_commandarg_notaccess", {
+    english     = "Argument <${1}> Expects an Access-Level (!ranks)",
+    german      = "Argument <${1}> erwartet ein Zugriffslevel (!ranks)",
+    spanish     = "El argumento <${1}> espera un nivel de acceso (!ranks)",
+    russian     = "Argument <${1}> ozhidaet urovnja dostupa (!ranks)",
+    turkish     = "Arguman <${1}> bir Erisim Seviyesi bekliyor (!ranks)",
+    czech       = "Argument <${1}> ocekava uroven pristupu (!ranks)",
+    french      = "L'argument <${1}> attend un niveau d'acces (!ranks)"
 })
 
 

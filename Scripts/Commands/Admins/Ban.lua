@@ -69,3 +69,32 @@ AddCommand({
         return self:TryRemoveBan(hPlayer, sID)
     end
 })
+
+------------
+AddCommand({
+    Name = "banlist",
+    Access = RANK_ADMIN,
+
+    Arguments = {
+        {
+            Name = "@l_ui_index",
+            Desc = "@l_ui_index_d",
+            Optional = true,
+            Default = "l"
+        },
+        {
+            Name = "@l_ui_option",
+            Desc = "@l_ui_option_d",
+            Optional = true,
+        },
+    },
+
+    Properties = {
+        Self = "ServerPunish"
+    },
+
+    -- self is the user unless specified otherwise
+    Function = function(self, hPlayer, sID, sOption)
+        return self:ListBans(hPlayer, sID, sOption)
+    end
+})

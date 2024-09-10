@@ -23,6 +23,16 @@ ConfigCreate({
     --- Server CVars
     CVars = {
 
+        -- Network
+        SV_DEDICATEDMAXRATE = 60.0,
+
+        -- Physics (Lag Smooth, Credits FAPP! <3)
+        P_NET_SMOOTHTIME    = 2.5,  -- Time it takes to smoothen out a desynchronized position
+        P_NET_MINSNAPDIST   = 5,    -- Minimum distance at which we start snapping
+        P_NET_MINSNAPDOT    = 0.99, -- Idk!
+        P_NET_VELSNAPMULT   = 1,    -- 1 Means x10 Here! 0.1 Is 10%!
+
+        -- CryMP
         MP_CRYMP          = 0,
         MP_CIRCLEJUMP     = 0.45,
         MP_WALLJUMP       = 1,
@@ -190,12 +200,12 @@ ConfigCreate({
                 --  <bold>...</bold>
                 --- > {mod_name}        > Server Mod Name
                 --- > {mod_version}     > Server Mod Version
-                Description = "\tServer Running on {mod_exe} ${mod_version} (x${mod_bits})\nCompiled Using ${mod_compiler}\n\nUp-Time: ${server_uptime} | Mem: ${server_mem} (${server_peakm})\n\n[debug]: se(${dbg_scripterr})\nmem min: ${server_memPM}, mem hrs: ${server_memPH}, mem day: ${server_memPD}",
+                Description = "\tServer Running on {mod_exe} ${mod_version} (x${mod_bits})\nCompiled Using ${mod_compiler}\n\nUp-Time: ${server_uptime} | Mem: ${server_mem} (${server_peakm})\n\n[debug]: se(${dbg_scripterr})\nmem min: ${server_memPM}, mem hrs: ${server_memPH}, mem day: ${server_memPD}\ntransferred data: ${sever_rpc_transferred_session}, total: ${sever_rpc_transferred_total}",
 
             }, ---< Report
 
             --- Server PAK Url
-            PAKUrl = "http://nomad.nullptr.one/~finch/CryMP-Client-v00.pak",
+            PAKUrl = "http://nomad.nullptr.one/~finch/zzCryMP-Client-v0006.pak",
 
             ----------------------
             --- Map Download Links
@@ -212,6 +222,36 @@ ConfigCreate({
         General = {
 
             ----------------
+            --- Immersion
+            Immersion = {
+
+                ---------
+                --- Doors
+                Doors = {
+
+                    -- Server will open doors upon collision
+                    -- FIXME: but only if it's not relative to the player
+                    OpenOnCollision = true,
+
+                    -- Forces Open Relative to user for all doors
+                    AlwaysOpenRelativeToUsers = true,
+                }
+
+            }, ---< Immersion
+
+            ------------------
+            --- Vehicle Config
+            Vehicles = {
+
+                -- Attaches a pair of MGs to any helicopter
+                AttachHeliMGs = true,
+
+                -- the item class to attach (default MGs)
+                HeliMGClass   = "Hurricane",
+
+            }, ---< Vehicles
+
+            ----------------
             --- Item Config
             Weapons = {
 
@@ -225,7 +265,10 @@ ConfigCreate({
                 RPGGroundEffects = true,
 
                 -- Enhance underwater explosions
-                EnhanceUWExplosions = true
+                EnhanceUWExplosions = true,
+
+                -- loads a second round of grenades into grenade launcher attachments!
+                DoubleChamberGL = true
 
             }, ---< Weapons
 
@@ -240,6 +283,9 @@ ConfigCreate({
                     R_ATOC  = 0, -- crysis' broken alpha-to-coverage
                 },
 
+                -- Interval between logging cheats to console
+                CheatLogInterval = 0.75,
+
                 -- Testing mode, no punishments will be given!
                 TestMode = true,
 
@@ -249,16 +295,26 @@ ConfigCreate({
                 -- Required detects to take action against a cheater
                 ActionThreshold = {
 
-                    ["Default"]           = 3,
-                    ["SvRequestDropItem"] = 3,
+                    ["Default"]             = 3,
+                    [eCheat_DropItem]       = 3,
+                    [eCheat_WeaponRate]     = 3,
+                    [eCheat_NoRecoil]       = 2,
+                    [eCheat_NoSpread]       = 2,
+                    [eCheat_ClientPhys]     = 3,
+                    [eCheat_ClientFly]      = 3,
+                    [eCheat_ClientSpeed]    = 3,
+                    [eCheat_ServerSpeed]    = 3,
                 }, ---< ActionThreshold
 
                 -- Actions to be performed once a cheater is being dealt with
                 ActionPunishments = {
 
-                    ["SvRequestDropItem"]   = { 0, "21d" },
-                    ["SvRequestUseItem"]    = { 1 },
-                    ["SvRequestPickupItem"] = { 2 },
+                    [eCheat_DropItem]   = { Action = PUNISH_KICK },
+                    [eCheat_UseItem]    = { Action = PUNISH_KICK },
+                    [eCheat_PickItem]   = { Action = PUNISH_KICK },
+
+                    [eCheat_NoRecoil]   = { Action = PUNISH_BAN, Count = "1d" },
+                    [eCheat_NoSpread]   = { Action = PUNISH_BAN, Count = "1d" },
                 } ---< ActionPunishments
 
             }, ---< AntiCheat
@@ -282,6 +338,9 @@ ConfigCreate({
             ----------------------
             --- Map Configuration
             MapConfig = {
+
+                -- If the server should delete all client-only entities
+                DeleteClientEntities = true,
 
                 -- the default fallback value for time limits
                 DefaultTimeLimit = ONE_HOUR, -- One Hour
@@ -369,6 +428,9 @@ ConfigCreate({
 
                 -- The Spawn Prestige multiplier for premium members!!
                 PremiumSpawnPP = 1.25,
+
+                -- The Spawn Prestige multiplier for premium members!!
+                PremiumKillPP = 1.25,
 
                 -- Automatically place dead players into spectator mode after this amount of time passed since their death
                 AutoSpectateTimer = 180, -- FIXME
@@ -598,7 +660,7 @@ ConfigCreate({
                         Admin = {
                             { "FY71", { "LAMRifle", "Reflex", "Silencer" }},
                         },
-                        AdditionalEquip = { 'Binoculars' },
+                        AdditionalEquip = { 'Binoculars', 'Parachute' },
                         MustHave        = {},
                     } ---< InstantAction
 
@@ -628,6 +690,7 @@ ConfigCreate({
 
             -- Forbidden Symbols
             ForbiddenSymbols = {
+                "$",
                 "@",
                 "%%",
             },
@@ -644,6 +707,13 @@ ConfigCreate({
             -----------------------------
             -- Chat message configuration
             Chat = {
+
+                -- the level of aggression for the chat filtering process
+                -- the level defines how many non-matching characters are allowed to be in between each character of the bad words
+                -- example: [L2] Fu..CK!  -> ******
+                --          [L2] Fu...CK! -> FuxxxCK
+                --          [L3] Fu...CK! -> *******
+                FilterAggressiveness = 1,
 
                 -- a list of forbidden words that will be starred
                 ForbiddenWords = {
@@ -666,14 +736,16 @@ ConfigCreate({
                     "pussy",
                     "twat",
                     "wanker",
-                    "jerkoff",
+                    --"jerkoff",
+                    "gay",
 
-                    "faggot", "fag", "fagot", "fuck", "fuk", "fck", "shit", "sh!t", "bitch", "btch", "b!tch",
-                    "asshole", "a**hole", "nigger", "nigga", "ni**a", "cunt", "cnt", "dick", "d1ck", "pussy",
-                    "pusy", "puss", "whore", "wh0re", "slut", "slutty", "bastard", "bstd", "b1tch", "fucking",
-                    "fcking", "suck", "suk", "sucka", "fuker", "fucker", "fuqr", "fook", "fker", "fker",
-                    "fkoff", "fking", "fooker", "bitchez", "b!tchez", "btches",
-                    "retard", "r3tard", "twat", "twaat"
+                    -- chatGPT really went wild here!!
+                   -- "faggot", "fag", "fagot", "fuck", "fuk", "fck", "shit", "sh!t", "bitch", "btch", "b!tch",
+                   -- "asshole", "a**hole", "nigger", "nigga", "ni**a", "cunt", "cnt", "dick", "d1ck", "pussy",
+                   -- "pusy", "puss", "whore", "wh0re", "slut", "slutty", "bastard", "bstd", "b1tch", "fucking",
+                    --"fcking", "suck", "suk", "sucka", "fuker", "fucker", "fuqr", "fook", "fker", "fker",
+                    --"fkoff", "fking", "fooker", "bitchez", "b!tchez", "btches",
+                    --"retard", "r3tard", "twat", "twaat"
 
                 }, ---< ForbiddenWords
 
@@ -691,7 +763,7 @@ ConfigCreate({
                     Enabled = false, -- Status of the Console Queue
 
                     -- Pop count per cycle
-                    PopCount = 2,
+                    PopCount = 30,
 
                     -- delay between cycles, in ms
                     PopDelay = 1,

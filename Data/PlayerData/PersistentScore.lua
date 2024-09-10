@@ -1,16 +1,28 @@
 return {
  ["PowerStruggle"] = {
-  ["1011669"] = {
-   ["Deaths"] = 1,
-   ["Kills"] = 1,
+  ["1064253"] = {
+   ["Deaths"] = 0,
+   ["Kills"] = 0,
    ["PP"] = 0,
+   ["Rank"] = 1,
+  },
+  ["0"] = {
+   ["Kills"] = 0,
+   ["Deaths"] = 0,
+   ["PP"] = 0,
+   ["Rank"] = 1,
+  },
+  ["1011669"] = {
+   ["Deaths"] = 0,
+   ["Kills"] = 0,
+   ["PP"] = 50,
    ["Rank"] = 1,
   },
  },
  ["InstantAction"] = {
   ["1011669"] = {
-   ["Deaths"] = 8,
    ["Kills"] = 0,
+   ["Deaths"] = 8,
   },
  },
 }

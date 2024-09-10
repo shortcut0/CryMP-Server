@@ -130,6 +130,44 @@ end
 
 -------------------
 --- Init
+ServerCommands.FindCommandByName = function(self, hClient, sName)
+
+    local iUserRank = hClient:GetAccess()
+    local sCommand = sName
+    if (sCommand == nil) then
+        return nil
+    end
+
+    local aCommands = self:FindCommand(99, string.lower(sCommand))
+    local iCommands = table.count(aCommands)
+    if (iCommands == 0) then
+
+        return nil
+    elseif (iCommands > 1) then
+
+        local aShow = {}
+        local iFound = 0
+        for _, aFound in pairs(aCommands) do
+            if (iUserRank >= aFound.Access) then
+                iFound = (iFound + 1)
+                table.insert(aShow, aFound)
+            else
+            end
+        end
+
+        if (iFound == 0) then
+            return nil
+        end
+
+        self:ListCommands(hClient, aShow)
+        return nil, self:SendResponse(hClient, eCommandResponse_ManyFound, sCommand, iFound)
+    end
+
+    return aCommands[1]
+end
+
+-------------------
+--- Init
 ServerCommands.OnCommand = function(self, hClient, sMessage)
 
     local aArgs = string.split(string.gsuba(sMessage, {
@@ -204,8 +242,8 @@ ServerCommands.SendHelp = function(self, hClient, aCommand)
     local sArgsLine = ""
     local sBracketColor = CRY_COLOR_GRAY
     local hArgsLocalized = table.it(hArgs, function(x, i, v)
-        v.Name = TryLocalize(v.Name, sLang) -- Name
-        v.Desc = TryLocalize((v.Desc or "@l_ui_nodescription"), sLang) -- Desc
+        v.Name = hClient:Localize(v.Name) -- Name
+        v.Desc = hClient:Localize((v.Desc or "@l_ui_nodescription")) -- Desc
 
         sBracketColor = CRY_COLOR_GRAY
         if (v.Required) then
@@ -221,12 +259,12 @@ ServerCommands.SendHelp = function(self, hClient, aCommand)
             sArgsLine = string.format("%s, %s<%s%s%s>", sArgsLine, sBracketColor, CRY_COLOR_YELLOW, v.Name, sBracketColor, CRY_COLOR_GRAY)
         end
     end)
-    local sCmdBanner    = string.format("== [ %s ] ", sName)
-    local sDescBanner   = string.format("%s", TryLocalize(sDesc, sLang))
+    local sCmdBanner    = string.format("== [ $1!%s%s$9 ] ", GetRankColor(iAccess), string.upper(sName))
+    local sDescBanner   = string.format("%s", hClient:Localize(sDesc))
 
-    local sLPrefix = TryLocalize("@l_ui_prefixes", sLang)
-    local sLAccess = TryLocalize("@l_ui_access", sLang)
-    local sLUsage  = TryLocalize("@l_ui_usage", sLang)
+    local sLPrefix = hClient:Localize("@l_ui_prefixes")
+    local sLAccess = hClient:Localize("@l_ui_access")
+    local sLUsage  = hClient:Localize("@l_ui_usage")
 
     local iMaxInfoLen   = math.max(string.len(sLPrefix), string.len(sLAccess), string.len(sLUsage))
 
@@ -242,7 +280,7 @@ ServerCommands.SendHelp = function(self, hClient, aCommand)
 
     -- Send All
     SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. string.rspace(sCmdBanner, iBoxWidth, string.COLOR_CODE, "="))
-    SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. string.format("[ %s ]", string.mspace((TryLocalize("@l_ui_description", sLang) .. ":"), iBoxWidth - 4, 1, string.COLOR_CODE)))
+    SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. string.format("[ %s ]", string.mspace((hClient:Localize("@l_ui_description") .. ":"), iBoxWidth - 4, 1, string.COLOR_CODE)))
     SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. string.format("[ %s ]", string.mspace(sDescBanner, iBoxWidth - 4, 1, string.COLOR_CODE)))
     SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. string.format("[ %s ]", string.mspace("", iBoxWidth - 4)))
     SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. "[ " .. string.rspace(sPrefixLine, iBoxWidth - 4, string.COLOR_CODE) .. CRY_COLOR_GRAY .. " ]")
@@ -265,6 +303,8 @@ ServerCommands.SendHelp = function(self, hClient, aCommand)
             sArgType = "@l_ui_cvar"
         elseif (aArg.IsTime) then
             sArgType = "@l_ui_time"
+        elseif (aArg.IsAccess) then
+            sArgType = "@l_ui_access"
         end
 
         sBracketColor = CRY_COLOR_GRAY
@@ -274,8 +314,9 @@ ServerCommands.SendHelp = function(self, hClient, aCommand)
             sBracketColor = CRY_COLOR_BLUE
         end
 
-        sArgType = string.format("%s(%s%s%s)", CRY_COLOR_GRAY, CRY_COLOR_WHITE, TryLocalize(sArgType, sLang), CRY_COLOR_GRAY)
-        sArgLine = string.rep(" ", (iMaxInfoLen + 2 + string.len(sName) + 2)) .. string.rspace(string.format("%s<%s%s %s%s>%s", sBracketColor, CRY_COLOR_YELLOW, string.rspace(TryLocalize(aArg.Name, sLang), iArgMaxName, string.COLOR_CODE), sArgType, sBracketColor, CRY_COLOR_GRAY), 30, string.COLOR_CODE) .. " - " .. CRY_COLOR_WHITE .. TryLocalize((aArg.Desc or "@l_ui_nodescription"), sLang)
+        sArgType = string.format("%s(%s%s%s)", CRY_COLOR_GRAY, CRY_COLOR_WHITE, hClient:Localize(sArgType), CRY_COLOR_GRAY)
+       -- Debug(aArg.Desc,"==",hClient:Localize((aArg.Desc or "@l_ui_nodescription")))
+        sArgLine = string.rep(" ", (iMaxInfoLen + 2 + string.len(sName) + 2)) .. string.rspace(string.format("%s<%s%s %s%s>%s", sBracketColor, CRY_COLOR_YELLOW, string.rspace(hClient:Localize(aArg.Name), iArgMaxName, string.COLOR_CODE), sArgType, sBracketColor, CRY_COLOR_GRAY), 30, string.COLOR_CODE) .. " - " .. CRY_COLOR_WHITE .. hClient:Localize((aArg.Desc or "@l_ui_nodescription"))
 
 
         SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. string.format("[ %s ]", string.rspace(sArgLine .. CRY_COLOR_GRAY, iBoxWidth - 4, string.COLOR_CODE)))
@@ -283,11 +324,14 @@ ServerCommands.SendHelp = function(self, hClient, aCommand)
     end
     SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. "[ " .. string.rspace("",  iBoxWidth - 4, string.COLOR_CODE) .. CRY_COLOR_GRAY .. " ]")
 
-    local sInfoHelp = TryLocalize("@l_ui_arg_color_info", sLang)
+    local sInfoHelp = hClient:Localize("@l_ui_arg_color_info")
     sInfoHelp = string.format("%s", Logger.Format(sInfoHelp))
 
     SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. "[ " .. string.mspace(sInfoHelp .. CRY_COLOR_GRAY, iBoxWidth - 4, nil, string.COLOR_CODE) .. " ]")
     SendMsg(MSG_CONSOLE_FIXED, hClient, sSpace .. CRY_COLOR_GRAY .. string.rspace("", iBoxWidth, string.COLOR_CODE, "="))
+
+    SendMsg(CHAT_SERVER, hClient, hClient:Localize("@l_ui_helpSendToConsole", { ("!" .. string.upper(sName)) }))
+    hClient:Execute("System.ShowConsole(1)")
 
     -- todo
     local x = {
@@ -395,7 +439,7 @@ ServerCommands.ListCommands = function(self, hClient, aList, sWantList)
         end
     end
 
-    local sInfoHelp = TryLocalize("@l_ui_commands_help", hClient:GetPreferredLanguage())
+    local sInfoHelp = hClient:Localize("@l_ui_commands_help")
 
     SendMsg(MSG_CONSOLE_FIXED, hClient, " ")
   --  SendMsg(MSG_CONSOLE_FIXED, hClient, CRY_COLOR_GRAY .. string.rep("-", iLineWidth))
@@ -507,6 +551,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
     }
 
     local bTestingMode = hClient:IsTesting()
+    local bExtendedTesting = bTestingMode and hClient:HasAccess(GetHighestRank())
 
     local bVehicle = aCmdProps.Vehicle
     local bAlive = aCmdProps.Alive
@@ -566,7 +611,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
 
         local bIndoors = aCmdProps.Indoors
         local bOutdoors = aCmdProps.Outdoors
-        local bIsIndoors = System.IsPointIndoors(hClient:GetPos())
+        local bIsIndoors = (hClient:IsIndoors() and not hClient:IsUnderground())
 
         if (bIndoors == false and bIsIndoors) then
             return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_notIndoors")
@@ -657,11 +702,11 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
                         return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandarg_player_notfounnd", sArg)
                     end
                 elseif (isArray(hTemp)) then
-                    if (aCmdArg.EqualAccess and hTemp:GetAccess() >= hClient:GetAccess() and hTemp.id ~= hClient.id) then
+                    if (not bExtendedTesting and aCmdArg.EqualAccess and hTemp:GetAccess() >= hClient:GetAccess() and hTemp.id ~= hClient.id) then
                         return self:SendResponse(hClient, eCommandResponse_NoAccess, sName)
                     end
 
-                    if (aCmdArg.NotSelf and hTemp.id == hClient.id) then
+                    if (not bExtendedTesting and aCmdArg.NotSelf and hTemp.id == hClient.id) then
                         return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandarg_not_user", _)
                     end
                 end
@@ -734,7 +779,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
                 aPushArgs[_] = hTemp
 
 
-                -----------------------
+                -- =========================================================
                 --argument expects a cvar
             elseif (aCmdArg.IsCVar) then
                 if (GetCVar(sArg) == nil) then
@@ -742,6 +787,17 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
                 end
 
                 aPushArgs[_] = aUserArgs[_]
+
+
+                -- =========================================================
+                --argument expects an access level
+            elseif (aCmdArg.IsAccess) then
+                hTemp = TryGetRankInfo(sArg)
+                if (hTemp == nil) then
+                    return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandarg_notaccess", _)
+                end
+
+                aPushArgs[_] = hTemp
 
             -- this breaks all other arguments!
             elseif (aCmdArg.Concat) then
@@ -776,7 +832,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
         if (not bSuccess) then
 
             HandleError("Executing Command %s (%s)", sName, (hCmdResponse or "<Unknown>"))
-            return self:SendResponse(hClient, eCommandResponse_ScriptError, sName, (TryLocalize("@l_ui_checkerrorlog", sLang) or hCmdResponse or "<Unknown>"))
+            return self:SendResponse(hClient, eCommandResponse_ScriptError, sName, (hClient:Localize("@l_ui_checkerrorlog") or hCmdResponse or "<Unknown>"))
         end
 
         sError = sCmdError
@@ -800,6 +856,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
     if (bTimer) then
         --hClient.CommandTimers[string.lower(sName)] = timernew(iCooldown)
 
+       -- SendMsg(CHAT_SERVER,hClient,"hello")
         hClient:TimerRefresh(sTimerID, iCooldown, true)
         if (bPay and not bTestingMode) then
 
@@ -1147,7 +1204,7 @@ ServerCommands.CreateCommand = function(self, aInfo)
     self.Commands[sName] = aCommand
 
     if (self.CreateCCommand) then
-        local sConsoleArgs = string.repeats("%%1{%a:,}", table.count(hArgs))
+        local sConsoleArgs = string.rep("%%1{%a:,}", table.count(hArgs))
         local sConsoleFunc = string.format("ServerCommands:OnServerCommand(\"%s\"%s)", sName, (sConsoleArgs ~= "" and ("," .. sConsoleArgs) or sConsoleArgs))
         local sConsoleName = string.format("server_cmd_" .. sName)
 
@@ -1155,3 +1212,6 @@ ServerCommands.CreateCommand = function(self, aInfo)
         System.AddCCommand(sConsoleName, sConsoleFunc, (sDesc))
     end
 end
+
+---------------
+Server.Register(ServerCommands, "ServerCommands")

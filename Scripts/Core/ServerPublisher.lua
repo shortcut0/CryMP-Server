@@ -1,42 +1,38 @@
 ----------------
 ServerPublisher = (ServerPublisher or {
 
-    MasterAPI = ServerDLL.GetMasterServerAPI(),
-    RegisterEP = "/reg.php", -- Register Endpoint
-    UpdateEP = "/up.php", -- Update Endpoint
+    MasterAPI   = ServerDLL.GetMasterServerAPI(),
+    RegisterEP  = "/reg.php", -- Register Endpoint
+    UpdateEP    = "/up.php", -- Update Endpoint
 
     Timeout = 30,
 
-    DefaultHeaders = {
-        ["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8"
-    },
-    JSONHeaders = {
-        ["Content-Type"] = "application/json"
-    },
+    DefaultHeaders  = { ["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8" },
+    JSONHeaders     = { ["Content-Type"] = "application/json" },
 
     GameVersion = "6156",
+    Description = "No Description Available.",
 
     -----
-    LastUpdate = timernew(0),
-    UpdateFail = timernew(0),
+    LastUpdate  = timernew(0),
+    UpdateFail  = timernew(0),
     ExposedFail = timernew(0),
-    UpdateRate = 30.0,
+    UpdateRate    = 30.0,
     ErrorRecovery = 30.0,
-    Description = "No Description Available.",
 
     MapLinkDir = (SERVER_DIR_DATA .. "\\"),
     MapLinkFiles = "MapLinks\.(txt|json|lua)",
     MapLinks = {},
 
     -----
-    Cookie = nil, -- Session Cookie
-    Exposed = false,
-    ExposedSuccess = false,
-    Initialized = false,
+    Cookie          = nil, -- Session Cookie
+    Exposed         = false,
+    ExposedSuccess  = false,
+    Initialized     = false,
 })
 
 ----------------
-
+--- ????
 ServerPublisher.UseJSONReport = false -- Send Report as JSON Instead of literal url parameter
 ServerPublisher.DefaultHeaders = {
     ["Content-Type"] = "application/x-www-form-urlencoded; charset=utf-8"
@@ -49,6 +45,10 @@ ServerPublisher.JSONHeaders = {
 
 eServerReport_Expose = 0
 eServerReport_Status = 1
+
+eGSUpdate_Server = 0
+eGSUpdate_Player = 1
+eGSUpdate_Team   = 2
 
 --------------------------------
 --- Init
@@ -169,15 +169,28 @@ end
 
 --------------------------------
 --- Init
+ServerPublisher.ForceNextUpdate = function(self, iTime)
+    self.LastUpdate.refresh(iTime)
+end
+
+--------------------------------
+--- Init
 ServerPublisher.UpdateServer = function(self)
 
     self.UpdateFail = nil
 
-    local sBody = self:GetServerReport(eServerReport_Status)
+    local aBody = self:GetServerReport(eServerReport_Status, true)
+    local sBody = self:BodyToString(aBody)
+
     local aHeaders = self.DefaultHeaders
     if (self.UseJSONReport) then
         aHeaders = self.JSONHeaders
+        sBody = json.encode(aBody)
     end
+
+    -- GS
+    --ServerDLL.UpdateGameSpyReport(eGSUpdate_Server, "hostname", g_ts(aBody.name), 0)
+    --ServerLog(table.tostring(aBody))
 
     ServerDLL.Request({
         url = (self.MasterAPI .. self.UpdateEP),
@@ -198,6 +211,11 @@ ServerPublisher.OnUpdated = function(self, sError, sResponse, iCode)
 
     self.UpdateFail = timernew(self.ErrorRecovery)
     if (iCode ~= 200) then
+        if (iCode == 400) then
+            self.Exposed = false
+            self.ExposedSuccess = false
+            self:LogError("Detected Code 400. Trying to re-expose!")
+        end
         return self:LogError("Status Update failed with code %d (%s)", checkNumber(iCode), string.gsub(g_ts(sError),"\n",""))
     end
 
@@ -289,7 +307,7 @@ end
 
 --------------------------------
 --- Init
-ServerPublisher.GetServerReport = function(self, iType)
+ServerPublisher.GetServerReport = function(self, iType, bArray)
 
 
     -- Server Config
@@ -373,7 +391,9 @@ ServerPublisher.GetServerReport = function(self, iType)
         aBody.players = hPlayerList
     end
 
-    if (self.UseJSONReport) then
+    if (bArray) then
+        return aBody
+    elseif (self.UseJSONReport) then
         return json.encode(aBody)
     end
 

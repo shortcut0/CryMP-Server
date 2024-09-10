@@ -11,7 +11,7 @@ AddCommand({
 
     Function = function(self)
 
-        local aInfo = self:GetEntitiesInFront(eGet_Physicalized, 3, 2)
+        local aInfo = self:GetEntitiesInFront(eGet_Physicalized, 5, 2)
         if (not aInfo:None()) then
             if (aInfo.Indoors) then
                 return false, self:Localize("@l_commandresp_notIndoors")
@@ -45,7 +45,7 @@ AddCommand({
                     g_Client:DissolveVehicle(GetEntity("%s"),true)
                 ]], hLast:GetName(), hLast:GetName()))
                 Script.SetTimer(6000, function()
-                    if (hLast:GetPassengerCount() == 0) then
+                    if (hLast and hLast:GetPassengerCount() == 0) then
                         RemoveEntity(hLast.id)
                     end
                 end)
@@ -82,7 +82,7 @@ AddCommand({
 
     Function = function(self)
 
-        local aInfo = self:GetEntitiesInFront(eGet_Physicalized, 3, 2)
+        local aInfo = self:GetEntitiesInFront(eGet_Physicalized, 5, 2)
         if (not aInfo:None()) then
             if (aInfo.Indoors) then
                 return false, self:Localize("@l_commandresp_notIndoors")
@@ -90,7 +90,7 @@ AddCommand({
             return false, self:Localize("@l_ui_EntitiesInFront", { aInfo.First or "Object" })
         end
 
-        ClientMod:ChangeVehicleModel(self, nil, table.random({VM_AUDI,VM_TESLA}), true)
+        ClientMod:ChangeVehicleModel(self, nil, table.random({VM_TESLA}), true)
         SendMsg(CHAT_SERVER, self, self:LocalizeNest("@l_ui_hereIsYour", {"SuperCab"}))
     end
 })
@@ -108,7 +108,7 @@ AddCommand({
 
     Function = function(self)
 
-        local aInfo = self:GetEntitiesInFront(eGet_Physicalized, 3, 2)
+        local aInfo = self:GetEntitiesInFront(eGet_Physicalized, 5, 2)
         if (not aInfo:None()) then
             if (aInfo.Indoors) then
                 return false, self:Localize("@l_commandresp_notIndoors")

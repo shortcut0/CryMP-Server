@@ -8,7 +8,7 @@ ServerNames = {
     AllowSpaces = true,
 
     NomadTemplate = "^Nomad%.%w+ :: %(#$d+%)$",
-    NameTemplate = "Nomad.${a_country} :: (#${server_total_connects})",
+    NameTemplate = "Nomad.${a_country} :: (#${server_total_channels})",
 }
 
 ----------------
@@ -16,12 +16,12 @@ ServerNames.Init = function(self)
 
     Logger.CreateAbstract(self, { LogClass = "Names", Color = "$4" })
 
-    self.AllowSpaces    = ConfigGet("General.Names.AllowSpaces", self.AllowSpaces, eConfigGet_Boolean)
-    self.NameTemplate   = ConfigGet("General.Names.Template", self.NameTemplate, eConfigGet_String)
-    self.NomadTemplate   = ConfigGet("General.Names.Template", self.NameTemplate, eConfigGet_String)
-    self.ForbiddenNames = ConfigGet("General.Names.ForbiddenNames", {}, eConfigGet_Array)
-    self.ForbiddenSymbols = ConfigGet("General.Names.ForbiddenSymbols", {}, eConfigGet_Array)
-    self.ReplacementCharacter = ConfigGet("General.Names.Replacement", "_", eConfigGet_String)
+    self.AllowSpaces    = ConfigGet("Names.AllowSpaces", self.AllowSpaces, eConfigGet_Boolean)
+    self.NameTemplate   = ConfigGet("Names.Template", self.NameTemplate, eConfigGet_String)
+    self.NomadTemplate   = ConfigGet("Names.Template", self.NameTemplate, eConfigGet_String)
+    self.ForbiddenNames = ConfigGet("Names.ForbiddenNames", {}, eConfigGet_Array)
+    self.ForbiddenSymbols = ConfigGet("Names.ForbiddenSymbols", {}, eConfigGet_Array)
+    self.ReplacementCharacter = ConfigGet("Names.Replacement", "_", eConfigGet_String)
 
 end
 
@@ -41,11 +41,9 @@ ServerNames.RequestRename = function(self, hPlayer, sName, hAdmin, sReason)
         iMax = 256
     end
 
-    sName = self:Sanitize(sName)
-    Debug("string.lower(sName)>","-"..string.lower(sName).."-","<")
+    sName = self:RemoveCrypt(self:Sanitize(sName))
     if (string.lower(sName) == "nomad") then
         sName = self:GetDefaultName(hPlayer)
-        Debug("sName",sName)
     end
 
     if (string.len(sName) < iMin) then
@@ -56,7 +54,9 @@ ServerNames.RequestRename = function(self, hPlayer, sName, hAdmin, sReason)
         return false, "@l_ui_nameTooLong"
     end
 
-    if (ServerAccess:IsProtectedName(sName, hPlayer:GetProfile())) then
+    local hEntity = GetEntity(sName)
+    local bChatEntity = hEntity and hEntity.IsChatEntity
+    if (bChatEntity or ServerAccess:IsProtectedName(sName, hPlayer:GetProfile())) then
         return false, "@l_ui_nameIsProtected"
     end
 
@@ -70,6 +70,7 @@ ServerNames.RequestRename = function(self, hPlayer, sName, hAdmin, sReason)
 
     local sOldName = hPlayer:GetName()
     g_pGame:RenamePlayer(hPlayer.id, sName)
+
     if (hPlayer:GetName() ~= sOldName) then
         local sMsgCon = "@l_console_clientrenamed"
         local sMsgChat = "@l_chat_clientrenamed"
@@ -101,6 +102,8 @@ end
 
 ----------------
 ServerNames.IsNomad = function(self, sName)
+
+    sName = sName or ""
     if (string.match(string.lower(sName), string.lower(self.NomadTemplate))) then
         return true
     end
@@ -131,10 +134,9 @@ end
 ----------------
 ServerNames.HandleChannelNick = function(self, iChannel, aFmt)
     local sNick = ServerDLL.GetChannelNick(iChannel)
-    Debug("nick:",sNick)
     if (sNick == nil or self:IsNomad(sNick)) then
-        ServerDLL.SetChannelNick(iChannel, self:GetDefaultName(aFmt))
-        Debug("changed name fucking name")
+        local sNomad = self:GetDefaultName(aFmt)
+        ServerDLL.SetChannelNick(iChannel, sNomad)
     end
 end
 
@@ -193,7 +195,7 @@ ServerNames.Sanitize = function(self, sName)
     end
 
     for _, sBad in pairs(aForbidden) do
-        sSanitized = string.gsub(sSanitized, sBad, sReplace)
+        sSanitized = string.gsub(sSanitized, string.escape(sBad), sReplace)
     end
 
     return sSanitized

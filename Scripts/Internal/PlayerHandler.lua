@@ -69,6 +69,11 @@ eGodMode_Extended   = 2 -- + testing mode
 eGodMode_Ultra      = 3 -- + special stuff
 
 ------------------
+-- Synced Client Keys
+
+PLAYERKEY_GODSTATUS = 500
+
+------------------
 
 g_PlayerRayTable = {}
 
@@ -143,7 +148,11 @@ PlayerHandler.OnClientDisconnect = function(self, hClient, bNoSave, bQuiet, bRel
     local sID   = hClient:GetProfileID()
     local aData = hClient:GetStoredData()
 
-    self.PlayerData[sID] = aData
+    ServerLog("============================================= [ OLD ] ====================================")
+    ServerLog(table.tostring(self.PlayerData[sID]))
+    ServerLog("============================================= [ NEW ] ====================================")
+    ServerLog(table.tostring(aData))
+    self.PlayerData[sID] = aData--table.merge({}, aData)
     if (not bNoSave) then
         self:SaveFile()
     end
@@ -156,7 +165,7 @@ end
 ------------------
 PlayerHandler.SavePlayerData = function(self)
 
-    for _, hClient in pairs(GetPlayers()) do
+    for _, hClient in pairs(GetPlayers() or {}) do
         ServerLog("FOR CLIENT %s",hClient:GetName())
         self:OnClientDisconnect(hClient, true, true, true)
     end
@@ -229,8 +238,8 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
         Validated   = false,
         Validating  = false,
 
-        StaticID    = nil,
-        HWID        = nil,
+        StaticID    = nil, -- sent by client
+        HWID        = nil, -- sent by client
         ChannelNick = sChannelName,
         ChannelID   = iChannel,
         ProfileID   = GetInvalidID(),
@@ -280,6 +289,7 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
         },
 
         ----------
+        -- bad indexing here.. someone rewrite!
         IPData = {
 
             Data = {},
@@ -291,6 +301,7 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
         },
 
         ----------
+        -- bad indexing here.. someone rewrite!
         Rank = {
             ID        = iDefRank,
             PendingID = nil,
@@ -310,6 +321,7 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
         ----------
         GodMode = {
 
+            Superman   = 0,
             GodStatus  = (bServer and 3 or 0),
             TestStatus = (bServer and 3 or 0),
 
@@ -317,6 +329,8 @@ PlayerHandler.CreateClientInfo = function(self, iChannel)
             IsGod      = function(this, level) local g = this.GodStatus if (level) then return g >= level end return (g or 0) > 0 end,
             IsTesting  = function(this, level) local t = this.TestStatus if (level) then return t >= level end return (t or 0) > 0 end,
             SetTesting = function(this, level) this.TestStatus = level end,
+            IsSuperman = function(this, level) level = (level or 1) return (this:IsTesting() or this:IsGod(level + 2) or this.Superman >= level) end,
+            SetSuperman= function(this, level) this.Superman = level or 0 end,
 
         },
 
@@ -396,6 +410,16 @@ end
 ------------------
 PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
 
+    local aKeys = {
+        [PLAYERKEY_GODSTATUS] = 0,
+    }
+
+    for iKey, hDef in pairs(aKeys) do
+        if (g_pGame:GetSynchedEntityValue(hClient.id, iKey) == nil) then
+            g_pGame:SetSynchedEntityValue(hClient.id, iKey, hDef)
+        end
+    end
+
     hClient.CommandTimers = {}
 
     hClient.IsPlayer  = (not bServer)
@@ -406,6 +430,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     -- FIXME
     hClient.IsLagging       = function(self) return false end --self.actor:IsFlying()  end
     hClient.IsFlying        = function(self) return self.actor:IsFlying()  end
+    hClient.IsIndoors       = function(self) return IsPointIndoors(self:GetPos())  end
     hClient.IsFrozen        = function(self) return g_pGame:IsFrozen(self.id)  end
     hClient.IsAlive         = function(self, ignorespec) return (self:GetHealth() > 0 and (ignorespec or not self:IsSpectating()))  end
     hClient.IsDead          = function(self) return (self:GetHealth() <= 0) end
@@ -461,6 +486,16 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
         g_pGame:ServerHit(hTargetId, hShooterId, hWeaponId, iDamage, iRadius, iMaterialID, iPart, iTypeID, vPos, vDir, vNormal)
     end
 
+    hClient.Distance = function(self, hTargetID)
+
+        local vPos = self:GetPos()
+        local hTarget = GetEntity(hTargetID)
+        if (not hTarget) then
+            return 0
+        end
+
+        return vector.distance(hTarget:GetPos(), vPos)
+    end
     hClient.GetHitPos = function(self, iDist, iTypes, vDir, vPos)
         iTypes = iTypes or ent_all
         iDist = iDist or 5
@@ -486,7 +521,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
         --Debug("req3=",iPosP)
 
         local nIgnore = (self:GetVehicleId() or self.id)
-        local iHits = (ServerDLL.RayWorldIntersection or Physics.RayWorldIntersection)(vPos, vDir, 1, iTypes, nIgnore, nil, g_PlayerRayTable)
+        local iHits = (ServerDLL.RayWorldIntersection or Physics.RayWorldIntersection)(vPos, vDir, 1, iTypes, self.id, self:GetVehicleId(), g_PlayerRayTable)
         local aHit = g_PlayerRayTable[1]
         if (iHits and iHits > 0) then
             aHit.surfaceName = System.GetSurfaceTypeNameById( aHit.surface )
@@ -494,18 +529,22 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
         end
         return
     end
-    hClient.GetFacingPos        = function(self, iFace, iDistance, iFollowType, t) return GetFacingPos(self, iFace, iDistance, iFollowType, t)  end
+    hClient.IsSwimming          = function(self) return self:IsUnderwater(1) or self:GetStance(STANCE_SWIM)  end
+    hClient.IsUnderground       = function(self, iThreshold) return ServerUtils.IsEntityUnderground(self, iThreshold)  end
+    hClient.IsUnderwater        = function(self, iThreshold) return ServerUtils.IsEntityUnderwater(self, iThreshold)  end
+    hClient.GetFacingPos        = function(self, iFace, iDistance, iFollowType, t, t2) return GetFacingPos(self, iFace, iDistance, iFollowType, t, t2)  end
     hClient.GetHeadPos          = function(self) return self.actor:GetHeadPos() end
     --hClient.GetBonePos          = function(self, bone) return self:GetBonePos(bone) end
     hClient.GetHeadDir          = function(self) return self.actor:GetHeadDir()  end
     hClient.GetViewPoint        = function(self, dist) return (self.actor:GetLookAtPoint(dist or 9999))  end
     hClient.SvMoveTo            = function(self, pos, ang) self:SetInvulnerability(5) local v = self:GetVehicle() if (v) then v:SetWorldPos(pos) return end g_pGame:MovePlayer(self.id, vector.modifyz(pos, 0.25), (ang or self:GetWorldAngles()))  end
     hClient.SetInvulnerability  = function(self, time) g_pGame:SetInvulnerability(self.id, true, (time or 2.5)) end
-    hClient.GetSpectatorDir     = function(self) return (self.actor:GetLookDirection() or self.PesudoDirection or vector.make()) end
+    hClient.GetSpectatorDir     = function(self) return (self.actor:GetLookDirection() or self.PseudoDirection or vector.make()) end
     hClient.GetVehicleDir       = function(self) return (self.actor:GetVehicleViewDir()) end
-    hClient.SmartGetDir         = function(self, dv) if (self:IsSpectating()) then return self:GetSpectatorDir() elseif (self:GetVehicleId()) then return self:GetVehicleDir()end return (dv and self:GetDirectionVector() or self:GetHeadDir()) end
+    hClient.SmartGetDir         = function(self, dv) if (self:IsSpectating()) then return self:GetSpectatorDir() elseif (self:GetVehicleId()) then return self:GetVehicleDir()end return (dv and self:GetDirectionVector() or self.actor:GetLookDirection() or self:GetHeadDir()) end
     hClient.GetLean             = function(self, dir) local d = self.actor:GetLean() if (dir) then return d == dir end return d end
     hClient.IsIdle              = function(self, time) return self.Info.IdleTimer.expired(time or 5) end
+    hClient.GetStance           = function(self, check) local s = self.actorStats.stance if (check) then return s==check end return s end
 
     hClient.IsValidated     = function(self) return (self.Info.Validated == true) end
     hClient.GetProfileID    = function(self) return self.Info.ProfileID end
@@ -518,6 +557,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.GetIP           = function(self) return self.Info.IP end
     hClient.GetStaicID      = function(self) return self.Info.StaticID end
     hClient.GetHWID         = function(self) return self.Info.HWID end
+    hClient.SetHWID         = function(self, id) self.Info.HWID = id end
     hClient.GetHostName     = function(self) return self.Info.HostName end
     hClient.GetHost         = function(self) return self.Info.HostName end
     hClient.GetPort         = function(self) return self.Info.Port end
@@ -541,8 +581,10 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.GetLanguage     = function(self) return self.Info.Language.Language end
     hClient.SetLanguage     = function(self, sLang) self.Info.Language.Language = sLang end
 
+    hClient.SetSuperman     = function(self, level) return self.Info.GodMode:SetSuperman(level) end
+    hClient.IsSuperman      = function(self, level) return self.Info.GodMode:IsSuperman(level) end
     hClient.HasGodMode      = function(self, level) return self.Info.GodMode:IsGod(level) end
-    hClient.SetGodMode      = function(self, level) self.Info.GodMode:SetGod(level) self.actor:SetGodMode(level) self:Tick()  end
+    hClient.SetGodMode      = function(self, level) self.Info.GodMode:SetGod(level) self.actor:SetGodMode(level) self:Tick() g_pGame:SetSynchedEntityValue(self.id, PLAYERKEY_GODSTATUS, (level or 0))  end
     hClient.IsTesting       = function(self, level) return self.Info.GodMode:IsTesting(level) end
     hClient.SetTesting      = function(self, level) self.Info.GodMode:SetTesting(level) end
 
@@ -559,8 +601,16 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.SetCP           = function(self, cp) g_gameRules:SetPlayerCP(self.id, cp) end
     hClient.GetPrestige     = function(self) return (g_gameRules:GetPlayerPrestige(self.id) or 0) end
     hClient.SetPrestige     = function(self, pp) g_gameRules:SetPlayerPrestige(self.id, pp) end
-    hClient.AddPrestige     = function(self, pp, reason) self:SetPrestige(self:GetPrestige() + pp) if (reason) then end end -- TODO: ClientMod()
-    hClient.AwardPrestige   = function(self, pp, reason) g_gameRules:AwardPPCount(self.id, pp, nil, self:HasClientMod()) if (reason) then end end -- TODO: ClientMod()
+    hClient.PayPrestige     = function(self, pp, msg) local have = self:GetPrestige() if (have < pp) then return false, (pp - have) end self:AwardPrestige(-pp, msg) return true, 0 end
+    hClient.AddPrestige     = function(self, pp, reason) self:SetPrestige(self:GetPrestige() + pp)
+        if (reason) then
+            self:SendPPMsg((pp > 0 and "+" or "") .. pp .. " PP", reason)
+        end end -- TODO: ClientMod()
+    hClient.AwardPrestige   = function(self, pp, reason) g_gameRules:AwardPPCount(self.id, pp, nil, self:HasClientMod())
+        if (reason) then
+            self:SendPPMsg((pp > 0 and "+" or "") .. pp .. " PP", reason)
+        end end -- TODO: ClientMod()
+    hClient.SendPPMsg         = function(self, pp, msg) if (self:HasClientMod()) then self:Execute(string.format("g_Client.Event(eEvent_BLE, eBLE_Currency,\"%s ( %s )\")", self:LocalizeNest(msg), pp))end end -- TODO: ClientMod()
     hClient.AwardCP         = function(self, pp, reason) g_gameRules:AwardCPCount(self.id, pp) if (reason) then end end -- TODO: ClientMod()
     hClient.GetStoredData   = function(self) return self.Info.StoredData.Data end
     hClient.SetStoredData   = function(self, data) self.Info.StoredData.Data = data end
@@ -618,7 +668,8 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.GetItemByClass  = function(self, class) local h = self.inventory:GetItemByClass(class) return GetEntity(h) end
     hClient.HasItem         = function(self, class) return self.inventory:GetItemByClass(class) end
     hClient.GetItem         = function(self, class) return self.inventory:GetItemByClass(class) end
-    hClient.GiveItem        = function(self, class, noforce) self.actor:SetActorMode(ACTORMODE_UNLIMITEDITEMS, 1) local i = ItemSystem.GiveItem(class, self.id, (not noforce))self.actor:SetActorMode(ACTORMODE_UNLIMITEDITEMS, 0) return i end
+    hClient.RemoveItem      = function(self, class) local id = self.inventory:GetItemByClass(class) if (id) then self.inventory:RemoveItem(id) end end
+    hClient.GiveItem        = function(self, class, noforce) self.actor:SetActorMode(ACTORMODE_UNLIMITEDITEMS, 1) if (class == "Parachute") then self:RemoveItem("Parachute") end local i = ItemSystem.GiveItem(class, self.id, (not noforce))self.actor:SetActorMode(ACTORMODE_UNLIMITEDITEMS, 0) return i end
     hClient.GiveItemPack    = function(self, pack, noforce) return ItemSystem.GiveItemPack(self.id, pack, (not noforce)) end
     hClient.SelectItem      = function(self, class) return self.actor:SelectItemByNameRemote(class) end
     hClient.GetEquipment    = function(self) local a = self.inventory:GetInventoryTable() local e for i, v in pairs(a) do local x = GetEntity(v) if (x and x.weapon) then if (e == nil) then e = {} end table.insert(e, { x.class, table.it(x.weapon:GetAttachedAccessories(), function(ret, index, val) local class = GetEntity(val) if (ret == nil) then return { class }  end table.insert(ret, class) end) }) end end return e end
@@ -628,7 +679,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.SetBanned       = function(self, mode) self.Info.Punishment.WasBanned = mode  end
     hClient.WasBanned       = function(self) return (self.Info.Punishment.WasBanned)  end
 
-    hClient.Revive          = function(self, pos, ang, noforce, equiplist) if (pos) then self.RevivePosition = checkVec(pos, vector.modifyz(self:GetPos(), 0.25)) self.ReviveAngles = checkVec(ang, self:GetAngles()) end g_gameRules:RevivePlayer(self:GetChannel(), self, (not noforce), (not noforce), equiplist) self.RevivePosition = nil self.ReviveAngles = nil  end
+    hClient.Revive          = function(self, pos, ang, noforce, equiplist) if (pos) then self.RevivePosition = checkVec(pos, vector.modifyz(self:GetPos(), 0.25)) self.ReviveAngles = checkVec(ang, vector.toang(self:SmartGetDir())) end g_gameRules:RevivePlayer(self:GetChannel(), self, (not noforce), (not noforce), equiplist) self.RevivePosition = nil self.ReviveAngles = nil  end
     hClient.Localize        = function(self, locale, format) return TryLocalize(locale, self:GetPreferredLanguage(), format) end
     hClient.LocalizeEx      = function(self, locale, format) return LocalizeForClient(self, locale, format) end
     hClient.LocalizeNest    = function(self, locale, ...) return LocalizeNestForClient(self, locale, ...) end
@@ -644,7 +695,9 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     -- LOOOONGS
     hClient.HasUnlimitedAmmo     = function(self) return self:HasGodMode(eGodMode_Extended) end
     hClient.IsInventoryEmpty     = function(self, count) return (table.count(self.inventory:GetInventoryTable()) <= (count or 0)) end
-    hClient.SetPreferredLanguage = function(self, sLang) self.Info.Language.Preferred = sLang self:SetData(ePlayerData_PreferredLang, sLang) end
+    hClient.SetPreferredLanguage = function(self, sLang) self.Info.Language.Preferred = sLang self:SetData(ePlayerData_PreferredLang, sLang)
+        Logger:LogEventTo(RANK_MODERATOR, eLogEvent_Game, "@l_ui_changedLang", self:GetName(), sLang)
+    end
     hClient.GetPreferredLanguage = function(self) return self.Info.Language.Preferred end
     hClient.GetHitAccuracy       = function(self) return self.Info.HitAccuracy:Get() end
     hClient.RefreshHitAccuracy   = function(self) return self.Info.HitAccuracy:Refresh() end
@@ -716,12 +769,35 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
 
     hClient.Tick = function(self)
 
+        local hVehicle   = self:GetVehicle()
+        local bHasClient = self:HasClientMod()
+        local sGodColor  = "orange"
         if (self:HasGodMode()) then
+
+            self:SetEnergy(199)
+            self:SetEnergy(200)
             self:SetInvulnerability()
             if (self:IsDead() and not self:IsSpectating()) then
                 self:Revive(1, 1)
             end
+            if (bHasClient and self.ClientTemp.SLHColor == nil) then
+
+                --self.ClientTemp.SLHColor = sGodColor
+                --ClientMod:OnAll(string.format([[g_Client:AddSLH(%d,"%s",true)]], self:GetChannel(), sGodColor), {
+                --    Sync = true,
+                --    SyncID = "GodModeSLH",
+                --    BindID = self.id
+                --})
+                --Debug("add slh")
+            end
+        elseif (false) then --(bHasClient and g_pGame:GetSynchedEntityValue(self.id, PLAYERKEY_GODSTATUS) > 0) then
+            --ClientMod:OnAll(string.format([[g_Client:AddSLH(%d,nil,false)]], self:GetChannel()))
+            --ClientMod:StopSync(self, "GodModeSLH")
+            --self.ClientTemp.SLHColor = nil
+            Debug("remove slh")
         end
+
+        --Debug(self.ClientTemp.SLHColor , sGodColor)
 
         local sCountry = self:GetCountry()
         local sAutoLang = ServerChannels:CountryToLanguage(sCountry)
@@ -802,23 +878,47 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
             end
         end
 
+        -- =================================================
+
+        if (hVehicle) then
+           -- local bCargo
+           -- if (hVehicle.CMID == VM_TRANSPLANER) then
+
+           -- end
+           -- if (not bCargo) then
+           --     hVehicle.TransCargoID = nil
+           -- end
+
+        elseif (not self:IsSpectating()) then
+            if (not self:IsSwimming() and self:IsFlying() and not self:IsIndoors() and self:IsUnderground(20)) then
+                self:SvMoveTo(self:GetFacingPos(eFacing_Front, 0, eFollow_Auto), self:GetAngles())
+                Debug("fixed pos??")
+            end
+        end
+
+        -- =================================================
+
+
         self.LastTick.refresh()
     end
 
     hClient.Update = function(self)
 
+        if (DebugMode()) then
+            ServerLog("%f (%f)", ServerStats.SERVER_RATE-self.FrameTick.diff(), ServerStats.SERVER_RATE)
+        end
+
         ---------------------------
         -- Update World Dir (kinda)
         local vPos      = self:GetWorldPos()
         local vLast      = self.LastPosition
-        local vPesudoDir = self.LastDirection
-        if (self.LastPosition) then
-            if (vector.distance(vPos, vLast) > 0) then
-                vPesudoDir = vector.getdir(vPos, vLast, 1)
-            end
+        local vPseudoDir = self.LastDirection
+
+        if (vLast and vector.distance(vPos, vLast) > 0) then
+            vPseudoDir = vector.getdir(vPos, vLast, 1)
         end
 
-        self.PesudoDirection = vPesudoDir
+        self.PseudoDirection = vPseudoDir
         self.LastPosition    = vPos
 
         self.Info.IdleTime = (self.Info.IdleTime or 0) + System.GetFrameTime()
@@ -830,18 +930,52 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
         if (self:HasClientMod()) then
             ClientMod:UpdateClient(self)
         end
+
+        local hItem = self:GetCurrentItem()
+        if (hItem) then
+            self:UpdateFiringInfo(hItem)
+        end
+
+        local bFlying = self:IsFlying()
+        if (self.Info.IsFlying ~= bFlying) then
+            if (not bFlying) then -- Landed
+                self:ResetServerFiring()
+            end
+        end
+        self.Info.IsFlying = bFlying
+
+        -- Tick
+        self.FrameTick.refresh()
     end
 
-    hClient.Info.FiringTimer = timernew()
+    hClient.UpdateFiringInfo = function(self, hItem)
+        local vDir = self:SmartGetDir()
+        local vHand = self:GetBonePos("Bip01 R Hand") or self:GetPos()
+        --SpawnEffect(ePE_Flare,vHand,vDir,0.1)
+        hItem.weapon:Sv_SetFiringInfo(vDir, vHand, vector.sum(vHand, vDir, 2024))--vDir, vHand, vHit)
+    end
 
+    hClient.ResetServerFiring = function(self)
+        for _, hItem in pairs(self:GetInventory() or {}) do
+            if (hItem.SvFiring) then
+                hItem.weapon:Sv_RequestStopFire()
+                hItem.SvFiring = false
+            end
+        end
+    end
+
+    -- EXPERIMENTAL
+    ServerStats:SetEntityUpdateRate(hClient)
+
+    hClient.Info.FiringTimer = timernew()
     hClient.Info.IdleTimer   = timernew()
     hClient.Info.IdleTime    = 0
 
     hClient.Info.Initialized = true
     hClient.InfoInitialized  = true
-
-    hClient.InitTimer        = (hClient.InitTimer or timernew(5))
+    hClient.InitTimer        = (hClient.InitTimer or timernew(12))
     hClient.LastTick         = timernew()
+    hClient.FrameTick        = timernew()
 
     ClientMod:InitClient(hClient)
     g_gameRules:SvInitClient(hClient)
@@ -949,3 +1083,6 @@ PlayerHandler.PlayerInfo = function(self, hUser, hTarget)
     SendMsg(CONSOLE, hUser, "$9[         Server Client : $1" .. string.rspace(sSvClient,	 iSpace, string.COLOR_CODE)		.. " $9]")
     SendMsg(CONSOLE, hUser, "$9================================================================================================ [ $5LOOKUP$9 ] ====")
 end
+
+---------------
+Server.Register(PlayerHandler, "PlayerHandler")

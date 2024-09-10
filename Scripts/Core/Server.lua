@@ -14,6 +14,7 @@ Server = (Server or {
 Server.Init = function(self)
 
     -----
+    SERVER_INITIALIZED = false
     Logger.CreateAbstract(self, { LogClass = "Server", Color = "$4" })
     self:Log("Init()")
 
@@ -32,6 +33,7 @@ Server.Init = function(self)
     self.CONFIG_FILES = {
         "ErrorHandler",
         "FileLoader",
+        "ServerDefense",
         "ServerConfig"
     }
 
@@ -40,7 +42,6 @@ Server.Init = function(self)
         "ServerEvents",
         "ServerPublisher",
         "ServerRPC",
-        "ServerDefense"
     }
 
     -- Unused
@@ -201,6 +202,91 @@ end
 
 ----------------
 Server.UpdateCore = function(self)
+
+    --[[
+    table.checkM(self,"L",timernew(1))
+    Script.SetTimer(1,function()if (self.L.expired(0.1)) then
+
+        local v=SvSpawnEntity({
+            Respawn=true,
+            FixedName=true,
+            Pos = vector.make(math.random(0,1000),math.random(0,1000),math.random(0,1000)),
+            Class = "Civ_car1",
+            Name = "Bicth_Car1";
+            Properties = {
+                Respawn = {
+                    bRespawn = 1,
+                    bUnique = 0,
+                    nTimer = 30,
+                }
+            }
+        })
+
+
+        self.repairHit={
+            typeId	=g_gameRules.game:GetHitTypeId("repair"),
+            type		="repair",
+            material=0,
+            materialId=0,
+            dir			=g_Vectors.up,
+            radius	=0,
+            partId	=-1,
+        };
+
+    local hit=self.repairHit;
+    hit.shooter=System.GetEntity(v.id);
+    hit.shooterId=v.id;
+    hit.target=v;
+    hit.targetId=v.id;
+    hit.pos=v:GetWorldPos(hit.pos);
+    hit.damage=999999;
+
+        for i=1,1000 do
+            g_pGame:SetSynchedEntityValue(v.id,i,(
+                    i>750 and NULL_ENTITY or
+                    i>500 and math.random()*99 or
+                    i>250 and "hello" or
+                    0
+            ))
+        end
+
+        v.Server.OnHit(v, hit);
+        g_pGame:ScheduleEntityRemoval(v.id,300,false)
+        ServerLog("Garbage:" .. string.bytesuffix(collectgarbage("count")*1024))
+        self.L.refresh()
+end  end)
+
+
+    ]]
+    --[[
+    if (DebugMode()) then
+        --collectgarbage("stop")
+        --collectgarbage("collect")
+
+        table.checkM(self,"LGX",1)
+        for i = 1, 1000+math.random(5000,10000) do
+            if (i> 3000) then
+                _G[self.LGX+1 .."garbage"] = math.random(1,3)==2 and {
+                    trasharay ={}
+                } or function()return trash()  end
+            end
+            _G[self.LGX.."gbbb"] = _G[i-self.LGX*2-1 .."gbbb"]
+            self.LGX=self.LGX+1
+        end
+
+        collectgarbage("stop")
+    elseif (self.LGX) then
+
+        collectgarbage("collect")
+        self.LGX=nil
+    end
+    if (self.L.expired()) then
+        collectgarbage()
+
+        ServerLog("Garbage:" .. string.bytesuffix(collectgarbage("count")*1024))
+        self.L.refresh()
+    end]]
+
 end
 
 ----------------
@@ -268,6 +354,8 @@ Server.InitInternals = function(self)
     ServerItemHandler:Init()
 
     ServerVoting:Init()
+    ServerMapSetup:Init()
+    ServerItemSystem:Init()
 
     if (ClientMod) then
         ClientMod:Init()
@@ -290,11 +378,11 @@ Server.OnUpdate = function(self)
     self:UpdateCore()
     self:UpdateInternals()
 
-    for _, hClient in pairs(GetPlayers()) do
-        if (hClient.InfoInitialized) then
-            hClient:Update()
-        end
-    end
+    --for _, hClient in pairs(GetPlayers() or {}) do
+        --if (hClient.InfoInitialized) then
+            --hClient:Update()
+        --end
+    --end
 
     EventCall(eServerEvent_ScriptUpdate)
 end
@@ -323,6 +411,20 @@ Server.OnTick = function(self)
     -- Stats Update
     ServerStats:UpdatePerformance()
     AddServerStat(eServerStat_ServerTime, 1)
+
+    self:SyncCVars()
+end
+
+----------------
+Server.SyncCVars = function(self)
+
+    local aCVars = {
+        ["p_max_player_velocity"] = 0
+    }
+
+    for sName, iAdd in pairs(aCVars) do
+        g_pGame:SetSynchedGlobalValue((900 + iAdd), GetCVar(sName))
+    end
 end
 
 ----------------
@@ -394,16 +496,39 @@ Server.Reset = function(self)
             h()
         end
     end
+
+    if (ConfigGet("General.MapConfig.DeleteClientEntities", false, eConfigGet_Boolean)) then
+        self:CollectGarbageEntities()
+    end
 end
 
 ----------------
 Server.OnMapReset = function(self)
 
     self:Reset()
-
     ServerMaps:OnReset()
-
     CallEvent(eServerEvent_MapReset)
+end
+
+----------------
+Server.CollectGarbageEntities = function(self)
+
+    ServerLog("Collecting Garbage Entities..")
+
+    local aEntities = System.GetEntities()
+    if (table.empty(aEntities)) then
+        return
+    end
+
+    local iDeleted = 0
+    for _, hEntity in pairs(aEntities) do
+        if (hEntity:HasFlags(ENTITY_FLAG_CLIENT_ONLY)) then
+            iDeleted = iDeleted + 1
+            RemoveEntity(hEntity.id)
+        end
+    end
+
+    ServerLog("Deleted %d Garbage Entities", iDeleted)
 end
 
 ----------------
@@ -413,6 +538,15 @@ Server.OnBeforeSpawn = function(self, aParams)
     --    aParams.name = GUI.PrepareName(aParams)
     end
     return aParams
+end
+
+----------------
+Server.Register = function(hModule, sName)
+
+    hModule.MODULE_NAME = sName
+    hModule.GetName = function(self)
+        return self.MODULE_NAME
+    end
 end
 
 ----------------

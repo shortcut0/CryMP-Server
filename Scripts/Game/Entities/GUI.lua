@@ -1,6 +1,7 @@
 GUI = {
 	Properties =
 	{
+		ServerModel			= nil,
 		objModel			= "objects/box.cgf",
 		bRigidBody			= 1,
 		bResting			= 1,
@@ -12,7 +13,10 @@ GUI = {
 	Server = {
 		OnHit = function(self, aHitInfo)
 			GUI.OnHit(self, aHitInfo)
-		end
+		end,
+		OnContact = function(self, pContact)
+			GUI.OnContact(self, pContact)
+		end,
 	},
 
 	Client = {
@@ -76,8 +80,12 @@ GUI = {
 
 		self:Activate(1)
 		self:SetUpdatePolicy(ENTITY_UPDATE_VISIBLE)
-		self:LoadObject(0, sObj)
 
+		if (self.Properties.ServerModel) then
+			sObj = self.Properties.ServerModel
+		end
+
+		self:LoadObject(0, sObj)
 		self:DrawSlot(0, 1)
 
 		if (iPhysics ~= 0) then

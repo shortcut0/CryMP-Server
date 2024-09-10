@@ -267,6 +267,7 @@ ServerArena = {
             })
 
             self.Temp[hID].Parts[_].IsArenaPart = true
+            self.Temp[hID].Parts[_].IsImportant = true
         end
 
     end,

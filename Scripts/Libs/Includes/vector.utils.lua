@@ -27,15 +27,15 @@ vector.gawker = function(center, num, rad) -- probably not the most professional
 	for i = 0, 360, 360/(num or 10) do
 		local pos = {
 			x = center.x + math.sin(math.rad(i)) * rad,
-			y = center.y + math.cos(math.rad(i)) * rad,
+			y = center.y - math.cos(math.rad(i)) * rad,
 			z = center.z
 		}
 
-		local dir = {
+		local dir = vector.normalize({
 			x = center.x - pos.x,
 			y = center.y - pos.y,
 			z = center.z - pos.z
-		}
+		})
 
 		positions[#positions + 1] = { pos = pos, dir = dir }
 	end
@@ -307,9 +307,21 @@ end
 -- vector.fastsum
 
 vector.fastsum = function(dest,a,b)
-	dest.x=a.x+b.x
-	dest.y=a.y+b.y
-	dest.z=a.z+b.z
+	dest.x = a.x + b.x
+	dest.y = a.y + b.y
+	dest.z = a.z + b.z
+end
+
+---------------------------
+-- vector.sum
+
+vector.sum = function(a,b,s)
+	local dest = {}
+	s=s or 1
+	dest.x=a.x+b.x*s
+	dest.y=a.y+b.y*s
+	dest.z=a.z+b.z*s
+	return dest
 end
 ---------------------------
 -- vector.addInPlace
@@ -702,6 +714,18 @@ vector.max_distance = function(list)
 		end
 	end
 	return max_dist
+end
+
+---------------------------
+
+vector.todir = function(v)
+	local cp = math.cos(v.x)
+	local d = {
+		x = cp * math.cos(v.z),
+		y = cp * math.sin(v.z),
+		z = -math.sin(v.x)
+	}
+	return d
 end
 
 ---------------------------

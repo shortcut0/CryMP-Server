@@ -23,6 +23,22 @@ AddCommand({
     Function = function(self, s,...)
 
 
+        Script.SetTimer(1,function()
+
+            System.SpawnEntity({
+                name = "Civ_car1",
+                class = "Civ_car1"
+            })
+
+        end)
+        --local test  =
+
+
+        do return end
+        ClientMod:OnAll()
+
+        do return end
+
         do return self:IsPremium() end
 
 
@@ -108,6 +124,92 @@ AddCommand({
     Function = function(self)
 
         Debug(self:LocalizeNest("@l_ui_testNestedLocale_STACKOVERFLOW", {"1"},{"2"}))
+    end
+})
+------------
+AddCommand({
+    Name = "testAMMO!!!",
+    Access = RANK_DEVELOPER, -- Must be accessible to all!
+
+    Arguments = {
+        {"","",IsNumber=true,Default=1}
+    },
+
+    Properties = {
+    },
+
+    Function = function(self,num)
+
+        local vp  =self:GetPos()
+        vp.z=vp.z+100+(num*1.2)
+        for i=1,num do
+
+            local d=vector.randomize(vp, 5*num, true, true)
+            local di=vector.getdir(d,self:GetPos(),true,-1)
+            Debug(di)
+            ServerItemSystem:SpawnProjectile({
+                ID = "hellfire",
+                Pos = d,
+                Dir =di,
+                Owner = self,
+                Weapon = self
+            })
+
+        end
+    end
+})
+------------
+AddCommand({
+    Name = "testgun!!!!",
+    Access = RANK_DEVELOPER, -- Must be accessible to all!
+
+    Arguments = {
+        {"","",uuu=true,Default="hellfire"}
+    },
+
+    Properties = {
+    },
+
+    Function = function(self,s)
+
+        self.dev_test_ammo = s
+
+    end
+
+})
+------------
+AddCommand({
+    Name = "hellspawntestammo!!!!",
+    Access = RANK_DEVELOPER, -- Must be accessible to all!
+
+    Arguments = {
+        {"","",IsNumber=true,Default=1}
+    },
+
+    Properties = {
+    },
+
+    Function = function(self,num)
+
+        local vp  =self:GetPos()
+        vp.z=vp.z+5
+        for i,data in pairs(vector.gawker(vp,math.min(num,360),1+(num/10))) do
+Script.SetTimer(i*50,function()
+
+    local d=data.pos--vector.randomize(vp, 5*num, true, true)
+   -- d.z=d.z+i*0.2
+    local di=data.dir--vector.getdir(d,self:GetPos(),true,-1)
+    --Debug(di)
+    ServerItemSystem:SpawnProjectile({
+        ID = "hellfire",
+        Pos = d,
+        Dir =vector.neg(di),
+        Owner = self,
+        Weapon = self
+    })
+
+end)
+        end
     end
 })
 ------------

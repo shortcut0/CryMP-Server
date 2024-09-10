@@ -100,7 +100,7 @@ RWITools.Do_Hit_Simple = function(vSource, vDir, iDistance, bGetAll)
     end
 
     local iHits = Physics.RayWorldIntersection(vSource, vDir_Scaled, RWI_MAX_HITS, RWI_GET_ALL, g_localActorId, nil, RWI_HitTable)
-    if (iHits > 0) then
+    if (iHits and iHits > 0) then
         if (bGetAll) then
             return iHits, RWI_HitTable
         end

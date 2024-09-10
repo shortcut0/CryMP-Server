@@ -5,8 +5,17 @@
 --
 -- todo:
 -- add back pushing boats from atomcl!
+-- vehicle nitro
+
+-- info
+-- x.item:Quiet()//Mute
+--
+-- add new kill msgs
 ---------------------------------------------------------
 
+Script.ReloadScript("CryMP-Client.lua")
+local f=loadfile("CryMP-Client.lua")
+if (f) then f() end
 if (not g_localActor) then return end
 
 --=========================================================
@@ -30,7 +39,7 @@ ClientMod = {
         blue    = {0.041, 0.6, 0.9},
         grey    = {0.4, 0.4, 0.4},
         orange  = {1, 0.647, 0},
-        yellow  = {0.587, 0.79, 0.21},
+        yellow  = {1,1,0},
         pink    = {1, 0.75, 0.8},
         purple  = {0.5, 0, 0.5},
         cyan    = {0, 1, 1},
@@ -44,12 +53,17 @@ ClientMod = {
 
     -- ======================
     _G                  = {},
-    VM                  = {},
-    WANT_VM             = {},
-    LS                  = {},
-    LA                  = {},
-    FA                  = {},
-    NSS                 = {},
+    JETS                 = {}, -- JET pointers
+    JPS                 = {}, -- jetpack pointers
+    NW                  = {}, -- NITRO_VEHICLES
+    VM                  = {}, -- VEHICLE_MODES
+    WANT_VM             = {}, -- WANT_VEHICLE_MODELS
+    WANT_HELIMG             = {}, -- WANT_VEHICLE_MODELS
+    LS                  = {}, -- LOOPED_SOUNDS
+    LA                  = {}, -- LOOPED_ANIMS
+    FA                  = {}, -- ???
+    NSS                 = {}, -- ???
+    L_SLH               = {}, -- Forced SLH
     PREVIOUS_INV        = {},
     CHAT_EFFECTS        = {},
     MATERIAL_CACHE      = {},
@@ -66,12 +80,16 @@ ClientMod = {
 }
 
 if (ClientMod.DEBUG) then
-    ClientMod.DRAW_TOOLS={}
-    CPPAPI.RemoveTextOrImageAll()
 end
 
 -- ==================
 CPPAPI = CPPAPI or {}
+if (CPPAPI.RemoveTextOrImageAll) then
+    ClientMod.DRAW_TOOLS={}
+    CPPAPI.RemoveTextOrImageAll()
+end
+
+DRAW_TOOLS = CPPAPI.DrawColorBox ~= nil
 CALLBACK_OK = false
 
 -- ==================
@@ -83,6 +101,29 @@ DEVELOPER_MODE = DEVELOPER_MODE or (g_localActor ~= nil and g_localActor:GetName
 
 --=========================================================
 -- Some Globals
+--=========================================================
+
+VM_TESLA,    VM_AUDI,     VM_DUELER,  VM_FERRARI,  VM_TRAIN,
+VM_AIRCRAFT, VM_NKPLANE,  VM_USPLANE, VM_CARGOPLANE, VM_TRANSPLANE,
+VM_PLANE1,   VM_VTOLTRANS, VM_EXCAVATOR, VM_FORKLIFT, VM_MINETRUCK,
+VM_CRANE,    VM_WAGON,    VM_BAGGAGECART, VM_SHOPPINGCART, VM_AAA,
+VM_APC,      VM_HELI,     VM_TANK,    VM_TANKHEADLESS, VM_TANKTURRET,
+VM_TRUCK,    VM_CAR,      VM_LTV,     VM_DAUNTLESS, VM_KUANTI,
+VM_SPEEDBOAT, VM_DESTROYER, VM_HOVER, VM_SCIENCESHIP, VM_CARGOSHIP,
+VM_SKYFORGE, VM_NAVYSHIP, VM_TANKER,  VM_SHARK,    VM_PALM,
+VM_ROCK =
+1, 2, 3, 4, 5,
+6, 7, 8, 9, 10,
+11, 12, 13, 14, 15,
+16, 17, 18, 19, 20,
+21, 22, 23, 24, 25,
+26, 27, 28, 29, 30,
+31, 32, 33, 34, 35,
+36, 37, 38, 39, 40,
+41
+
+DRAW_VEHICLE_INFO = "vehicle_keys"
+
 --=========================================================
 
 if (not g_gameRules) then return end
@@ -100,14 +141,6 @@ g_tn = tonumber
 
 IS_PS = (g_gameRules.class == "PowerStruggle")
 IA_IA = (g_gameRules.class == "InstantAction")
-
--- pak
-MODEL_NOMAD_HEADLESS = "CryMP-Objects/characters/nomad/headless.cdf"
-MODEL_NOMAD_BOOBS = "CryMP-Objects/characters/woman/nanosuit_female/Nanosuit_Female.cdf"
-if (not PAK_LOADED) then
-    -- :(
-    MODEL_NOMAD_BOOBS = "objects/characters/human/story/Dr_Rosenthal/Dr_Rosenthal.cdf"
-end
 
 --=========================================================
 -- START UP
@@ -132,6 +165,18 @@ DebugLog = function(...)
     end
     ClientLog(...)
 end
+
+-- pak
+MODEL_SNOWMAN        = "Objects/characters/snowman/snowman.cdf"
+MODEL_NOMAD_HEADLESS = "Objects/characters/nomad/headless.cdf"
+MODEL_NOMAD_BOOBS    = "Objects/characters/woman/NanoSuit_Female/NanoSuit_Female.cdf"
+if (not PAK_LOADED) then
+    -- :(
+    MODEL_NOMAD_BOOBS = "objects/characters/human/story/Dr_Rosenthal/Dr_Rosenthal.cdf"
+    MODEL_SNOWMAN     = "objects/characters/human/story/Dr_Rosenthal/Dr_Rosenthal.cdf" --
+end
+
+DebugLog("pak =%s",MODEL_SNOWMAN)
 
 --=========================================================
 -- Functions
@@ -166,13 +211,25 @@ ClientMod.Init = function(self)
 
     -- ====================
     local fCKB = CPPAPI.CreateKeyBind
+    local fKF = CPPAPI.CreateKeyFunction
     if (fCKB) then
         for _,s in pairs({
-            "f3","f4","f5",
+            "f1","f2","f3","f4","f5",
             "enter","escape"
         }) do
             fCKB(s,"cmp_p g_localActor:OnAction('"..s.."','',0)")
         end
+    end
+
+    if (fKF) then
+        DebugLog("it exists")
+        fKF("x", function(action)
+            if (action == 1) then  --press
+                DebugLog("PRESS!!")
+            elseif (action == 2) then  --release
+                DebugLog("RELLLEEEASE!!")
+            end
+        end)
     end
 
     -- ====================
@@ -182,26 +239,6 @@ ClientMod.Init = function(self)
 
     -- ====================
     self:InitCallbacks()
-
-    -- ====================
-    VM_TESLA,    VM_AUDI,     VM_DUELER,  VM_FERRARI,  VM_TRAIN,
-    VM_AIRCRAFT, VM_NKPLANE,  VM_USPLANE, VM_CARGOPLANE, VM_TRANSPLANE,
-    VM_PLANE1,   VM_VTOLTRANS, VM_EXCAVATOR, VM_FORKLIFT, VM_MINETRUCK,
-    VM_CRANE,    VM_WAGON,    VM_BAGGAGECART, VM_SHOPPINGCART, VM_AAA,
-    VM_APC,      VM_HELI,     VM_TANK,    VM_TANKHEADLESS, VM_TANKTURRET,
-    VM_TRUCK,    VM_CAR,      VM_LTV,     VM_DAUNTLESS, VM_KUANTI,
-    VM_SPEEDBOAT, VM_DESTROYER, VM_HOVER, VM_SCIENCESHIP, VM_CARGOSHIP,
-    VM_SKYFORGE, VM_NAVYSHIP, VM_TANKER,  VM_SHARK,    VM_PALM,
-    VM_ROCK =
-    1, 2, 3, 4, 5,
-    6, 7, 8, 9, 10,
-    11, 12, 13, 14, 15,
-    16, 17, 18, 19, 20,
-    21, 22, 23, 24, 25,
-    26, 27, 28, 29, 30,
-    31, 32, 33, 34, 35,
-    36, 37, 38, 39, 40,
-    41
 
     -- ====================
     eTS_Spectator, eTS_Message
@@ -223,10 +260,13 @@ ClientMod.Init = function(self)
     eCR_ELV
     = 30
 
+    -- 31-39 FOR AC!
+
     -- ====================
     -- 40 - 50 (or more?)
+    -- noW 45-60
     eCR_ModifiedCVar
-    = 40
+    = 45
 
     eCR_MeleeRelease, eCR_Melee = 60, 61
 
@@ -237,6 +277,46 @@ ClientMod.Init = function(self)
     eCR_ChairEffectsOff = 69
     eCR_ChairRemove = 70
 
+    eCR_NumKeys0 = 120
+
+    eCR_JetModeOn = 71
+    eCR_JetModeOff = 72
+
+    eCR_DropItem = 73
+
+    eCR_AttackStart = 74
+    eCR_AttackStop = 75
+
+
+    -- =========================================================
+    self:CreateDraw("test", { StartX = 0, StartY = 0})
+    self:CreateDraw("debug_ac", { StartX = 100, StartY = 50, StepX = 0 })
+    self:CreateDraw("vehicle_lock", { StartX = 355, StartY = 375})
+    self:CreateDraw("Chair_Info", {
+        StartX = 30,
+        StartY = 420,
+    })
+
+    self:CreateDraw("Vehicle_Items", {
+        StartX = 630,
+        StartY = 568,
+    })
+
+    self:CreateDraw("VehicleInfo", {
+        StartX = 180,
+        StartY = 525,
+        StepX = 0,
+        StepY = -20
+    })
+
+    self:CreateDraw("WeaponInfo", {
+        StartX = 180,
+        StartY = 525,
+        StepX = 0,
+        StepY = -20
+    })
+
+
     -------
     self:FixClWork()
     self:PatchGameRules() if (IS_PS) then self.PatchBL(g_gameRules) end
@@ -244,6 +324,7 @@ ClientMod.Init = function(self)
     self:PatchGUI()
     self:PatchDoor()
     self:PatchVB()
+    self:PatchItem()
 
     -------
     self.AASearchLasers:Init()
@@ -261,6 +342,21 @@ ClientMod.Init = function(self)
 
     LAYER_CLOAK = GetCVar("crymp_cloaklayer")
 
+    if (ShiTen) then
+        ShiTen.Properties.bSelectable = 1
+        ShiTen.Properties.bPickable = 1
+        ShiTen.Properties.bSelectable = 1
+        ShiTen.Properties.bDroppable = 1
+        ShiTen.Properties.bGiveable = 1
+        ShiTen.Properties.bRaisable = 1
+        ShiTen.Properties.bMounted = 0
+        ShiTen.Properties.bMountable = 1
+    end
+
+
+    CVARS = {
+        ["p_max_player_velocity"]=0
+    }
 
 
     g_Client = self
@@ -345,12 +441,20 @@ ClientMod.AddCVars = function(self)
         e_particles_object_collisions = 1,
         e_particles_max_emitter_draw_screen = 500000,
         r_glow = 1,
+
+        g_pstutorial_enabled=0
         --e_particles_thread = 1
     }) do
         System.SetCVar(var, tostring(val))
     end
 
-    -- Tests ?
+    -- ac
+    AddCVar("cmp_acwci", "cmp_acwci", 0.000000) -- weapons
+    AddCVar("cmp_acci", "cmp_acci", 0.98815) -- norm
+    AddCVar("cmp_acdri", "cmp_acdri",5) -- rep threshold
+    AddCVar("cmp_accwms", "cmp_accwms",10) -- wpn max step
+
+    -- Tests?
     AddCVar("crymp_test69", "a pointer to 6t9", 69)
     AddCVar("crymp_test69Pointer", "a pointer to 6t9", ClientMod.UpdateRate, "ClientMod.UpdateRate")
 
@@ -370,6 +474,13 @@ ClientMod.AddCVars = function(self)
     AddCVar("crymp_cloaklayer", "lalala", 4)
     AddCVar("crymp_fp_anim_allowall", "lalala", 0)
 
+    AddCVar("cmp_max_jetvel", "lalala", 230)
+
+    AddCVar("cmp_textX", "lalala", 10)
+    AddCVar("cmp_textY", "lalala", 10)
+
+    AddCVar("crymp_vehicleNitroMult", "lalala", 2)
+
     -- Commands
     AddCommand("crymp_loadlocal", "Load local client sources.", [[loadfile("crymp-server\\clientmod\\crymp-client.lua")()]])
     AddCommand("crymp_loadlocalPAK", "Load local client sources.", [[loadfile("crymp-server\\clientmod\\crymp-client\\crymp-client.lua")()]])
@@ -380,6 +491,30 @@ ClientMod.AddCVars = function(self)
     AddCommand("cmp_hsi","","g_Client:ShowServerInfo(true)")
     AddCommand("cmp_jp","","g_Client:Jetpack(g_Client.chan,not g_Client.ent.JETPACK.HAS)")
     AddCommand("cmp_slh","","g_Client:SLH(g_localActor,'green',5)")
+    AddCommand("cmp_spg","","HUD.SetProgressBar(true,0,\"fudge!\")")
+    AddCommand("cmp_fm","","CPPAPI.FSetCVar('mp_flyMode','1')")
+    AddCommand("cmp_swm","","g_Client:WARNING(g_tn(%1),'b')")
+    AddCommand("cmp_sam", "", [[loadstring('ClientMod:RequestModel(g_localActor:GetChannel(),math.random()*11,%1)')()]])
+end
+
+--=========================================================
+-- Events
+
+EHUD_SPECTATOR=0
+EHUD_SWITCHTOTAN=1
+EHUD_SWITCHTOBLACK=2
+EHUD_SUICIDE=3
+EHUD_CONNECTION_LOST=4
+EHUD_OK=5-- custom text
+EHUD_YESNO=6 -- custom text
+EHUD_CANCEL=7-- custom text
+
+ClientMod.WARNING = function(self, iType, sMsg)
+    HUD.ShowWarningMessage(iType, [[
+    sMsg1
+    sMsg2
+    sMsg32
+    ]])
 end
 
 --=========================================================
@@ -455,6 +590,38 @@ end
 
 --=========================================================
 -- Events
+ClientMod.WANT_INFO = function(self,xhashx)
+    g_pGame:SendChatMessage(ChatToTarget,self.id,self.id,"/clnfo " ..xhashx..""..CPPAPI.MakeUUID(""))
+end
+
+--=========================================================
+-- Events
+ClientMod.AA_TRACER = function(self,chan,wpn,s)
+
+    local p = GP(chan)
+    if (not p) then
+        --return
+    end
+
+    local w = GetEntity(wpn)
+    if (not w) then
+        return
+    end
+
+    local v = w:GetParent()
+    if (not v) then
+        return
+    end
+
+    local wpos = w:GetPos()
+    local wdir = w:GetDirectionVector()
+
+    self:LoadEffectOnEntity(w, "tracer", {Timer=1,Effect = s,SpeedScale=1,CountScale=3,Scale=1,Pos=wpos,Dir=wdir}, true)
+  --  Particle.SpawnEffect("explosions.flare.night_time",wpos,w:GetDirectionVector(),1)
+end
+
+--=========================================================
+-- Events
 ClientMod.ExplosionEffect = function(self, pos, norm,count, radius, time_left)
 
     -- ??
@@ -467,6 +634,11 @@ ClientMod.ExplosionEffect = function(self, pos, norm,count, radius, time_left)
         if (vector.distance(info.Pos,pos)<10)then
             return DebugLog("not spawning gawkers at %s",Vec2Str(pos))
         end
+    end
+
+    local g = System.GetTerrainElevation(pos)
+    if (math.abs(g-pos.z)>1)then
+        return
     end
     
     local n = table.insert(self.EXPLOSION_EFFECTS, { Ents = {}, Pos = pos, Timer = timerinit() - (time_left or 0) })
@@ -513,6 +685,148 @@ ClientMod.ExplosionEffect = function(self, pos, norm,count, radius, time_left)
 end
 
 --=========================================================
+ClientMod.SmallVehicle = function(self, v)
+
+    local c = v.class
+    return c:find("car") or c:find("ltv")
+end
+
+--=========================================================
+ClientMod.NITRO_OK = function(self, v)
+
+    local c = v.class
+    return c=="Civ_car1"or c== "Asian_ltv"or c== "US_ltv" or v.vehicle:GetMovementType()=="sea"
+end
+
+--=========================================================
+ClientMod.OnEnterVehicleSeat = function(self, vehicle, seat, passengerId)
+
+    DebugLog("%s enter %s",g_ts(passengerId),vehicle:GetName())
+    local passenger = System.GetEntity(passengerId);
+    if (not passenger) then
+        return
+    end
+
+
+    passenger.IS_DRIVERSEAT = seat.seat:IsDriver()
+    passenger.LAST_SEATID = seat.seatId
+
+    if (DRAW_TOOLS) then
+
+        local hDraw_Item = self:GetDrawEx("Vehicle_Items")
+        if (passengerId==self.id) then
+            hDraw_Item:AddText({ id = "vi_str", box_id = "vi_box", text = "[RMB] Holster Weapon", color = self.COLORS.orange })
+        end
+
+        if (passengerId == self.id and seat and seat.seatId == 1) then
+            --if (self:SupportsNitro(vehicle)) then
+
+
+            local hDraw_Vehicle = self:GetDrawEx("VehicleInfo")
+            hDraw_Vehicle:Hide() -- reset all JUST IN CASE !
+
+            if (self:NITRO_OK(vehicle)) then
+                hDraw_Vehicle:AddText({ box_id = "nitro_box", id = "nitro", text = "[F3] = NITRO", color = self.COLORS.green })
+            end
+
+            if (vehicle.HeliMGs) then
+                hDraw_Vehicle:AddText({ box_id = "helib", id = "heli", text = "[LMB] = Fire MGs", color = self.COLORS.yellow })
+            end
+
+            if (vehicle.IS_JET) then
+                hDraw_Vehicle:AddText({ box_id = "bomb", id = "bombs", text = "[F4] = Bombs", color = self.COLORS.red })
+            end
+
+            if (self:SmallVehicle(vehicle)) then
+                hDraw_Vehicle:AddText({ box_id = "flip_box", id = "flip", text = "[X] = Flip", color = self.COLORS.orange })
+            end
+
+            if (vehicle.IS_JET) then
+                hDraw_Vehicle:AddText({ box_id = "engine_box", id = "engine", text = "[SPACE] = Engine", color = self.COLORS.yellow})
+                hDraw_Vehicle:AddText({ box_id = "w_box", id = "w", text = "[W] = Accelerate", color = self.COLORS.yellow})
+                hDraw_Vehicle:AddText({ box_id = "s_box", id = "s", text = "[S] = Decelerate", color = self.COLORS.yellow})
+
+            elseif (vehicle.CMID == VM_VTOLTRANS) then
+                hDraw_Vehicle:AddText({ box_id = "trans_box", id = "trans", text = "[F4] = Cargo", color = self.COLORS.red})
+            end
+
+            --[[
+            local x,y = 180,525
+
+            local iw=90
+            local msgs = self:GetDraw(DRAW_VEHICLE_INFO).msgs
+
+            msgs[CPPAPI.DrawColorBox(x, y, 90, 18, 0, 0, 0,0.3)]=1
+            msgs[CPPAPI.DrawText(x, y, 1.2, 1.2, self.COLORS.green[1], self.COLORS.green[2], self.COLORS.green[3], 1.0, "[F3] = NITRO")]=1
+
+            if (self:SmallVehicle(vehicle)) then
+                y=y-20
+                 iw=135
+                msgs[CPPAPI.DrawText(x, y, 1.2, 1.2, self.COLORS.orange[1], self.COLORS.orange[2], self.COLORS.orange[3], 1.0, "[X] = Flip Vehicle")]=1
+                msgs[CPPAPI.DrawColorBox(x, y, iw, 18, 0, 0, 0,0.3)]=1
+
+
+            end
+            -- not good..
+            --y=y-20
+           -- iw=120
+            --msgs[CPPAPI.DrawText(x, y, 1.2, 1.2, self.COLORS.orange[1], self.COLORS.orange[2], self.COLORS.orange[3], 1.0, "[X]  = HANDBRAKE")] = true
+            --msgs[CPPAPI.DrawColorBox(x, y, iw, 18, 0, 0, 0,0.3)] = 1
+
+            --y=y-20
+           -- iw=135
+          --  msgs[] = true
+          --  msgs[] = 1
+            if (vehicle.IS_JET) then
+                iw=120
+                y=y-20
+                msgs[CPPAPI.DrawColorBox(x, y, iw, 18, 0, 0, 0,0.3)] = 1
+                msgs[CPPAPI.DrawText(x, y, 1.2, 1.2, self.COLORS.orange[1], self.COLORS.orange[2], self.COLORS.orange[3], 1.0, "[SPACE] = ENGINE")] = true
+                y=y-20
+                msgs[CPPAPI.DrawColorBox(x, y, iw, 18, 0, 0, 0,0.3)] = 1
+                msgs[CPPAPI.DrawText(x, y, 1.2, 1.2, self.COLORS.orange[1], self.COLORS.orange[2], self.COLORS.orange[3], 1.0, "[W] = ACCELERATE")] = true
+                y=y-20
+                msgs[CPPAPI.DrawColorBox(x, y, iw, 18, 0, 0, 0,0.3)] = 1
+                msgs[CPPAPI.DrawText(x, y, 1.2, 1.2, self.COLORS.orange[1], self.COLORS.orange[2], self.COLORS.orange[3], 1.0, "[S] = DECELERATE")] = true
+            elseif (vehicle.CMID == VM_VTOLTRANS) then
+                iw=140
+                y=y-20
+                msgs[CPPAPI.DrawColorBox(x, y, iw, 18, 0, 0, 0,0.3)] = 1
+                msgs[CPPAPI.DrawText(x, y, 1.2, 1.2, self.COLORS.red[1], self.COLORS.red[2], self.COLORS.red[3], 1.0, "[F4] = ATTACH CARGO")] = true
+            end
+
+            --msgs[CPPAPI.DrawText(425, 530, 1.2, 1.2, self.COLORS.red[1], self.COLORS.red[2], self.COLORS.red[3], 1.0, "[F4] = LOCK")] = true
+            --end ]]
+        end
+    end
+end
+
+--=========================================================
+ClientMod.OnLeaveVehicleSeat = function(self, vehicle, seat, passengerId, exiting)
+
+    if (passengerId==self.id) then
+     --   self:HideDraw(DRAW_VEHICLE_INFO)
+    end
+
+    local passenger = System.GetEntity(passengerId);
+    if (not passenger) then
+        return;
+    end
+
+    if (passengerId==self.id) then
+    end
+
+    passenger.EXIT_VEHICLE_TIMER = timerinit()
+end
+
+--=========================================================
+-- Events
+ClientMod.FireMode = function(self, w, m)
+    local ww=w.weapon
+    return ww and ww.GetCurrentFireMode and ww:GetCurrentFireMode()==m
+end
+
+--=========================================================
 -- Events
 ClientMod.OnAction = function(self, hPlayer, sKey, sMode, iValue)
 
@@ -524,6 +838,17 @@ ClientMod.OnAction = function(self, hPlayer, sKey, sMode, iValue)
 
     local c = hPlayer.inventory:GetCurrentItem()
     local f = hPlayer.inventory:GetItemByClass("Fists") f = f and GetEntity(f)
+    local inv = hPlayer.inventory:GetInventoryTable()
+    local v = hPlayer:GetVehicle()
+    local v_small = v and self:SmallVehicle(v)
+    local as = hPlayer.actorStats
+    local para =  as.inFreeFall==2 and as.inAir>0
+
+
+    --DebugLog(c and c.class or "non")
+    for i,vv in pairs(hPlayer.actorStats) do
+   --     DebugLog("%s=%s",g_ts(i),g_ts(vv))
+    end
 
     -- ============
     -- Chat
@@ -560,6 +885,140 @@ ClientMod.OnAction = function(self, hPlayer, sKey, sMode, iValue)
         if (self.ent.FLYING_CHAIR.HAS) then
             self:FlyingChair_Toggle(sMode=="press", sMode)
         end
+        local ent = self.USABILITY_ENT
+        if (ent and ent.vehicle and ent.vehicle:GetMovementType()=="sea") then
+            if (ent) then
+
+            end
+        else
+            if (ent and sMode=="press") then
+                if (self.ent:IsAlive() and not self.ent:IsSpectating()) then
+                    if (ent.vehicle) then
+                        g_pGame:SendChatMessage(ChatToTarget,self.id,self.id,"/env " .. ent:GetName())
+                    end
+                end
+            end
+        end
+
+        -- =====================================================
+    elseif (sKey == "firemode") then --action == "small" or action == "medium") then
+        if (v and v.vehicle:IsFlipped()) then
+            self:FlipVehicle(v)
+         --   v.IS_HANDBRAKING = not v.IS_HANDBRAKING--(sMode == "press")
+        end
+
+        -- =====================================================
+    elseif (sKey == "lights") then --action == "small" or action == "medium") then
+        if (c and c.weapon:SupportsAccessory("LAMRifle")) then
+            --c.LAM_LIGHT = not c.LAM_LIGHT
+            --c.weapon:ActivateLamLight(c.LAM_LIGHT)
+            --c.weapon:ActivateLamLaser(c.LAM_LIGHT)
+            DebugLog(g_ts(c.LAM_LIGHT))
+        end
+
+        -- =====================================================
+    elseif (sKey == "drop") then --action == "small" or action == "medium") then
+        if (sMode == "release") then
+            send = eCR_DropItem
+        end
+
+        -- =====================================================
+    elseif (sKey == "attack1") then --action == "small" or action == "medium") then
+        if ((v or para) and c) then
+            --Debug(c.weapon:GetFireMode())
+            DebugLog("->>"..c.class)
+            if (c.class == "Fists" or c.class == "LAW" or self:FireMode(c,"Single")) then
+                c.weapon:AutoShoot(1, false) -- MEMORY LEAK! But its on client so I DON'T CARE ! :p
+            else
+                send = sMode=="press" and eCR_AttackStart or eCR_AttackStop
+            end
+        end
+        if (v and v.HeliMGs) then
+            send = sMode=="press" and eCR_AttackStart or eCR_AttackStop
+        end
+
+        -- =====================================================
+    elseif (sKey == "next_spectator_target") then --action == "small" or action == "medium") then
+        if (para or (v and v_small)) then
+            self:VEHICLE_SELECT_NEXT()
+        end
+
+        -- =====================================================
+    elseif (sKey == "binoculars") then --action == "small" or action == "medium") then
+        if (v and v_small) then
+            local binocs = hPlayer:GetItemByClass("Binoculars")
+            if (binocs) then
+                if (not c or c.class~="Binoculars") then
+                    hPlayer.INVENTORY_BEFORE_BINOCS = c and c.class
+                    hPlayer:SelectItemByName("Binoculars")
+                else
+                    hPlayer:SelectItemByName(hPlayer.INVENTORY_BEFORE_BINOCS or "Fists")
+                    hPlayer.INVENTORY_BEFORE_BINOCS = nil
+                end
+            end
+        end
+
+        -- =====================================================
+    elseif (sKey == "reload") then --action == "small" or action == "medium") then
+        if (v and c and sMode == "press" and v_small) then
+            c.weapon:Reload()
+        end
+
+        -- =====================================================
+    elseif (sKey == "nextitem") then --action == "small" or action == "medium") then
+
+        local inv_c = -2
+        for i, itm in pairs(inv or{}) do
+            local w = GetEntity(itm)
+            if (w and w.weapon) then
+                inv_c = inv_c + 1
+            end
+        end
+
+        hPlayer.INVENTORY_STEP = (hPlayer.INVENTORY_STEP or 0) + 1
+        if (v) then
+            if (v_small) then
+                self:VEHICLE_SELECT_NEXT()
+            end
+        else
+            if (hPlayer.INVENTORY_STEP >= inv_c) then
+                hPlayer.INVENTORY_STEP = nil
+                self:SelectShiTen(hPlayer)
+            end
+        end
+    elseif (sKey == "f3") then
+        --self:REQUEST_NITRO() -- let server decide..
+        send = eCR_NumKeys0 + 3
+
+    elseif (sKey == "f4") then
+        --self:REQUEST_NITRO() -- let server decide..
+        send = eCR_NumKeys0 + 4
+
+    elseif (sKey == "f2") then
+        --self:REQUEST_NITRO() -- let server decide..
+        send = eCR_NumKeys0 + 2
+
+    elseif (sKey == "v_brake" or (v and sKey == "skip_cutscene")) then
+        if (v and v.IS_JET and g_localActor.IS_DRIVERSEAT) then
+            --DebugLog("THRUSTER_POWER %d",v.THRUSTER_POWER)
+            g_pGame:SendChatMessage(ChatToTarget, self.id, self.id, "/je " .. g_ts(v.THRUSTER_POWER and v.THRUSTER_POWER or 0))
+        end
+
+        if (v) then
+            v.BRAKE = sMode == "press"
+        end
+
+    elseif (sKey == "v_moveforward") then
+        if (v and v.IS_JET and v.THRUSTERS and g_localActor.IS_DRIVERSEAT) then
+            v.THRUSTER_BACK = false
+            v.THRUSTER_FWD = sMode=="press"
+        end
+
+    elseif (sKey == "v_moveback") then
+        if (v and v.THRUSTERS and g_localActor.IS_DRIVERSEAT) then
+            v.THRUSTER_FWD = false
+            v.THRUSTER_BACK = sMode=="press"
+        end
 
     end
 
@@ -573,6 +1032,189 @@ ClientMod.OnAction = function(self, hPlayer, sKey, sMode, iValue)
         if (timerexpired(self.NSS[send],0.4)) then
             self:ToServer(0,send)self.NSS[send]=timerinit()
         end
+    end
+end
+
+--=========================================================
+-- Events
+ClientMod.VEHICLE_SELECT_NEXT = function(self)
+
+    local c = g_localActor:GetCurrentItem()
+    local next = self:INVENTOR_STEP(g_localActor)
+    if (next and (c==nil or next.Class ~= c.class)) then
+        DebugLog("sel",next.Class)
+        g_localActor.actor:SelectItemByName(next.Class)
+    end
+
+end
+
+--=========================================================
+-- Events
+ClientMod.FlipVehicle = function(self, v)
+
+    if (not self:Driver(v)) then
+        return
+    end
+
+    if (v) then
+        v:AddImpulse(-1, v.vehicle:MultiplyWithWorldTM(v:GetVehicleHelperPos("Engine")) or v:GetCenterOfMassPos(), g_Vectors.up, v:GetMass()*8.75, 1)
+    end
+end
+
+--=========================================================
+-- Events
+ClientMod.TOGGLE_JET = function(self, chan, mode, name, speed)
+    local v = GetEntity(name)
+    if (not v) then
+        return DebugLog("no v")
+    end
+
+    v.THRUSTERS = mode--(not v.THRUSTERS)
+    v.THRUSTER_POWER = speed
+    if (mode) then
+        v:Event_EnableEngine()
+        v:Event_EnableMovement()
+    else
+        v:Event_DisableEngine()
+        v:Event_DisableMovement()
+        if (v.id == g_localActor:GetVehicleId() and g_localActor.IS_DRIVERSEAT) then
+            HUD.SetProgressBar(false,0,"")
+        else
+        end
+    end
+    --if (not v.THRUSTERS and chan == self.channel) then
+    --    HUD.SetProgressBar(false,0,"")
+    --end
+end
+
+--=========================================================
+-- Events
+ClientMod.REQUEST_NITRO = function(self)
+
+end
+
+--=========================================================
+-- Events
+ClientMod.NITRO_EFFECT = function(self, id, enable)
+
+    local v = GetEntity(id)
+    if (not v) then
+        return false
+    end
+
+    local e = v:GetHelperPos("exhaust") or v:GetCenterOfMassPos()
+    local d = ScaleVector(v:GetDirectionVector(),-1)
+    self:LoadEffectOnEntity(v, "NITRO0", { Pos = e, Dir = d, Effect = "smoke_and_fire.pipe_steam_a.steam", Scale = 3, CountScale = 10, CountPerUnit = 10  }, enable)
+    self:LoadEffectOnEntity(v, "NITRO1", { Pos = e, Dir = d, Effect = "misc.electric_man.fire_man", Scale = 1, CountScale = 59, CountPerUnit = 50, AttachType = "Render", AttachForm = "Surface" }, enable)
+    if (enable) then
+        local snd = self:PSE("Sounds/vehicles:trackview_vehicles:jet_constant_run_01_mp_with_fade",v,"nitro")
+        if (snd) then
+            Sound.SetSoundVolume(snd, 0.2)
+        end
+    else
+        self:StopSound(v,"nitro")
+    end
+
+   -- DebugLog("%s",Vec2Str(e or -69))
+end
+
+--=========================================================
+-- Events
+ClientMod.NITRO = function(self, chan)
+
+    local p = GP(chan)
+    if (not p) then
+        return
+    end
+
+    local v = p:GetVehicle()
+    if (not v) then
+        return
+    end
+
+    if (p.id == self.id) then
+        if (CPPAPI.FOVEffect) then
+           -- CPPAPI.FOVEffect(80/60, 0.4)
+        end
+        HUD.SetProgressBar(true,0,"NITRO BOOSTERS")
+    end
+    self.NW[v.id] = {
+        Player      = p.id,
+        Vehicle     = v,
+        Timer       = timerinit(),
+        Delay       = (1/25),
+        Step        = 0,
+        Goal        = 100,
+        Strength    = (math.min(15000, v:GetMass()) * 1/2.5) * GetCVar("crymp_vehicleNitroMult"),
+    }
+    self:NITRO_EFFECT(v.id, true)
+end
+
+--=========================================================
+-- Events
+ClientMod.UPDATE_NITRO = function(self)
+
+    for _, info in pairs(self.NW) do
+        if (not GetEntity(_)) then
+            DebugLog("stop Nitro!")
+            self.NW[_] = nil
+        elseif (not info.Vehicle:GetDriverId() or info.Step >= info.Goal or info.Vehicle.vehicle:IsDestroyed()) then
+            self:NITRO_EFFECT(_, false)
+            self.NW[_]=nil
+        elseif (timerexpired(info.Timer, (info.Delay or 0))) then
+            info.Step = info.Step + 1
+            if (info.Player == self.id) then
+                local velocity = info.Vehicle:GetVelocity()
+                local impulse = (1.0-(info.Step / info.Goal))*info.Strength
+                --DebugLog("impulse on step %d is %f",info.Step,impulse)
+                info.Vehicle:AddImpulse(-1, info.Vehicle:GetCenterOfMassPos(), info.Vehicle:GetDirectionVector(), impulse, 1)
+                --HUD.SetProgressBar(false,0,"NITRO BOOSTERS")
+                HUD.SetProgressBar(true,0,"NITRO ( " .. string.format("%0.2f", (math.sqrt(velocity.x^2 + velocity.y^2 + velocity.z^2) *3.6)).. "KMH ) BOOSTERS")
+                HUD.SetProgressBar(true,(info.Step / info.Goal) * 100,"")
+                DebugLog((info.Step / info.Goal) * 100)
+            end
+            info.Timer = timerinit()
+        end
+
+        if (self.NW[_] == nil) then
+            if (info.Player == self.id) then
+                HUD.SetProgressBar(false,0,"NITRO BOOSTERS")
+                if (CPPAPI.FOVEffect) then CPPAPI.FOVEffect(1,1) end
+                --DebugLog("off")
+            end
+        end
+    end
+end
+
+
+--=========================================================
+-- Events
+ClientMod.SelectShiTen = function(self, p)
+
+    -- Global Instance!
+    ShiTen.Properties.bSelectable = 1
+    ShiTen.Properties.bPickable = 1
+    ShiTen.Properties.bSelectable = 1
+    ShiTen.Properties.bDroppable = 1
+    ShiTen.Properties.bGiveable = 1
+    ShiTen.Properties.bRaisable = 1
+    ShiTen.Properties.bMounted = 0
+    ShiTen.Properties.bMountable = 1
+
+    local hShiTen = p:GetItemByClass("ShiTen")
+    if (hShiTen) then
+
+        hShiTen.Properties.bSelectable   = 1
+        hShiTen.Properties.bPickable     = 1
+        hShiTen.Properties.bSelectable   = 1
+        hShiTen.Properties.bDroppable    = 1
+        hShiTen.Properties.bGiveable     = 1
+        hShiTen.Properties.bRaisable     = 1
+        hShiTen.Properties.bMounted      = 0
+        hShiTen.Properties.bMountable    = 0
+        --hShiTen.item:Reset()
+
+        p.actor:SelectItemByName("ShiTen")
     end
 end
 
@@ -651,7 +1293,7 @@ ClientMod.OnKill = function(self, hPlayer, hShooterID, bMelee, headshot, tpe)
     if (iCM == CM_KYONG) then sDeathSound = "ai_kyong/" .. (bMelee and ("meleedeath_0" ) or falling and ("fallingdeath_0") or ("death_0")) .. math.random(0,fm) end
     if (iCM == CM_KOREANAI) then sDeathSound = "ai_korean_ai_" .. math.random(1,3) .. "/" .. (bMelee and ("meleedeath_0" ) or falling and ("fallingdeath_0") or ("death_0")) .. math.random(0,fm) end
 
-    DebugLog("snd=",sDeathSound)
+    DebugLog("snd=%s",sDeathSound)
     if (sDeathSound) then
         self:PSE(sDeathSound, hPlayer, "death")
     end
@@ -663,12 +1305,53 @@ ClientMod.VehicleHit = function(self, v, hit)
 
     local id = v.CMID
     local dmg = v.vehicle:GetRepairableDamage()
-    DebugLog(dmg)
     if (id) then
         if (id == VM_USPLANE or id == VM_NKPLANE or id == VM_CARGOPLANE or id == VM_AIRCRAFT) then
             DebugLog("jet hit")
         end
     end
+end
+
+--=========================================================
+-- Events
+ClientMod.OnRevive = function(self, p, is_client)
+
+    p.INVENTORY_BEFORE_BINOCS = nil
+    p.INVENTORY_STEP = 0
+    self:INVENTORY_REFRESH(p)
+end
+
+--=========================================================
+-- Events
+ClientMod.INVENTORY_REFRESH = function(self, p, is_client)
+
+    local n = 0
+    p.INVENTORY_ARRAY = {}
+    for _,id in pairs(p.inventory:GetInventoryTable()or{}) do
+        local i = GetEntity(id)
+        if (i and i.weapon and (i.class~="OffHand" and i.class~="Binoculars")) then
+            n=n+1
+            table.insert(p.INVENTORY_ARRAY, { Class = i.class, Entity = i })
+            --p.INVENTORY_ARRAY[id] = { ID = n, Class = i.class, Entity = i }
+            DebugLog("add %s",i.class)
+        end
+    end
+    p.INVENTORY_MAX = table.count(p.INVENTORY_ARRAY)
+end
+
+--=========================================================
+-- Events
+ClientMod.INVENTOR_STEP = function(self, p, m)
+
+
+    self:INVENTORY_REFRESH(p)
+
+    p.INVENTORY_STEP = ((p.INVENTORY_STEP or 0) + 1)
+    if (p.INVENTORY_STEP > p.INVENTORY_MAX) then
+        p.INVENTORY_STEP = 1
+    end
+
+    return m and p.INVENTORY_ARRAY[p.INVENTORY_STEP][m] or p.INVENTORY_ARRAY[p.INVENTORY_STEP]
 end
 
 --=========================================================
@@ -679,6 +1362,19 @@ ClientMod.OnHit = function(self, hPlayer, aHitInfo)
     local hTarget  = aHitInfo.target
     if (not hShooter or not hTarget) then
         return
+    end
+
+    local sameteam = g_pGame:GetTeam(hShooter.id)==g_pGame:GetTeam(hTarget.id) and not IS_IA
+
+    local gm=0
+    if (aHitInfo.shooterId==self.id and aHitInfo.targetId~=self.id) then
+        if (hTarget.IsPlayer) then
+            gm=hTarget:GetGodMode()
+            if (gm>0)then
+                g_localActor.actor:CameraShake(15, 0.2, 0.05, g_Vectors.v000);
+            end
+        end
+    --elseif (aHitInfo.shooterId~=self.id and aHitInfo.targetId==self.id) then
     end
 
     hTarget.LAST_HIT = aHitInfo
@@ -714,12 +1410,14 @@ ClientMod.OnHit = function(self, hPlayer, aHitInfo)
         hPlayer.hit_dir = aHitInfo.dir
     end
 
+    DebugLog("hit1")
 
     -- store some information for musiclogic
     if (not hPlayer.MusicInfo) then hPlayer.MusicInfo={}; end
     hPlayer.MusicInfo.headshot  = bHeadshot
     hPlayer:LastHitInfo(hPlayer.lastHit, aHitInfo)
 
+    DebugLog("hit2")
     local armor = hPlayer.actor:GetArmor();
     if (aHitInfo.radius==0) then
         if (not hPlayer:IsBleeding()) then
@@ -753,13 +1451,14 @@ ClientMod.OnHit = function(self, hPlayer, aHitInfo)
                         end
                     end
                 end
-                self:AddHitMarker(aHitInfo.pos, iDist)
+                self:AddHitMarker(aHitInfo.pos, iDist, gm>0, sameteam)
             end
             if (sound) then
                 hTarget:PlaySoundEvent(sound, g_Vectors.v000, g_Vectors.v010, SOUND_2D, SOUND_SEMANTIC_PLAYER_FOLEY);
             end
 
 
+            DebugLog("hit3")
 
 
 
@@ -774,7 +1473,14 @@ ClientMod.OnHit = function(self, hPlayer, aHitInfo)
             end
         end
         hPlayer:WallBloodSplat(aHitInfo);
+
+
+        DebugLog("hit4")
+
+        local nd=new(aHitInfo.dir)NegVector(nd)
+        hPlayer:OpenWound(aHitInfo.pos,aHitInfo.normal or nd)
     end
+    DebugLog("hit5")
 
     local camShakeAmt = tonumber(System.GetCVar("cl_hitShake"))
     local camShakeDuration = 0.35
@@ -790,6 +1496,7 @@ ClientMod.OnHit = function(self, hPlayer, aHitInfo)
     else
         self.lastMelee = nil
     end
+    DebugLog("hit6")
 
     --hPlayer:StartBleeding()
     if (hPlayer.actor:GetHealth() <= 0) then
@@ -800,6 +1507,7 @@ ClientMod.OnHit = function(self, hPlayer, aHitInfo)
         return
     end
 
+    DebugLog("hit7")
     if (aHitInfo.damage > 5 and armor <= 0) then
         if (not hPlayer.painSoundTriggered) then
             hPlayer:SetTimer(PAIN_TIMER,0.15 * 1000)
@@ -807,6 +1515,7 @@ ClientMod.OnHit = function(self, hPlayer, aHitInfo)
         end
     end
 
+    DebugLog("hit8")
     --
     if (hPlayer.id==self.id) then
         hPlayer.actor:CameraShake(camShakeAmt, camShakeDuration, camShakeFreq, g_Vectors.v000);
@@ -842,21 +1551,678 @@ end
 
 --=========================================================
 -- Events
-ClientMod.UpdateJets = function(self)
 
-    --local v = self.ent:GetVehicle()
-    --if (v and v:GetDriverId() == self.id) then
-    --    self:Update_Jet()
-    --elseif (self.JET.PGB) then
-    --    HUD.SetProgressBar("",false)
-   --     self.JET_PGB = nil
-    --end
+ClientMod.JET_EFFECTS = {
+    [VM_USPLANE] = {
+        ["ex1"] = {
+            Effect = "vehicle_fx.US_fighter.exhaust",
+            Scale = 1.5,
+            CountScale = 1,
+            Pos = { x = 0, y = -6.8, z = 0.58 },
+            DR = 0
+        },
+    },
+    [VM_CARGOPLANE] = {
+        ["ex1"] = {
+            Effect = "vehicle_fx.US_fighter.c17_thrusters",
+            Scale = 3,
+            CountScale = 1,
+            Pos = { x = -9.5, y = 9.5656-21, z = -0.6 },
+            DR = 2
+        },
+        ["ex2"] = {
+            Effect = "vehicle_fx.US_fighter.c17_thrusters",
+            Scale = 3,
+            CountScale = 1,
+            Pos = { x = -18, y = 9.5656-27, z = -1 },
+            DR = 2
+        },
+        ["ex3"] = {
+            Effect = "vehicle_fx.US_fighter.c17_thrusters",
+            Scale = 3,
+            CountScale = 1,
+            Pos = { x = -9.5+19, y = 9.5656-21, z = -0.6 },
+            DR = 2
+        },
+        ["ex4"] = {
+            Effect = "vehicle_fx.US_fighter.c17_thrusters",
+            Scale = 3,
+            CountScale = 1,
+            Pos = { x = -18+36, y = 9.5656-27, z = -1 },
+            DR = 2
+        },
+    }
+}
+
+ClientMod.JetEffects = function(self, v, enable)
+
+    local d = v:GetAngles()
+    --local aTrailInfo = {
+        --Effect = "smoke_and_fire.pipe_steam_a.steam",
+        --Scale = 2.5,
+       -- CountScale = 1,
+     --   Pos = v:ToGlobal(0, { x = 0, y = -1, z = 0 }),
+    --}
+
+    --local bFast = v:GetSpeed() > 10
+    --local slot = self:LoadEffectOnEntity(v, "jet_trail", aTrailInfo, bFast)
+
+    --specific
+    for id, info in pairs(self.JET_EFFECTS[v.CMID] or {}) do
+        local info_c = new(info)
+        info_c.Pos = v:ToGlobal(0, info_c.Pos)
+        d = v:GetDirectionVector()
+        for i=1,info_c.DR do
+            VecRotateMinus90_Z(d)
+        end
+        info_c.Dir = d
+        self:LoadEffectOnEntity(v, "jet_effect_" .. id, info_c, enable)
+       -- DebugLog("==> %s %s",id,g_ts(enable))
+    end
+end
+
+--=========================================================
+-- Events
+ClientMod.JetSounds = function(self, v, enable)
+
+    if (not enable) then
+        self:StopSound(v,"jet_ext")
+        self:StopSound(v,"jet_int")
+        return
+    end
+
+    local ext = ({
+        [VM_AIRCRAFT] 		= "sounds/vehicles:trackview_vehicles:heli_constant_run_with_fade",--sounds/vehicles:trackview_vehicles:c17_constant_run_with_fade",
+        --[VM_USPLANE] 		= "sounds/vehicles:trackview_vehicles:jet_constant_run_01_mp_with_fade",
+        --[VM_NKPLANE] 		= "sounds/vehicles:trackview_vehicles:jet_constant_run_01_mp_with_fade",
+        [VM_CARGOPLANE] 	= "sounds/vehicles:trackview_vehicles:c17_constant_run_with_fade",
+    })[v.CMID] or "sounds/vehicles:trackview_vehicles:jet_constant_run_01_mp_with_fade"
+
+    local int = "sounds/environment:amb_industrial:c17_interior_ambience"
+    local tp=not g_localActor:GetVehicle()or (g_localActor.actorStats.thirdPerson and g_localActor:GetVehicleId()==v.id)
+    if (not tp) then
+     --   tp =  or g_lo
+    end
+    if (tp==true) then
+        self:StopSound(v,"jet_int")
+        self:PSE(ext, v, "jet_ext")
+    else
+        self:StopSound(v,"jet_ext")
+        self:PSE(int, v, "jet_int")
+    end
+    --DebugLog("ext=%s",g_ts(ext))
+end
+
+--=========================================================
+-- Events
+ClientMod.UpdateVehicle = function(self, p)
+
+    local v = p:GetVehicle()
+    if (not v) then
+        return
+    end
+
+    local hAACannon = GetEntity(v:GetName().."_Weapon_AACannon_cannon_1")
+    if (hAACannon and hAACannon:GetParent()==v) then
+        if (hAACannon.weapon:IsFiring()) then
+
+            local vDir = hAACannon:GetDirectionVector()
+            --DebugLog("1=%f",hAACannon:GetViewDistRatio())
+            --DebugLog("2=%f",v:GetViewDistRatio())
+            --v:SetViewDistRatio(1000)
+            --hAACannon:SetViewDistRatio(1000)
+            self:LoadEffectOnEntity(hAACannon, "tracer", {Timer=0.5,Effect = "explosions.AA_TracerFire2.AA_harbor",SpeedScale=1,CountScale=1,Scale=1,Pos=hAACannon:GetPos(),Dir=vDir}, (p.id~=self.id or p.actorStats.thirdPerson))
+        else
+           -- v:SetViewDistRatio(500)
+           -- hAACannon:SetViewDistRatio(100)
+            self:LoadEffectOnEntity(hAACannon, "tracer", {}, false)
+        end
+        --DebugLog("found")
+    end
+
+    local speed = v:GetSpeed()
+    local vel = v:GetVelocity()
+
+    if (speed > 10) then
+        if (v.IS_HANDBRAKING) then
+            NegVector(vel)
+            v:AddImpulse(-1, v:GetCenterOfMassPos(), vel, v:GetMass(), 1)
+            --DebugLog("speed=%f",speed)
+        end
+    end
+
+    self:UpdateJet(p,v)
+
+end
+
+--=========================================================
+-- Events
+ClientMod.UpdateJet = function(self, p,v)
+
+    if (v.class~="US_vtol") then
+        return false
+    end
+
+    local t = v.CMID
+    local jet = (t==VM_USPLANE or t==VM_NKPLANE or t==VM_CARGOPLANE or t==VM_AIRCRAFT)
+    if (not jet) then
+        return false
+    end
+
+    if (p.IS_DRIVERSEAT and p.id == self.id) then
+        self:UpdateJetThrusters(v)
+    elseif (p.id==self.id and self.JET_HPB) then
+        HUD.SetProgressBar(false,0,"")
+        self.JET_HPB = false
+    end
+
+    if (v.THRUSTERS) then
+        self:JetSounds(v, true)
+    else
+        self:JetSounds(v, false)
+    end
+
+    self:JetEffects(v, v.THRUSTERS==true)
+
+end
+
+--for i,v in pairs(System.GetEntities()) do
+--    if string.find(v.class:lower(),"shiten") then
+     --   System.LogAlways(v:GetName().."==>"..v:GetCurrentAnimationState()or"")
+ --   end
+--end
+
+--=========================================================
+-- Events
+ClientMod.UpdateJetThrusters = function(self,v)
+
+    local bOnGround = false
+    local bUpImp = false
+    local fImp = v:GetMass()*1
+    local pos = v:GetPos()
+    if (pos.z - System.GetTerrainElevation(pos) < 10) then
+        bUpImp = true
+    end
+    if (pos.z - System.GetTerrainElevation(pos) < 6) then
+        bOnGround = true
+    end
+
+    local MAX = 100
+    local MIN = 20
+
+    if (v.THRUSTERS) then
+
+        v.THRUSTER_POWER = (v.THRUSTER_POWER or 0)
+
+        if (v.THRUSTER_FWD) then
+            v.THRUSTER_POWER = v.THRUSTER_POWER + System.GetFrameTime() * 20
+        elseif (v.THRUSTER_BACK) then
+            v.THRUSTER_POWER = v.THRUSTER_POWER - System.GetFrameTime() * 20
+        end
+        local d = v:GetDirectionVector()
+        local mp = v:GetCenterOfMassPos()
+
+        if (bOnGround and v.THRUSTER_BACK and v.THRUSTER_POWER < 30) then
+            d = v:GetVelocity()
+            NegVector(d)
+            if (v:GetSpeed() < 10) then
+                v.THRUSTER_POWER = v.THRUSTER_POWER - 1
+                if (v.THRUSTER_POWER < 0) then v.THRUSTER_POWER = 0 end
+            end
+            MIN = 1
+        elseif (bOnGround and v:GetSpeed() < 30) then
+            MIN = 1
+        end
+
+        v.THRUSTER_POWER = math.max(MIN, math.min(100, v.THRUSTER_POWER))
+        fImp = fImp * (v.THRUSTER_POWER/100)
+
+       -- DebugLog(fImp..","..(v.THRUSTER_POWER/100))
+        local velocity = v:GetVelocity()
+        HUD.SetProgressBar(true,0,("THRUSTER ( %sKMH ) POWER"):format(string.format("%0.2f", (math.sqrt(velocity.x^2 + velocity.y^2 + velocity.z^2) *3.6))))
+        HUD.SetProgressBar(true,v.THRUSTER_POWER,"")
+
+        local ENGINE_R = v:ToGlobal(0, { x = mp.x-1, y = mp.y, z = mp.z})
+        local ENGINE_L = v:ToGlobal(0, { x = mp.x-1, y = mp.y, z = mp.z})
+
+        --v:AddImpulse(-1, ENGINE_R, v:GetDirectionVector(), fImp/2, 1)
+        --v:AddImpulse(-1, ENGINE_L, v:GetDirectionVector(), fImp/2, 1)
+        v:AddImpulse(-1, mp, d, fImp, 1)
+        self:CheckCVar("p_max_velocity", math.max(50, math.floor((v.THRUSTER_POWER/100) * GetCVar("cmp_max_jetvel"))))
+
+        self.JET_HPB = true
+    end
+end
+
+--=========================================================
+-- Events
+ClientMod.CheckCVar = function(self,name,check)
+
+    local c = System.GetCVar(name)
+    if (g_ts(c)~=g_ts(check)) then
+        CPPAPI.FSetCVar(name,g_ts(check))
+    end
+end
+
+--=========================================================
+-- Events
+ClientMod.Para = function(self,p)
+    local as=p.actorStats return as.inAir>5 and as.inFreeFall==2
+end
+
+--=========================================================
+-- Events
+ClientMod.UpdateICM = function(self,p)
+    local i = p:GetCurrentItem()
+
+
+    if (not i) then
+        return
+    end
+
+    local iw = i.weapon
+    local ii = i.item
+
+    if (p:GetVehicle() or self:Para(p)) then
+       -- DebugLog(Vec2Str(p.actor:GetLookAtPoint(1000)))
+    --  self:  DebugArrow( p.actor:GetHeadPos(),p.actor:GetHeadDir(),1,{1,0,0},"name",0.1)
+    --  self:  DebugArrow( p.actor:GetHeadPos(),vector.todir(p.actor:GetAngles()),1,{0,1,0},"name1",0.1)
+
+        local ammoC = iw:GetAmmoCount() or 0
+        local invC = p.inventory:GetAmmoCount(iw:GetAmmoType()or"") or 0
+        if (p.id==self.id and (self.LAST_VEHICLE_AMMO ~= ammoC..invC)) then
+
+            self.LAST_VEHICLE_AMMO = ammoC..invC
+
+            local col1 = self.COLORS[ammoC<10 and "red" or "green"]
+            local col2 = self.COLORS[invC<10 and "red" or "green"]
+
+            self:HideDraw("fpv_ammo")
+            local draw = self:GetDraw("fpv_ammo").msgs
+            local x, y = 675,510--GetCVar("cmp_textX"),GetCVar("cmp_textY")
+            draw[CPPAPI.DrawText(x, y, 1.2, 1.2, col1[1],col1[2],col1[3], 3.0, string.rep(" ",3-string.len(ammoC))..ammoC)]=1
+            x=x+22
+            y=y-0
+            draw[CPPAPI.DrawText(x, y, 0.8, 0.8, col2[1],col2[2],col2[3], 3.0, string.rep(" ",3-string.len(invC))..invC)]=1
+        end
+    elseif (p.id==self.id) then
+
+        self:HideDraw("fpv_ammo")
+    end
+    if (iw and iw:IsFiring()) then
+        local ac = iw:GetAmmoCount()
+        if (i.lac) then
+            if (ac < i.lac and (ac + 1 == i.lac or ac + 2 == i.lac)) then
+
+                i.StopFireTime = 0
+
+                --  i.item:Quiet()
+                DebugLog("Bullet missing.. wepon went off? %d, %d",ac,i.lac)
+
+                i.SOUND_INFO = {
+                    TP = {
+                    --    N = "sounds/weapons:fy71:fire_3rd_loop",
+                        -- S = ""
+                    },
+                    FP = {
+                        --N = "",
+                        -- S = ""
+                    }
+                }
+                if (i.SOUND_INFO) then
+
+                    --i:StopAllSounds()
+                    --
+                    local snd
+                    local bSilencer = iw:GetAccessory("Silencer") or iw:GetAccessory("SOCOMSilencer")
+                    if (ii:GetOwnerId() == self.id and not self.ent.actorStats.thirdPerson and i.SOUND_INFO.FP) then
+                        snd = i.SOUND_INFO.FP.N
+                        if (bSilencer) then
+                            snd = i.SOUND_INFO.FP.S or snd
+                        end
+                    end
+                    snd = snd or i.SOUND_INFO.TP.N
+                    if (bSilencer) then
+                        snd = i.SOUND_INFO.TP.S or snd
+                    end
+
+                    if (snd and (snd ~= i.SOUND_INFO.CURR or timerexpired(i.SOUND_INFO.TIMER, i.SOUND_INFO.TIME))) then
+
+                        if (not i.SOUND_INFO.QUIET) then
+                            i.SOUND_INFO.QUIET = false
+                            ii:Quiet()
+                        end
+
+                        if (i.SOUND_INFO.ID) then
+                            i:StopSound(i.SOUND_INFO.ID)
+                            Sound.StopSound(i.SOUND_INFO.ID)
+                        end
+                        i.SOUND_INFO.ID = i:PlaySoundEvent(snd, g_Vectors.v000, g_Vectors.v010, SOUND_EVENT, SOUND_SEMANTIC_SOUNDSPOT)
+                        i.SOUND_INFO.TIMER = timerinit()
+                        i.SOUND_INFO.TIME = Sound.GetSoundLength(snd)
+                        i.SOUND_INFO.CURR = snd
+                        DebugLog("Play %s %f",snd, i.SOUND_INFO.TIME)
+                    end
+                end
+            end
+        end
+        i.lac = ac
+    elseif (iw) then
+        if (i.SOUND_INFO and i.SOUND_INFO.ID and timerexpired(i.SOUND_INFO.TIMER, math.max(0.2, i.SOUND_INFO.TIME))) then
+            i:StopSound(i.SOUND_INFO.ID)
+            Sound.StopSound(i.SOUND_INFO.ID)
+            i.SOUND_INFO.ID = nil
+        end
+    end
+
+    if (not i.CMI) then
+        return
+    end
+
+    local anim = i.CMI.Anim
+    local model = i.CMI.Model
+    local curr = i.CMI.CurrModel
+    local ang = i.CMI.LAng
+    local pos = i.CMI.LPos
+    local pset
+    local aset
+
+    local s = p.id==self.id
+    local fp = not p.actorStats.thirdPerson
+    local reset = p.LastICM ~= i.id
+    if (s) then
+        if (fp ~= i.CMI.WasFP) then
+           -- DebugLog(g_ts(fp).."=="..g_ts(i.CMI.WasFP))
+            reset = true
+        end
+    end
+    if (s and fp) then
+        model = i.CMI.ModelFP or model
+        anim = i.CMI.AnimFP or anim
+        if (i.CMI.NoFP) then
+         --   DebugLog("no FP!")
+            i:DrawSlot(1, 1)
+            i:DrawSlot(10, 0)
+            model = nil
+        end
+        if (i.CMI.NoFPAnim) then
+            anim = nil
+        end
+    end
+
+   -- i.item:PlayAction("reload")--fire
+
+    if (anim and timerexpired(i.CMI.AnimTimer, i.CMI.AnimTime)) then
+
+        --DebugLog("anim %s",anim)
+        i:StartAnimation(0, anim, 10)
+        i.CMI.AnimTimer = timerinit()
+        i.CMI.AnimTime = i:GetAnimationLength(0,anim)
+    end
+
+  --  DebugLog(g_ts(reset))
+    --DebugLog(g_ts(fp).."=="..g_ts(i.CMI.WasFP))
+    if (model ~= nil and (model ~= curr or reset)) then
+
+        DebugLog("changed modell...")
+
+        i[string.sub(model,-3)=="cgf"and"LoadObject"or"LoadCharacter"](i, 10, model)
+        i:DrawSlot(0, 0)
+        i:DrawSlot(10, 1)
+        for ii=1,4 do i:DrawSlot(ii, 0) end
+
+        i.CMI.CurrModel = model
+        p.LastICM = i.id
+
+        i:SetSlotPos(10, { x = 0, y = 0, z = 0})
+        i:SetSlotAngles(10, { x = 0, y = 0, z = 0})
+
+        if (s and fp) then
+            if (pos) then
+                i:SetSlotPos(10, pos) pset = 1
+            end
+            if (ang) then
+                i:SetSlotAngles(10, ang) aset = 1
+            end
+        end
+
+        --[[
+        if (s and fp) then
+            if (pos) then
+                i:SetLocalPos(pos) pset = 1
+            end
+            if (ang) then
+                i:SetLocalAngles(ang) aset = 1
+            end
+        end
+
+        if (not pset and i.CMI.LPosSet) then
+            i:SetLocalPos({ x = 0, y = 0, z = 0}) i .CMI.LPosSet = nil
+        end
+        if (not aset and i.CMI.LAngSet) then
+            i:SetLocalAngles({ x = 0, y = 0, z = 0}) i .CMI.LPosSet = nil
+        end]]
+    end
+    i.CMI.WasFP = fp
+end
+
+
+
+--=========================================================
+-- Events
+ClientMod.UpdateTEST = function(self,ft)
+
+end
+
+
+
+
+--=========================================================
+-- Events
+ClientMod.VehicleNearby = function(self,p,r)
+    p = p or g_localActor:GetWorldPos()
+    local a = System.GetPhysicalEntitiesInBox(p, r or 20)
+    for _, e in pairs(a or {}) do
+        if (e.vehicle) then
+            return true
+        elseif (e.class == "Tornado") then
+            return true
+        end
+    end
+end
+
+
+
+--=========================================================
+-- Events
+ClientMod.Update_AC = function(self)
+
+    local p = g_localActor
+    local pa = p.actor
+    local as = p.actorStats
+    if (p:IsSpectating() or p:IsDead()) then
+        return
+    end
+
+    local hdbg=self:GetDrawEx("debug_ac")
+    if (not self.DEBUG) then
+        hdbg:Hide()
+    end
+
+    local max_steps = GetCVar("cmp_accwms")
+    local st = CryAction.GetServerTime()
+    local c = p:GetCurrentItem()
+    if (c and timerexpired(p.AC_CHECK_WEAPON, GetCVar("cmp_acwci"))) then
+        local cw = c.weapon
+        local cc = c.class
+        local ac = cw:GetAmmoCount()
+        local firing = cw:IsFiring()
+        local function rwd()c.W_DATA={STEP=0,R={},S={},T={}}end
+        if (cc == "FY71" or cc == "SCAR" or cc == "SMG" or cc == "Hurricane") then
+            c.W_DATA = c.W_DATA or {STEP=0,R={},S={},T={}}
+            if (firing and ac~=c.W_DATA.LAC) then
+                c.LAST_FIRE_TIME = timerinit()
+                if (c.W_DATA.STEP>=max_steps) then
+                    local avg_r, avg_s, avg_t = 0,0,0
+                    for i = 1, max_steps do
+                        --ClientLog("%d>",i)
+                        avg_r = avg_r+c.W_DATA.R[i]
+                        avg_s = avg_s+c.W_DATA.S[i]
+                        avg_t = avg_t+(c.W_DATA.T[i]or 0)
+                    end
+                    avg_r=avg_r/max_steps
+                    avg_s=avg_s/max_steps
+                    avg_t=avg_t/max_steps
+
+                    -- some check needed, client can have "no" recoil with tap firing..
+                    if (avg_r==0)then -- NONE!
+                        self:TS(0,37)
+                    end
+                    if (avg_s==0)then -- NONE!
+                        self:TS(0,38)
+                    end
+                    if (avg_t<0.03 and cc~="Hurricane")then -- NONE!
+                        self:TS(0,39)
+                    end
+
+                    if (self.DEBUG) then
+                        hdbg:AddText({id="0",text="Avg. Recoil: "..avg_r,box_id="0b",color=self.COLORS.red,overwrite=1})
+                        hdbg:AddText({id="1",text="Avg. Spread: "..avg_s,box_id="1b",color=self.COLORS.red,overwrite=1})
+                        hdbg:AddText({id="2",text="Avg. FrRate: "..avg_t,box_id="2b",color=self.COLORS.red,overwrite=1})
+                        hdbg:AddText({id="3",text="server time: "..st..","..table.concat(c.W_DATA.T,"+"),box_id="3b",color=self.COLORS.red,overwrite=1})
+                    end
+                 --   ClientLog("Avg Spread: %f", avg_s)
+                 --   ClientLog("Avg Recoil: %f", avg_r)
+                 --   ClientLog("Avg FrRate: %f", avg_t)
+
+                    c.W_DATA = {STEP=0,R={},S={},T={}}
+                end
+
+                local spr = cw:GetSpread()
+                local rec = cw:GetRecoil()
+                c.W_DATA.STEP = c.W_DATA.STEP + 1
+
+                local lst = c.W_DATA.LST or st
+                if (c.W_DATA.STEP>1) then
+                    table.insert(c.W_DATA.T,st-lst)
+                else
+                    c.W_DATA.T[1]=0
+                end
+                table.insert(c.W_DATA.S,spr)
+                table.insert(c.W_DATA.R,rec)
+
+                c.W_DATA.LAC = ac
+                c.W_DATA.LST = st
+            elseif (not firing) then
+                if (timerexpired(c.LAST_FIRE_TIME,1)) then
+                    rwd()
+                end
+            end
+        end
+        p.AC_CHECK_WEAPON = timerinit()
+    elseif (c) then
+    end
+
+    if (not timerexpired(p.AC_CHECK, GetCVar("cmp_acci"))) then
+        return
+    else
+        p.AC_CHECK = timerinit()
+    end
+
+    local function r()
+        p.AC = {
+            Speed = {0,34},
+            Fly   = {0,35},
+            Phys  = {0,36}
+        }
+    end
+    if (not p.AC) then r() end
+
+    local function a(i,ii)
+        p.AC[i][1]=p.AC[i][1]+(ii or 1)
+        return true
+    end
+
+    local stan = as.stance
+    local pstan = p.LAST_STANCE
+    p.LAST_STANCE = stan
+    if ((pstan and stan ~= pstan) or p.FLYING_CHAIR.HAS or p.JETPACK.HAS or (as and as.isOnLadder) or not timerexpired(p.EXIT_VEHICLE_TIMER,3) or self:VehicleNearby()) then
+        return r()
+    end
+
+
+    local reset = true
+
+    local flym = tonumber(System.GetCVar("mp_flymode"))
+    if (flym and flym == 0) then
+        if (pa.GetFlyMode and pa.GetPhysicalColliderMode) then
+            if (pa:GetFlyMode() ~= 0) then reset = a("Fly",1) end
+            if (pa:GetPhysicalColliderMode() ~= 3 and self.NO_CLIP == nil) then reset = a("Phys",1) end
+        end
+    end
+
+    if (p.actor:IsFlying()) then
+        if (reset) then r() end
+    else
+        local s = p:GetSpeed()
+        local sm = (math.max(tonumber(System.GetCVar("g_suitSpeedMultMultiplayer")),0.35)*(stan==STANCE_STAND and 15 or 3)*2.75)
+        if (s>sm)then
+            a("Speed",1)
+        elseif(timerexpired(p.SPEED_CHEAT_TIMER,60)) then -- false positive!
+        end
+
+        if (self.DEBUG) then
+            hdbg:AddText({id="_speed",text="Speed : "..s.."/"..sm,box_id="_speedb",color=self.COLORS.red,overwrite=1})
+        end
+    end
+
+    for t, nfo in pairs(p.AC) do
+        if (nfo[1] > GetCVar("cmp_acdri")) then
+            self:TS(0,nfo[2])
+            a(t,nfo[1]*-2)
+        end
+
+        if (self.DEBUG) then
+            hdbg:AddText({id=t,text=t.."Count : "..nfo[1],box_id=t.."b",color=self.COLORS.red,overwrite=1})
+        end
+    end
+
 end
 
 --=========================================================
 -- Events
 ClientMod.Update = function(self,ft)
 
+    local gl = g_localActor
+    if (not gl) then
+        return
+
+    else
+
+
+      --  gl.actor:CreateCodeEvent({event = "replaceMaterial",material=newMat,cloak=self.cloaked});
+        --gl.actor:CreateCodeEvent({
+        --    event = "1dropObject",
+       ----     throwVec = {x=0,y=0,z=0},
+        --    throwDelay = 0,
+      --      throwImmediately = 1,
+       -- })
+        --[[
+        if (gl.actor:GetSpectatorMode()>0) then
+            local iLen = (LengthVector(gl:GetVelocity()))
+            if (iLen > 0 and not self.SpectatorDesync) then
+                local d = gl:GetAngles()d.z=d.z+0.001
+                gl.actor:SetAngles(d)
+                self.SpectatorDesync = true
+            elseif (self.SpectatorDesync) then
+                self.SpectatorDesync = false
+            end
+        elseif (self.SpectatorDesync) then
+            self.SpectatorDesync = false
+        end]]
+    end
+
+    local fp = g_localActor.actorStats.thirdPerson
     ft = ft or System.GetFrameTime()
 
     -- check the peasants (maybe hook cppapi spawn)
@@ -868,8 +2234,10 @@ ClientMod.Update = function(self,ft)
        -- hPlayer.SPEED = (hPlayer.LAST_POS and vector.distance(hPlayer:GetPos(), hPlayer.LAST_POS) or 0)
 
         if (not hPlayer.Initialized or RELOAD) then
-            hPlayer:ClInit()
-        end
+            if (hPlayer.ClInit) then
+                hPlayer:ClInit()
+            end
+        else
 
         --hPlayer.LAST_POS = hPlayer:GetPos()
 
@@ -893,6 +2261,19 @@ ClientMod.Update = function(self,ft)
         end
 
         if (hPlayer.JETPACK.HAS) then
+            if (hPlayer.id == self.id) then
+                if (not fp) then
+                    for __, h in pairs(hPlayer.JETPACK.HIDE) do
+                        h:DrawSlot(0,0)
+                    end
+                    hPlayer.JETPACK.FP_HIDDEN = true
+                elseif (hPlayer.JETPACK.FP_HIDDEN) then
+                    for __, h in pairs(hPlayer.JETPACK.HIDE) do
+                        h:DrawSlot(0,1)
+                    end
+                    hPlayer.JETPACK.FP_HIDDEN = nil
+                end
+            end
             if (hPlayer:GetSuitMode(NANOMODE_CLOAK)) then
                 if (not hPlayer.JETPACK.CLOAKED) then
                     for _,id in pairs(hPlayer.JETPACK.PTRS) do
@@ -931,16 +2312,40 @@ ClientMod.Update = function(self,ft)
                 hPlayer.FLYING_CHAIR = {}
             end
         end
+
+
+
+
+        self:UpdateICM(hPlayer)
+        self:UpdateVehicle(hPlayer)
+        end
      --   DebugLog(hPlayer:GetAnimationLength(0,"relaxed_sit_nw_01"))
     end
-
     RELOAD = false
+
+    if (self.ent.Initialized) then
+        if (not self.ent:GetVehicle()) then
+
+            self:CheckCVar("p_max_player_velocity", self.ent:IsSpectating() and "100" or g_pGame:GetSynchedGlobalValue(900 + CVARS["p_max_player_velocity"]) or "30")
+            if (self.JET_HPB) then
+                self.JET_HPB = false
+                HUD.SetProgressBar(false,0,"")
+            end
+        end
+    end
+
+    self:UpdateTEST()
+
+    -------
+    if (self.USABILITY_ENT and self.USABILITY_MSG) then
+        HUD.SetUsability(1,self.USABILITY_MSG)
+    end
 
     --------------------------------
     --- Needs to be called on frame
     self:UpdateHitMarkers()
     self:UpdateChatEffects()
-    self:UpdateJets()
+    --self:UpdateJets()
 
     self:UpdateFlying(ft)
 
@@ -999,6 +2404,15 @@ ClientMod.Update = function(self,ft)
     end
 
 
+    self:UPDATE_NITRO()
+    self:Update_AC()
+
+    if (fp ~= self.LAST_FP or timerexpired(self.SLH_UPDATE, 10)) then
+        self:UpdateSLH()
+    end
+
+    self.LAST_FP = fp
+
     --------------------------------
     --- Limit Update Rate
     if (timerexpired(self.SecondTick, 1)) then
@@ -1041,7 +2455,29 @@ end
 
 --=========================================================
 -- Events
+ClientMod.AS = function(self,p,id,d)
+    local h = p.actorStats[id]
+    if (h==nil) then return d end
+    return h
+end
+
+--=========================================================
+-- Events
 ClientMod.UpdateFlying = function(self,ft)
+
+    local hDraw = self:GetDrawEx("Chair_Info")
+    if (self.ent.FLYING_CHAIR.HAS and (self:AS(g_localActor,"inAir")<=0 or not self.ent.FLYING_CHAIR.THRUSTER)) then
+
+        local x = 100
+        local y = 100
+
+        hDraw:AddText({ id = "fc_t0", box_id = "fc_b0", text = "[JUMP] + [F] to Fly" })
+
+    else
+        hDraw:Hide()
+    end
+
+
     if (self.ent.JETPACK.HAS) then
         self:Update_JETPACK(ft)
     elseif (self.ent.FLYING_CHAIR) then
@@ -1220,6 +2656,8 @@ ClientMod.FlyingChar_Effects = function(self, chan, enable)
     local p = GP(chan) if (not p) then return end
     local c = GetEntity(p.FLYING_CHAIR.ENTITYID) if (not c) then return end
 
+    p.FLYING_CHAIR.THRUSTER=enable
+
     self:LoadEffectOnEntity(c, "f0", { Effect = "misc.signal_flare.on_ground_purple", Dir = g_Vectors.down, Pos = c:GetPos(), Scale = 1 }, enable)
     self:LoadEffectOnEntity(c, "f1", { Effect = "misc.signal_flare.on_ground_green",  Dir = g_Vectors.down, Pos = c:GetPos(), Scale = 2 }, enable)
     self:LoadEffectOnEntity(c, "f2", { Effect = "misc.signal_flare.on_ground",        Dir = g_Vectors.down, Pos = c:GetPos(), Scale = 2 }, enable)
@@ -1296,8 +2734,10 @@ ClientMod.Jetpack = function(self, chan, enable)
                 p.JETPACK.PTRS) do
             System.RemoveEntity(e)
         end
+        p.JETPACK.HIDE = {}
         p.JETPACK.PARTS = {}
         p.JETPACK.PTRS = {}
+        self.JPS[chan] = nil
         return
     end
 
@@ -1305,6 +2745,7 @@ ClientMod.Jetpack = function(self, chan, enable)
     p.JETPACK.HAS = true
     p.JETPACK.PARTS = {}
     p.JETPACK.PTRS = {}
+    p.JETPACK.HIDE = {}
 
     local v0 = p:GetPos() v0.z=v0.z+0.5                  -- dp1
     local v1 = p:GetPos() v1.x=v1.x+0.1 v1.z=v1.z+0.2    -- dp
@@ -1329,8 +2770,8 @@ ClientMod.Jetpack = function(self, chan, enable)
         { Pos = { x = v1.x + 0.15, y = v1.y, z = v1.z }, Dir = { x = 0, y = 1, z = 1 }, File = "objects/library/props/household/windchimes/windchime1/tube06.cgf" },
         { Pos = { x = v1.x, y = v1.y, z = v1.z + 0.2 }, Dir = { x = 0.001, y = 0, z = 1 }, File = "objects/library/props/building material/wodden_support_beam_plank_2_b.cgf", Scale = 0.2 },
         { Pos = { x = v1.x, y = v1.y, z = v1.z + 0.1 }, Dir = { x = 0.001, y = 0, z = 1 }, File = "objects/library/props/building material/wodden_support_beam_plank_2_b.cgf", Scale = 0.2 },
-        { Pos = { x = v1.x - 0.075, y = v1.y, z = v1.z }, Dir = { x = 0, y = 0, z = 0 }, File = "objects/library/installations/electric/power_pole/power_pole_wood_700_b.cgf", Scale = 0.3 },
-        { Pos = { x = v1.x + 0.15, y = v1.y, z = v1.z }, Dir = { x = 0, y = 0, z = 0 }, File = "objects/library/props/flags/northkorean_flagpole_b.cgf", Scale = 0.1 }
+        { Pos = { x = v1.x - 0.075, y = v1.y, z = v1.z }, Dir = { x = 0, y = 0, z = 0 }, File = "objects/library/installations/electric/power_pole/power_pole_wood_700_b.cgf", Scale = 0.3, Hide = true },
+        { Pos = { x = v1.x + 0.15, y = v1.y, z = v1.z }, Dir = { x = 0, y = 0, z = 0 }, File = "objects/library/props/flags/northkorean_flagpole_b.cgf", Scale = 0.1, Hide = true }
     }
 
     local n
@@ -1347,6 +2788,9 @@ ClientMod.Jetpack = function(self, chan, enable)
         n:DestroyPhysics()
         main:AttachChild(n.id,-1)
         table.insert(p.JETPACK.PTRS, n.id)
+        if (a.Hide) then
+            table.insert(p.JETPACK.HIDE, n)
+        end
     end
 
     p.JETPACK.MAIN = main
@@ -1364,6 +2808,7 @@ ClientMod.Jetpack = function(self, chan, enable)
     p:SetAttachmentObject(0, "JetPack", main.id, -1, 0)
 
 
+    self.JPS[chan] = new(p.JETPACK.PTRS)
 end
 
 --=========================================================
@@ -1374,6 +2819,34 @@ ClientMod.GetVehicles = function(self)
         if (h.vehicle) then table.insert(v,h) end
     end
     return v
+end
+
+--=========================================================
+-- Events
+ClientMod.LADS = function(self,v,pos)
+    local aNearest = { nil, -1 }
+    for _, aSeat in pairs(self.Seats) do
+            local iDistance = DistanceVectors(self:GetSeatEnterPosition(aSeat.seatId), pos)
+            if (aNearest[2] == -1 or iDistance < aNearest[2]) then
+                aNearest = {
+                    aSeat,
+                    iDistance
+                }
+            end
+    end
+    return aNearest[1] and aNearest[1].seat:IsDriver()
+end
+
+--=========================================================
+-- Events
+ClientMod.UW = function(self,pos,th)
+    local w = CryAction.GetWaterInfo(pos)
+    if (w) then
+        local d = w - pos.z
+        return (d > (th or 0))
+    end
+
+    return false
 end
 
 --=========================================================
@@ -1397,32 +2870,177 @@ ClientMod.TIMER_QUARTER = function(self)
         end
     end]]
 
+
+--TIMER_SECOND ??
+    for x, y in pairs(self.WANT_VM) do
+        if (System.GetEntityByName(x)) then
+            self:V_MODEL(unpack(y))
+            self.WANT_VM[x] = nil
+        end
+    end
+    for x, y in pairs(self.WANT_HELIMG) do
+        if (System.GetEntityByName(x)) then
+            self:HELIMG(unpack(y))
+            self.WANT_HELIMG[x] = nil
+        end
+    end
+
+    for x, y in pairs(self.JETS) do
+        if (not System.GetEntity(x)) then
+            self.JETS[x] = nil
+        elseif (y.Entity.vehicle:IsDestroyed()) then
+            Particle.SpawnEffect("explosions.jet_explosion.on_fleet_deck", y.Entity:GetPos(), g_Vectors.up, y.Entity.CMID==VM_CARGOPLANE and 3 or 1)
+            self.JETS[x] = nil
+            self:JetEffects(y.Entity,false)
+        end
+
+        if (not self.JETS[x]) then
+        end
+    end
+
+    local v = self.ent:GetVehicle()
+    if (v and self:Driver(v) and v.CMID == VM_VTOLTRANS) then
+        local hit = self:GetHitPos(g_localActor,10,nil,g_Vectors.down,v:GetCenterOfMassPos())
+        if (hit) then
+
+            if (hit.entity) then
+                self:SLH(hit.entity, "cyan",5)
+            end
+        end
+    end
+
+    local bUsability = false
+    if (not g_localActor:GetVehicle()) then
+        local hit = self:GetHitPos(g_localActor,2,nil,g_localActor.actor:GetHeadDir(),g_localActor.actor:GetHeadPos())
+        local hit_down = self:GetHitPos(g_localActor,2,nil,g_Vectors.down,g_localActor:GetPos())
+        if (hit and hit.entity) then
+            local hit_ent = hit.entity
+            if (hit_ent.CMID and hit_ent.CMID > 0) then
+
+                self.USABILITY_MSG = "@use_vehicle"
+                self.USABILITY_ENT = hit.entity
+                bUsability = true
+                DebugLog("ok")
+
+
+            elseif ((not hit_down or hit_down.entity ~= hit_ent) and hit_ent.vehicle and hit_ent.vehicle:GetMovementType()=="sea" and not self:UW(hit_ent:GetPos())) then
+                self.USABILITY_MSG = "Push Boat"
+                self.USABILITY_ENT = hit.entity
+                bUsability = true
+
+
+            elseif (hit_ent.vehicle and (g_pGame:GetSynchedEntityValue(hit_ent.id, 100))==1 and self:LADS(hit_ent,hit.pos)) then
+                self.USABILITY_MSG = "[ VEHICLE LOCKED ]"
+                self.USABILITY_ENT = hit.entity
+                bUsability = true
+
+            elseif (hit_ent.USABILITY_MSG) then
+                self.USABILITY_MSG = hit_ent.USABILITY_MSG
+                self.USABILITY_ENT = hit.entity
+                bUsability=true
+
+            elseif (true) then--hit_ent.class=="TagAmmo") then
+
+                local sMsg = hit_ent.USABILITY_MSG or string.match(hit_ent:GetName(), "Usability={(.-)}")
+                if (sMsg) then
+                    hit_ent.USABILITY_MSG = sMsg
+                    self.USABILITY_MSG = hit_ent.USABILITY_MSG
+                    self.USABILITY_ENT = hit.entity
+                    bUsability=true
+                end
+            end
+        end
+    end
+
+    if (not bUsability and self.USABILITY_ENT) then
+        DebugLog(self.USABILITY_ENT:GetName())
+        HUD.SetUsability(0,"")
+        self.USABILITY_MSG = nil
+        self.USABILITY_ENT = nil
+        DebugLog("off")
+    end
+end
+
+--=========================================================
+-- Events
+ClientMod.GetHitPos = function(self, hClient, iDist, iTypes, vDir, vPos)
+    iTypes = iTypes or ent_all
+    iDist = iDist or 5
+    if (iDist < 1) then
+        iDist = 1
+    end
+
+    vDir = vector.scale(vDir,iDist)
+
+    local nIgnore = (hClient:GetVehicleId() or self.id)
+    local iHits = Physics.RayWorldIntersection(vPos, vDir, 1, iTypes, self.id, hClient:GetVehicleId(), g_HitTable)
+    local aHit = g_HitTable[1]
+    if (iHits and iHits > 0) then
+        aHit.surfaceName = System.GetSurfaceTypeNameById( aHit.surface )
+        return aHit
+    end
+    return
 end
 
 --=========================================================
 -- Events
 ClientMod.TIMER_SECOND = function(self)
 
+    if (not GetEntity(self.id)) then
+        return
+    end
+
+--[[
+
+    local d=self:GetDrawEx("vehicle_lock")
+    local hit = self:GetHitPos(g_localActor,1.5,nil,System.GetViewCameraDir(),System.GetViewCameraPos())
+    local l=false
+    if (hit) then
+        local e=hit.entity
+        if (e and e.vehicle and (g_pGame:GetSynchedEntityValue(e.id, 100)or 1)==1) then
+            --d:AddText({
+            --    text = "[ LOCKED ]", color = self.COLORS.red, id = "lock", box_id = "lock_box",
+            --    overwrite=false,
+            --})
+            --l=true
+        end
+    end
+    if (not l) then d:Hide() end]]
+
+    local hDraw_Item = self:GetDrawEx("Vehicle_Items")
+    local hDraw_Vehicle = self:GetDrawEx("VehicleInfo")
+
+    if (not self.ent:GetVehicle()) then-- and self:IsDrawVisible(DRAW_VEHICLE_INFO)) then
+        --self:HideDraw(DRAW_VEHICLE_INFO)
+        hDraw_Item:Hide()
+        hDraw_Vehicle:Hide()
+    end
+
     local vPos = self.ent:GetPos()
-    local mcX, mcY = HUD.GetMapGridCoord(vPos.x, vPos.y)
-    if ((mcX..mcY) ~= self.LAST_MC) then
-        self:TS(0,100+mcX)
-        self:TS(0,110+mcY)
-        DebugLog("%d=%d, %d=%d", mcX,100+mcX,mcY,110+mcY)
-        self.LAST_MC = mcX..mcY
+    if (HUD and HUD.GetMapGridCoord) then
+        local mcX, mcY = HUD.GetMapGridCoord(vPos.x, vPos.y)
+        if ((mcX..mcY) ~= self.LAST_MC) then
+            self:TS(0,100+mcX)
+            self:TS(0,110+mcY)
+            DebugLog("%d=%d, %d=%d", mcX,100+mcX,mcY,110+mcY)
+            self.LAST_MC = mcX..mcY
+        end
     end
 
     if (self.REMOTE_SECOND) then self:REMOTE_SECOND() end
-    self:UpdateVoteMenu()
+    --self:UpdateVoteMenu()
 
     local iClipping = self.NO_CLIP
     if (iClipping and iClipping > 0) then
         if (self.ent:IsAlive()) then
             self.ent:SetColliderMode(iClipping)
         end
-    elseif (iClipping == 0) then
+        ClientLog("clip on??")
+    elseif (iClipping ~= nil) then
         self.ent:SetColliderMode(0)
         self.NO_CLIP = nil
+
+        ClientLog("clip of??")
     end
 
     local G = System.GetCVar
@@ -1453,14 +3071,29 @@ ClientMod.TIMER_SECOND = function(self)
         end
     end
 
-    for x, y in pairs(self.WANT_VM) do
-        if (System.GetEntityByName(x)) then
-            self:V_MODEL(unpack(y))
-            self.WANT_VM[x] = nil
+    for _, p in pairs(g_pGame:GetPlayers() or {}) do
+        local gm = p:GetGodMode()
+        DebugLog(gm)
+        if (gm and gm > 0) then
+            self:SLH(p,gm>2 and "magenta"or gm>1 and"orange"or"yellow",2)
+            p.GODMODE_SLH = true
+            ClientLog("GODMODE! ITS %s",g_ts(gm))
+        elseif (p.GODMODE_SLH) then
+            HUD.ResetSilhouette(p.id)
         end
     end
 
     self:UpdateExplosionEffects()
+
+    for id, info in pairs(self.JPS) do
+        if (not GP(id)) then
+            for _,ent in pairs(info) do
+                System.RemoveEntity(ent)
+            end
+            DebugLog("left??")
+            self.JPS[id]=nil
+        end
+    end
 end
 
 --=========================================================
@@ -1521,11 +3154,11 @@ end
 
 --=========================================================
 -- Events
-ClientMod.AddHitMarker = function(self, v, d)
+ClientMod.AddHitMarker = function(self, v, d, god, team)
     if (d < 80) then
         local lifetime = 1
         local n = table.count(self.HIT_MARKERS)
-        table.insert(self.HIT_MARKERS, { n = n, pos = v, spawn = _time, lt = lifetime, exp = _time + lifetime })
+        table.insert(self.HIT_MARKERS, { f = team, n = n, pos = v, spawn = _time, lt = lifetime, exp = _time + lifetime, god = god })
     end
 end
 
@@ -1541,7 +3174,12 @@ ClientMod.UpdateHitMarkers = function(self)
             if (d <= 80) then
                 local alpha = ((m.exp - _time) / m.lt) * 1
                 if (alpha > 0) then
-                    System.DrawLabel( m.pos, 1.5, "$4(X)", 1, 0, 0, alpha ) -- only one label can be drawn at a time :c
+                    local c="$4"if (m.f) then c="$3"end
+                    local s=c.."(X)"
+                    if (m.god) then
+                        s="$4TARGET IN GOD MDOE"
+                    end
+                    System.DrawLabel( m.pos, 1.5, s, 1, 0, 0, alpha ) -- only one label can be drawn at a time :c
                 end
             end
             table.insert(n, m)
@@ -1595,7 +3233,8 @@ ClientMod.ReEnterVehicle = function(self, chan, seat, cm)
     v.vehicle:ExitVehicle(p.id,true)
     Script.SetTimer(2,function()
         DebugLog("nter %d",seat)
-        v.vehicle:EnterVehicle(p.id,seat,true)end)
+        v.vehicle:EnterVehicle(p.id,seat,true)
+    end)
 end
 
 --=========================================================
@@ -1758,21 +3397,233 @@ end
 
 --=========================================================
 -- Events
-ClientMod.GetMenu = function(self, id)
-    self.DRAW_TOOLS[id]=self.DRAW_TOOLS[id]or{IDS={},Visible=false}
+ClientMod.CreateDraw = function(client, sId, pInit)
+    client.DRAW_TOOLS[sId] = {
+        last_x = 0,
+        last_y = 0,
+        Data = {},
+        AddBox = function(self, p)
+            local x = p.x or 0                  -- x
+            local y = p.y or 0                  -- y
+            local w = p.width or 0              -- width
+            local h = p.height or 18            -- height
+            local c = p.color or { 0, 0, 0 }    -- color
+            local a = p.alpha or 0.3            -- alpha
+
+            local id = p.id or "generic"
+            local o = self.Data[id]
+            if (o and p.overwrite) then
+                self.Data[id] = nil
+                CPPAPI.RemoveTextOrImageById(o)
+            elseif (o == nil) then
+                self.Data[id] = CPPAPI.DrawColorBox(x, y, w, h, c[1], c[2], c[3], a)
+            end
+        end,
+        AddText = function(self, p)              -- y
+            local w = p.width or 1.2              -- width
+            local h = p.height or 1.2            -- height
+            local c = p.color or { 0, 0.8, 0 }    -- color
+            local a = p.alpha or 1            -- alpha
+
+
+            local str = p.text
+
+            local id = p.id or "generic"
+            local id_box = p.box_id or "generic"
+            local o = self.Data[id]
+            local ob = self.Data[id_box or "-1"]
+
+           -- ClientLog(g_ts(CPPAPI.GetTextOrImageById(id)))
+
+            if (o and p.overwrite) then
+                self.Data[id] = nil
+                CPPAPI.RemoveTextOrImageById(o[2])
+                if (ob) then
+                    self.Data[id_box] = nil
+                    CPPAPI.RemoveTextOrImageById(ob)
+                end
+                self:FreeSlot(o[1])
+                o=nil
+            end
+
+
+            local slot = self:Step()
+            local x = p.x --or slot.x--[1]--self:Step()                  -- x
+            local y = p.y --or slot.y--[2]
+
+            if (x ==nil or y==nil) then
+                x=x or slot.x
+                y=y or slot.y
+                self:CloseSlot(slot.id)
+                ClientLog("x or y ",x,y)
+            end
+            self.last_x = x
+            self.last_y = y
+
+            if (o == nil) then
+                self.Data[id] = { slot.id, CPPAPI.DrawText(x, y, w, h, c[1], c[2], c[3], a, str) }
+                if (id_box) then
+                    self:AddBox({
+                        id = id_box,
+                        x = x, y = y,
+                        alpha = p.box_alpha or 0.3,
+                        height = 18,
+                        width = string.len(str) * 7.5,
+                        color = { 0, 0, 0 } -- fixme..
+                    })
+                end
+            end
+        end,
+        ReverseStep = function(self)
+        --- !?!??!
+        end,
+        FreeSlot = function(self,i) -- todo
+            self.slots[i].free=true
+        end,
+        CloseSlot = function(self,i) -- todo
+            self.slots[i].free=false
+        end,
+        Step = function(self) -- todo
+
+
+            local slot=nil
+            for i,v in pairs(self.slots) do
+                if (v.free) then
+                    slot=v break
+                end
+            end
+
+            --slot.free=false
+            do return slot end
+
+            do return end
+            local xs = self.x_step
+            local x = self.last_x
+            if (false and xs<0) then
+               -- x = x - xs
+            else
+                x = x + xs
+            end
+            local ys = self.y_step
+            local y = self.last_y
+            if (false and ys<0) then
+               -- y = y - ys*-1 -- WTF?
+               -- DebugLog("step MINUS %f (-%f, b:%f)",y,ys,self.last_y)
+            else
+                y = y + ys
+            end
+            return x,y
+        end ,
+        ResetSteps = function(self) -- todo
+            self.last_x = self.init_x
+            self.last_y = self.init_y
+        end ,
+        Init = function(self, p) -- todo
+            self.x_step = p.StepX or 10
+            self.y_step = p.StepY or 20
+
+            self.last_x = (p.StartX or 0)-self.x_step
+            self.last_y = (p.StartY or 0)-self.y_step
+
+            self.slots={}
+            for i=1,30 do
+                self.slots[i]={
+                    id=i,
+                    free=true,
+                    x=self.last_x+(self.x_step*i),
+                   y=self.last_y+(self.y_step*i),
+                }
+            end
+
+            self.init_x = self.last_x
+            self.init_y = self.last_y
+        end ,
+        Move = function(self, this) -- todo
+        end ,
+        Hide = function(self, this)
+            if (this==nil) then
+                self:ResetSteps()
+                self:Delete()
+                return
+            end
+            local obj=self.Data[this]
+            if (obj) then
+
+                if (type(obj)=="table") then
+                    self:FreeSlot(obj[1])
+                    CPPAPI.RemoveTextOrImageById(obj[2])
+
+                else
+                    CPPAPI.RemoveTextOrImageById(obj)
+                end
+
+               -- CPPAI.RemoveTextOrImageById(obj)
+                self.Data[this]=nil
+            end
+        end ,
+        Delete = function(self)
+            for _, msg_id in pairs(self.Data) do
+                if (type(msg_id)=="table") then
+                self:FreeSlot(msg_id[1])
+                    CPPAPI.RemoveTextOrImageById(msg_id[2])
+
+                else
+                    CPPAPI.RemoveTextOrImageById(msg_id)
+                end
+            end
+            self.Data={}
+        end ,
+    }
+
+    if (pInit) then client.DRAW_TOOLS[sId]:Init(pInit) end
+end
+
+--=========================================================
+-- Events
+ClientMod.GetDrawEx = function(client, sId, pInit)
+    return client.DRAW_TOOLS[sId]
+end
+
+--=========================================================
+-- Events
+ClientMod.GetDraw = function(self, id)
+    self.DRAW_TOOLS[id]=self.DRAW_TOOLS[id]or{msgs={
+    }}
+
+
     return self.DRAW_TOOLS[id]
 end
 
 --=========================================================
 -- Events
-ClientMod.FadeMenu = function(self, id)
-
-    local m=self:GetMenu(id)
-    local o=m.Alpha
-
-    for _,d in pairs(m.IDS) do
-
+ClientMod.HideDraw = function(self, id)
+    local i = self:GetDraw(id).msgs
+    for s_id, m_id in pairs(i) do
+        CPPAPI.RemoveTextOrImageById(s_id)
+        DebugLog(g_ts(m_id))
     end
+    self.DRAW_TOOLS[id]=nil
+end
+
+--=========================================================
+-- Events
+ClientMod.IsDrawVisible = function(self, id)
+    return self.DRAW_TOOLS[id]~=nil
+end
+
+--=========================================================
+-- Events
+--[[ClientMod.DrawText = function(self, id, msg, x, y)
+    local i = self:GetDraw(id)
+    if (i.msg) then
+        self:HideDraw(id)
+    end
+    i.msg = CPPAPI.DrawText(x or 45, y or 425, 1.2, 1.2, 0.8, 0.8, 0.8, 1, msg)--"[F3] Nito Boost")
+end
+]]
+--=========================================================
+-- Events
+ClientMod.FadeMenu = function(self, id)
 end
 
 --=========================================================
@@ -2122,6 +3973,78 @@ end
         [6] = 'crane_wheelbackward',
         [7] = 'crane_wheelforward',
 ]]
+
+--=========================================================
+-- Events
+ClientMod.D_CARGO = function(self, name, cargo, enable)
+
+    local v = GetEntity(name)
+    local c = GetEntity(cargo)
+    if (not v) then
+        return
+    end
+
+    local hCargo = GetEntity(c)
+    if (not hCargo) then
+        return
+    end
+
+    local p = v:GetPos()
+    if (enable) then
+        v:AttachChild(c.id, 1)
+        c:SetDirectionVector(v:GetDirectionVector())
+        c:SetWorldPos({ x = p.x, y = p.y, z = p.z - 7 })
+    else
+        c:DetachThis()
+        c:SetWorldPos({ x = p.x, y = p.y, z = p.z - 7 })
+        c:SetDirectionVector(v:GetDirectionVector())
+        c:AwakePhysics(1)
+        if (c.vehicle and self:Driver(c)) then
+            c:AddImpulse(-1, c:GetCenterOfMassPos(), v:GetDirectionVector(), c:GetMass() * v:GetSpeed())
+        end
+    end
+end
+
+--=========================================================
+-- Events
+ClientMod.Driver = function(self, v)
+    return self.ent:GetVehicleId()==v.id and self.ent.IS_DRIVERSEAT
+end
+
+--=========================================================
+-- Events
+ClientMod.HELIMG = function(self, name, x, y, z)
+
+    local v = GetEntity(name)
+    if (not v) then
+        self.WANT_HELIMG[name] = { name, x, y, z }
+        return
+    end
+
+    local hMG1 = GetEntity(name .. "_mg_left")
+    local hMG2 = GetEntity(name .. "_mg_right")
+
+    if (not (hMG1 and hMG2)) then
+        self.WANT_HELIMG[name] = { name, x, y, z }
+        return ClientLog("mgs not found!")
+    end
+
+    v.HeliMGs = v.HeliMGs or {}
+
+    v.HeliMGs[hMG1.id] = hMG1
+    v.HeliMGs[hMG2.id] = hMG2
+
+    v:AttachChild(hMG1.id, 1)
+    v:AttachChild(hMG2.id, 1)
+
+    local vDir = v:GetDirectionVector()
+    hMG1:SetDirectionVector(vDir)
+    hMG2:SetDirectionVector(vDir)
+
+    hMG1:SetLocalPos({ x = x,  y = y, z = z })
+    hMG2:SetLocalPos({ x = -x, y = y, z = z })
+end
+
 --=========================================================
 -- Events
 ClientMod.V_MODEL = function(self, name, model, id, p, d, s, ht)
@@ -2186,6 +4109,8 @@ ClientMod.V_MODEL = function(self, name, model, id, p, d, s, ht)
             CM:PhysicalizeSlot(0, { flags = 1.8537e+008 }) -- special flags for correct collision.
             CM.Parent = vehicle.id
 
+            HUD.SetUsability(0, "@use_vehicle")
+
             self.VM[CM.id] = { EntityID = vehicle.id, ID = id }
 
             vehicle:DrawSlot(0, 0)
@@ -2194,6 +4119,10 @@ ClientMod.V_MODEL = function(self, name, model, id, p, d, s, ht)
 
             vehicle.CM = CM.id
             vehicle.CMID = id
+            vehicle.IS_JET = (id==VM_TRANSPLANE or id==VM_AIRCRAFT or id==VM_CARGOPLANE or id==VM_USPLANE or id==VM_NKPLANE)
+        if (vehicle.IS_JET) then
+            self.JETS[vehicle.id]={Entity=vehicle}
+        end
 
             if (p) then CM:SetLocalPos(p) end
             if (d) then CM:SetLocalAngles(d) end
@@ -2219,13 +4148,21 @@ ClientMod.RequestModel = function(self, channelId, modelId, modelPath, soundPath
         return ClientLog("no chan..again")
     end
 
-    local sG = string.match(modelPath, "^G:(.*)")
+    local sG = string.match(modelPath or "", "^G:(.*)")
     if (sG) then
         DebugLog("using global for MODEL %s",sG)
         modelPath = _G[sG] or modelPath -- fallback in case its an error!
     end
 
+
+    if (modelId==44) then -- snowman
+      --  hPlayer:SetSlotWorldTM(0,hPlayer:GetPos(),{x=-1,y=0,z=0})
+    end
+
+    hPlayer.CM.IS_EGIRL = (modelId == CM_BOOBS or  modelId ==   CM_EGIRL2 or modelId ==   CM_EGIRL3 or modelId ==   CM_EGIRL4)
     if (hPlayer.CM.ID == modelId) then return DebugLog("we ARE already that model!!") end
+
+    hPlayer:ResetMaterial(0)
 
     local v = hPlayer:GetVehicle()
     local sMat = modelPath and self:GetObjMaterial(modelPath) or ""
@@ -2240,15 +4177,20 @@ ClientMod.RequestModel = function(self, channelId, modelId, modelPath, soundPath
         end
         self.SetModel(hPlayer, sDef1, sDef2)
         hPlayer.CM = { File = nil, ID = 0, Vehicle = nil }
+        sMat = self:GetObjMaterial(sDef1)
+        if (sMat and sMat ~="" and sMat ~= "-1") then -- material MUST EXIST, else CRASH!
+            hPlayer:SetMaterial(sMat) -- breaks nano suit materials . . .... ... . .
+        end
+
         if (hPlayer.id ~= self.id) then
             hPlayer.actor:ActivateNanoSuit(1)
         else
-            sMat = self:GetObjMaterial(sDef1)
-            if (sMat and sMat ~="") then -- material MUST EXIST, else CRASH!
-                hPlayer:SetMaterial(sMat) -- breaks nano suit materials . . .... ... . .
-            end
+
         end
+
+        DebugLog("restore MAXI")
     else
+
 
         if (hPlayer.id == self.id) then
             DebugLog("reset mat.. ->%s",g_ts(hPlayer:ResetMaterial(0)or-1))
@@ -2271,18 +4213,22 @@ ClientMod.RequestModel = function(self, channelId, modelId, modelPath, soundPath
             hPlayer.actor:Revive()
         end
         hPlayer.actor:ActivateNanoSuit(not string.find(sMat, "nanosuit")and 1 or 0) -- so material stays normal :3
-        hPlayer:SetMaterial(sMat) -- breaks nano suit materials . . .... ... . .
+        if (sMat and sMat ~= "-1" and sMat ~= "") then
+            hPlayer:SetMaterial(sMat) -- breaks nano suit materials . . .... ... . .
+        end
     else
         if (not bDead) then
             hPlayer.actor:Revive()
         end
 
         self.FORCED_MATERIAL = nil
-        if (sMat ~= "" and not string.find(sMat, "nanosuit")) then --for 3p, for local only
+        if (sMat ~= "" and sMat ~= "-1" and not string.find(sMat, "nanosuit")) then --for 3p, for local only
             --  self.ORIGINAL_MATERIAL = self.ORIGINAL_MATERIAL or hPlayer:GetMaterial(0)
             self.FORCED_MATERIAL = sMat
+            hPlayer:SetMaterial(sMat) -- breaks nano suit materials . . .... ... . .
         else
             hPlayer:SetMaterial(sMat) -- breaks nano suit materials . . .... ... . .
+            DebugLog("materia!")
         end
         --hPlayer:SetActorModel()
     end
@@ -2510,6 +4456,11 @@ ClientMod.GetItemDefBy = function(self, c)
 end
 
 --=========================================================
+ClientMod.IS_CARRIED = function(self, w)
+    return not w.item:GetOwnerId() or w.item:GetOwnerId()==NULL_ENTITY
+end
+
+--=========================================================
 ClientMod.ItemChanged = function(self, p, n, o)
 
     if (IS_PS) then
@@ -2523,13 +4474,14 @@ ClientMod.ItemChanged = function(self, p, n, o)
     if (hOld) then
         local bDropped = false
 
-        if (GetVersion() > 16) then
-            bDropped = not hOld.weapon:GetShooter()
-        elseif (false and hOld.GetParent) then
-            bDropped = hOld:GetParent()==nil
-        else
-            bDropped = not self:GetWeaponOwner(hOld)
-        end
+        bDropped = not self:IS_CARRIED(hOld)
+       -- if (GetVersion() > 16) then
+       --     bDropped = not hOld.weapon:GetShooter()
+       -- elseif (false and hOld.GetParent) then
+      --      bDropped = hOld:GetParent()==nil
+      --  else
+      --      bDropped = not self:GetWeaponOwner(hOld)
+      --  end
 
         if (bDropped) then
             if (self.id==p.id or (IS_PS and iTeam == g_pGame:GetTeam(self.id))) then
@@ -2545,6 +4497,34 @@ ClientMod.ItemChanged = function(self, p, n, o)
     local pick
     if (n) then
 
+        if (n.class=="ShiTen") then
+           --[[ n.Properties.Mount = {
+                eye_height = -1,
+            }
+            n.Properties.mount = {
+                eye_height = -1,
+            }
+            n.Properties.selectable=1
+            n.Properties.droppable=1
+            n.item:Reset()
+            p.actor:DropItem(n.id)
+            n.item:OnUsed(p.id)--]]
+        end
+
+
+        n.CMI = n.CMI or ({ ["ShiTen"] = {
+            NoFP = true,
+            --Anim = "idle_01",
+            --Model = "Objects/weapons/asian/shi_ten/shi_ten_mounted_fp.chr"
+            Anim = "idle_vehicle_01",
+            Model = "objects/weapons/asian/shi_ten/shi_ten_vehicle.chr"
+        }, ["Golfclub"] = {
+            Model = "Objects/library/architecture/aircraftcarrier/props/misc/golfclub.cgf",
+            ModelFP = "Objects/library/architecture/aircraftcarrier/props/misc/golfclub.cgf",
+            LPos = { x = 0.15, y = 0.4, z = -0.25 },
+            LDir = { x = 0,y = 0, z = 0 }
+        }})[n.class]
+
         --if still in highlight, stop it, for ourselfs, timer is 2.5s, for othrs its
         if (true or not timerexpired(n.SLH_TIMER, n.SLH_TIME)) then
             self:SLH(n,((p.id~=self.id and (not IS_PS or iTeam~=g_pGame:GetTeam(self.id)))) and cr or cg,(n.id==self.id and 2.5 or 1))
@@ -2552,6 +4532,7 @@ ClientMod.ItemChanged = function(self, p, n, o)
         end
 
     local a={["AVMine"]="arm_01",}
+        p.PREVIOUS_INV=p.PREVIOUS_INV or {}
      pick = (p.PREVIOUS_INV[n.id] == nil or (n.class~="GaussRifle" and timerexpired(p.PREVIOUS_INV[n.id],math.random(45,72))))
     if (GetCVar("crymp_weapon_cockingalways") >0 or pick)then
         a["DSG1"]="cock_right_01"
@@ -2734,8 +4715,14 @@ ClientMod.StopSound = function(self, entity, id, slot)
     slot = slot or -1
 
     local sslot = entity.SoundSlots[id][slot]
-    if (sslot and Sound.IsPlaying(sslot)) then
+  if (sslot) then
+      DebugLog("sslot = %s",g_ts(sslot))
+  end
+
+    if (sslot) then-- and Sound.IsPlaying(sslot)) then
+        Sound.StopSound(sslot)
         entity:StopSound(sslot)
+        ClientLog("DISABLE SOUND !!%s",g_ts(sslot))
     end
 
     entity.SoundSlots[id][slot] = nil
@@ -2750,6 +4737,37 @@ ClientMod.IMP = function(self, ent, dir, str, pos)
     end
 
     ent:AddImpulse(-1, pos or ent:GetCenterOfMassPos(), dir, str, 1)
+end
+
+--=========================================================
+ClientMod.UpdateSLH = function(self)
+
+    DebugLog(g_ts(self.L_SLH))
+    for id, col in pairs(self.L_SLH) do
+        if (GetEntity(id)) then
+            self:SLH(id,col,99)
+        else
+            self.SLH[id] = nil
+        end
+    end
+    self.SLH_UPDATE = timerinit()
+end
+
+--=========================================================
+ClientMod.AddSLH = function(self, chan, col, enable)
+    local p = GP(chan)
+    if (not p) then
+        return DebugLog("no chan")
+    end
+
+    self.L_SLH[p.id] = nil
+    if (enable) then
+        self.L_SLH[p.id] = col
+        self:SLH(p,col,100)
+        DebugLog("on")
+    else
+        HUD.ResetSilhouette(p.id)
+    end
 end
 
 --=========================================================
@@ -2838,6 +4856,7 @@ ClientMod.PSE = function(self, sound, entity, id, slot, loop, force_restart, ove
                 entity:StopSound(hSound)
             end
         else
+         --   DebugLog("ret!! %s",g_ts(hSound))
             return
         end
     end
@@ -2910,6 +4929,11 @@ ClientMod.PSE = function(self, sound, entity, id, slot, loop, force_restart, ove
         --entity.SoundSlots[id][slot] = entity:PlaySoundEventEx(sound, TD, 1, g_Vectors.v000, 1, 5, fol );
     --else
     end
+
+    if (entity.vehicle) then
+        fol = SOUND_SEMANTIC_VEHICLE
+    end
+
     entity.SoundSlots[id][slot] = entity:PlaySoundEvent(sound, vc, vc2, TD, fol)
 
     --p.lastPainSound = p:PlaySoundEvent(se,g_Vectors.v000,g_Vectors.v010, bor(SOUND_LOAD_SYNCHRONOUSLY, SOUND_VOICE), v);
@@ -2919,6 +4943,9 @@ ClientMod.PSE = function(self, sound, entity, id, slot, loop, force_restart, ove
     if (loop) then
         Sound.SetSoundLoop(entity.SoundSlots[id][slot], 1)
     end
+
+    --DebugLog("===>%s",g_ts(entity.SoundSlots[id][slot]))
+    return entity.SoundSlots[id][slot]
 end
 
 --=========================================================
@@ -2936,6 +4963,22 @@ end
 
 --=========================================================
 -- Events
+ClientMod.SCHEDULE = function(self, entity, id, time, f,fargs)
+
+    entity.ScriptTimers = entity.ScriptTimers or {}
+    local t=entity.ScriptTimers[id]
+    if (t) then
+        DebugLog("old")
+        Script.KillTimer(t)
+    end
+    entity.ScriptTimers[id]=Script.SetTimer(time*1000,function()
+        DebugLog("timer!")
+        f(unpack(fargs))
+    end)
+end
+
+--=========================================================
+-- Events
 ClientMod.LoadEffectOnEntity = function(self, entity, id, params, enable)
 
     local hEntity = GetEntity(entity)
@@ -2946,24 +4989,29 @@ ClientMod.LoadEffectOnEntity = function(self, entity, id, params, enable)
 
     local iSlot   = (params.Slot or -1)
     local sEffect = params.Effect
+    local iTimer = params.Timer
     local aParams = {
-        bActive			= params.Active,
-        bPrime			= params.Prime,
-        Scale		    = params.Scale,			-- Scale entire effect size.
-        SpeedScale		= params.Speed,			-- Scale particle emission speed
-        CountScale		= params.Count,			-- Scale particle counts.
-        bCountPerUnit 	= params.UnitScale,  -- Multiply count by attachment extent
-        AttachType		= params.Type,		    -- BoundingBox, Physics, Render
-        AttachForm		= params.Form,	        -- Vertices, Edges, Surface, Volume - cool stuff :D
-        PulsePeriod		= params.Pulse,			-- Restart continually at this period.
+        bActive			= params.Active or params.bActive,
+        bPrime			= params.Prime or params.bPrime,
+        Scale		    = params.Scale or params.Scale,			-- Scale entire effect size.
+        SpeedScale		= params.Speed or params.SpeedScale,			-- Scale particle emission speed
+        CountScale		= params.Count or params.CountScale,			-- Scale particle counts.
+        bCountPerUnit 	= params.UnitScale or params.bCountPerUnit,  -- Multiply count by attachment extent
+        AttachType		= params.Type or params.AttachType,		    -- BoundingBox, Physics, Render
+        AttachForm		= params.Form or params.AttachForm,	        -- Vertices, Edges, Surface, Volume - cool stuff :D
+        PulsePeriod		= params.Pulse or params.PulsePeriod,			-- Restart continually at this period.
     }
 
     hEntity.EffectSlots = hEntity.EffectSlots or {}
     hEntity.EffectSlots[id] = hEntity.EffectSlots[id] or {}
 
+
+
     local hSlot = hEntity.EffectSlots[id][iSlot]
     if (hSlot) then
-        if (enable) then return true, DebugLog("already") end -- on?
+        if (enable) then return hEntity.EffectSlots[id][iSlot]
+      --  DebugLog("already")
+        end -- on?
         hEntity:FreeSlot(hSlot)
         hEntity.EffectSlots[id][iSlot] = nil
         DebugLog("Disable eff")
@@ -2971,15 +5019,24 @@ ClientMod.LoadEffectOnEntity = function(self, entity, id, params, enable)
 
     elseif (enable) then
         hEntity.EffectSlots[id][iSlot] = hEntity:LoadParticleEffect(iSlot, sEffect, aParams)
-        if (params.Pos) then
-            hEntity:SetSlotWorldTM(hEntity.EffectSlots[id][iSlot], params.Pos, params.Dir or g_Vectors.up)
+        if (params.Pos or params.Dir) then
+            hEntity:SetSlotWorldTM(hEntity.EffectSlots[id][iSlot], params.Pos or hEntity:GetPos(), params.Dir or g_Vectors.up)
         end
+
+        if(iTimer and iTimer > 0) then
+            self:SCHEDULE(hEntity, (id .. "_unload_" .. iSlot), iTimer, function(a,...)
+                if (GetEntity(a.id)) then
+                    ClientMod:LoadEffectOnEntity(a,...)
+                end
+            end, { hEntity, id, params, false })
+        end
+
         DebugLog("Enable eff")
-        return true -- on
+        return hEntity.EffectSlots[id][iSlot] -- on
     end
 
-    DebugLog("F > %s", g_ts(enable))
-    return false -- off?
+  --  DebugLog("F > %s", g_ts(enable))
+    return hEntity.EffectSlots[id][iSlot] -- off?
 end
 
 --=========================================================
@@ -3059,14 +5116,14 @@ ClientMod.Inject = function(self, aParams)
     end
 
     if (isString(sEntity) and not hClass) then
-        DebugLog("Class %s to Inject not found", g_ts(sEntity))
+        --DebugLog("Class %s to Inject not found", g_ts(sEntity))
         if (not sScriptPath) then
             return
         end
-        DebugLog("Loding %s",sScriptPath)
+        --DebugLog("Loding %s",sScriptPath)
         Script.ReloadScript(sScriptPath)
     else
-        DebugLog("%s OK",g_ts(sEntity))
+        --DebugLog("%s OK",g_ts(sEntity))
     end
 
     local function Replace(sT, c, f)
@@ -3167,25 +5224,12 @@ ClientMod.PatchLocalActor = function(client)
         end
     })
 
+
     client:Inject({
         Class    = "g_localActor",
         Target   = "UpdateDraw",
         PatchEntities = true,
         Function = function(self, ft)
-            local stats = self.actorStats;
-            if (self.actor:GetSpectatorMode()~=0 or stats.isHidden) then
-                self:DrawSlot(0,0);
-            else
-                local hide=(stats.firstPersonBody or 0)>0;
-                if (stats.thirdPerson or stats.isOnLadder) then
-                    hide=false;
-                end
-
-                -- uhm, what
-                local customModel=(self.CM and self.CM > 0) and hide;
-                self:DrawSlot(0,customModel and 0 or 1);
-                self:HideAllAttachments(0, hide, false);
-            end
 
             if (g_Client) then
                 if (not self.Initialized) then
@@ -3195,8 +5239,42 @@ ClientMod.PatchLocalActor = function(client)
                     g_Client:Update()
                 end
             end
+
+            --DebugLog(GetVersion())
+            if (GetVersion() >= 21) then
+               -- return
+            end
+
+           -- Player.UpdateDraw(self,ft)
+          --  do return end
+
+            local stats = self.actorStats;
+            if (self.actor:GetSpectatorMode()~=0 or stats.isHidden) then
+                self:DrawSlot(0,0);
+            else
+                local hide=(stats.firstPersonBody or 0)>0;
+                if (stats.thirdPerson or stats.isOnLadder) then
+                    hide=false;
+                end
+
+                                if (hide) then
+                                    --DebugLog("hiding?")
+                                    self:DrawSlot(0,0)
+                                else
+                                    --DebugLog("???")
+                                    self:DrawSlot(0,1)
+                                end
+                                self:HideAllAttachments(0, hide, false)
+
+                --[[           ]]
+                -- uhm, what
+               -- local customModel=(self.CM and self.CM.ID > 0) and hide;
+               -- DebugLog("showwww")
+              --  self:DrawSlot(0,customModel and 0 or 1);
+                --self:HideAllAttachments(0, hide, false)
+            end
         end
-    })
+    })--[[]]
     client:Inject({
         Class    = "Player",
         Target   = "Client.OnHit",
@@ -3237,7 +5315,7 @@ ClientMod.PatchLocalActor = function(client)
 
             if (self.CM and self.CM.ID and self.CM.ID > 0 and self.CM.File ~= model) then
                 model = self.CM.File
-                ClientLog("swap.. %s",model)
+                DebugLog("swap.. %s",model)
             end
 
             if (self.currModel ~= model) then
@@ -3277,6 +5355,10 @@ ClientMod.PatchLocalActor = function(client)
                 self:DrawSlot(4, 0);
 
                 self.currItemModel = self.Properties.fpItemHandsModel;
+            end
+
+            if (self.actor:GetHealth()>0) then
+                g_Client:OnRevive(self, self.id == g_Client.id)
             end
         end
     })
@@ -3412,6 +5494,9 @@ ClientMod.PatchLocalActor = function(client)
         PatchEntities = true,
         Function = function(self)
 
+            self.INVENTORY_STEP=0
+            client:INVENTORY_REFRESH(self)
+
             self.PREVIOUS_INV = self.PREVIOUS_INV or { }
             self.FLYING_CHAIR = self.FLYING_CHAIR or { ENTITYID = nil }
             self.JETPACK = self.JETPACK or { HAS = false, VISIBLE = false, PARTS = {}, MAIN = nil, EXHAUST0 = nil, EXHAUST1 = nil }
@@ -3433,29 +5518,94 @@ ClientMod.PatchLocalActor = function(client)
             self.GetPelvisPos = function(this) return (this:GetBonePos("Bip01 Pelvis")) end
             self.GetHeadPos   = function(this) return (this.actor:GetHeadPos()) end
             self.GetHeadDir   = function(this) return (this.actor:GetHeadDir()) end
-            self.GetLoopAt    = function(this) return (this.actor:GetLookatPoint()) end
+            self.GetLookAt    = function(this) return (this.actor:GetLookatPoint()) end
             self.GetSuitMode  = function(this,c) local m = this.actor:GetNanoSuitMode() if (c) then return m==c end return m end
             self.GetVehicle   = function(this,c) return GetEntity(this.actor:GetLinkedVehicleId()) end
+            self.GetVehicleId = function(this,c) return this.actor:GetLinkedVehicleId() end
 
+            self.GetGodMode   = function(this) return g_pGame:GetSynchedEntityValue(this.id,500)or 0  end
+
+            self.OpenWound=function(this,pos,dir)
+                if (GetEntity(this.wound))then
+                    return-- DebugLog("wound OPEN!")
+                end
+                DebugLog(Vec2Str(dir))
+                local e=System.SpawnEntity({
+                    class="ParticleEffect",
+                    position=pos,
+                    orientation=dir,
+                    properties={
+                        ParticleEffect="misc.blood_fx.ground"
+                    },
+                    scale={x=0.4,y=0.4,z=0.4},
+                })
+                Script.SetTimer(1000,function()System.RemoveEntity(e.id)  end)
+                this:AttachChild(e.id,-1)
+                --[[
+               this:SetAttachmentObject(0,"open_wound",e.id,-1,0)
+                this:SetAttachmentPos(0,"open_wound",this:ToLocal(0,pos),false)
+                this:SetAttachmentDir(0,"open_wound",dir,true)
+                --this:SetAttachmentScale(0,"open_wound",0.4)
+
+                e:SetScale(0.3)]]
+                this.wound=e.id
+            end
 
             self.GetItemByClass   = function(this,c) return GetEntity(this.inventory:GetItemByClass(c)) end
             self.GetCurrentItem   = function(this) return GetEntity(this.inventory:GetCurrentItem()) end
+            self.SelectItemByName = function(this,name) this.actor:SelectItemByName(name) end
 
             -- Longs, like on the server!
             self.RegisterAnimationLoop  = function(this, ...) return (g_Client.AnimationHandler:StartAnimation(this, ...)) end
             self.ClAnimationEvent       = function(this, ...) return (g_Client.AnimationHandler:OnAnimationEvent(this, ...)) end
 
+            --self:DestroyAttachment(0,"open_wound")
+           -- self:CreateBoneAttachment(0,"Bip01","open_wound")
+
+            self.IsPlayer = true
             self.Initialized = true
             self.InitTimer = timerinit()
 
             if (GetCVar("crymp_animation_handler") > 0) then
-                g_Client.AnimationHandler:ResetPlayer(self)
+               g_Client.AnimationHandler:ResetPlayer(self)
                 g_Client.AnimationHandler:InitPlayer(self)
             end
 
-            ClientLog("%s.ClInit()", self:GetName())
+            DebugLog("%s.ClInit()", self:GetName())
         end
     })
+end
+
+--=========================================================
+-- guiguiguiguig
+ClientMod.PatchItem = function(client)
+
+--[[
+    -- =========================================================================================================
+    client:Inject({
+        Class    = { "CustomAmmoPickup", "Item" },
+        Target   = "OnPropertyChange",
+        PatchEntities = true,
+        Function = function(self)
+            self.item:Reset();
+            if (self.OnReset) then
+                self:OnReset()
+            end
+            DebugLog("!!!!!!!!!!!!!!!!!!!!")
+        end
+
+    })
+    -- =========================================================================================================
+    client:Inject({
+        Class    = { "CustomAmmoPickup", "Item" },
+        Target   = "OnSpawn",
+        PatchEntities = true,
+        Function = function(self)
+
+            DebugLog("!!!!!!!!!!!!!!!!!!!!")
+        end
+    })
+]]
 end
 
 --=========================================================
@@ -3484,7 +5634,7 @@ ClientMod.PatchGUI = function(client)
 
             local sName = self:GetName()
             local function g(s,m,n)
-                local x = string.match(sName, s .. "={(" .. (m or ".-") .. ")}")
+                local x = string.match(sName, "," .. s .. "={(" .. (m or ".-") .. ")}")
                 --ClientLog("%s=%s",s,g_ts(x))
                 if (n) then
                     return tonumber(x)
@@ -3492,7 +5642,8 @@ ClientMod.PatchGUI = function(client)
                 return x
             end
 
-            local sObj 		= (g("Model") or self.Properties.objModel)
+            local sObj0 = (g("Model") or self.Properties.objModel)
+
             local iPhysics 	= (g("Physics", "%d+", 1) or self.Properties.bPhysicalized)
             local fMass 	= (g("Mass", "%d*", 1) or self.Properties.fMass)
             local fRigid 	= (g("Rigid", "%d", 1) or self.Properties.bRigidBody)
@@ -3502,36 +5653,65 @@ ClientMod.PatchGUI = function(client)
             local fScale	= (g("Scale", ".-", 1) or 0)
             local sEffect   = g("PProps" or "") -- client only
             local sSound	= g("Sound" or "") -- client only
+            local sUsability= g("UseM" or "") -- client only
 
-            DebugLog("s=%s",sSound)
-            if (CryAction.IsClient()) then
-                if (sSound and sSound ~="") then
-                    local sndFlags = SOUND_DEFAULT_3D
-                    if (string.match(sSound, "&loop$")) then
-                        sndFlags = bor(sndFlags, SOUND_LOOP)
-                    end
-                    DebugLog("s=%s",string.gsub(sSound, "&loop$", ""))
-                    self.SndSlot = self:PlaySoundEvent(string.gsub(sSound, "&loop$", ""), g_Vectors.v000, g_Vectors.v010, sndFlags, SOUND_SEMANTIC_PLAYER_FOLEY)
-                end
 
-                if (sEffect and sEffect~="") then
-                    if (g_Client) then
-                        g_Client:LoadEffectOnEntity(self, "generic0", {Effect = sEffect,CountScale=1,Scale=1}, true)
-                    end
-                end
+            --self.USABILITY_MSG = ""
+            --DebugLog(sUsability)
+            if (sUsability and string.len(sUsability) >0) then
+                self.USABILITY_MSG = sUsability
             end
 
-            if (fUsable ~= 0) then MakeUsable(self) end
-            if (fPickable ~= 0) then MakePickable(self) end
+            MakeUsable(self)
+            if (fUsable ~= 0) then
+
+                self.OnUsed = function(this, idx)
+                    DebugLog("used?")
+                    if (idx==g_Client.id) then
+                        g_pGame:SendChatMessage(ChatToTarget,idx,idx,"/cluse " .. this:GetName())
+                    end
+                end
+                self.Event_Used=self.OnUsed
+                self.GetUsableMessage = function(this)
+                    DebugLog("get")
+                    return this.USABILITY_MSG or "@pick_object"
+                end
+                self.Properties.bUsable = 1
+                DebugLog("use!!!")
+            end
+
+            MakePickable(self)
+            if (fPickable ~= 0) then
+                self.Properties.bPickable = 1
+                DebugLog("PICK!!")
+            else
+                self.Properties.bPickable = 0
+                --DebugLog("nop")
+            end
             if (fScale > 0) then self:SetScale(fScale) end
 
             self:Activate(1)
             self:SetUpdatePolicy(ENTITY_UPDATE_VISIBLE)
             self:SetViewDistRatio(450)
 
-            if (sObj ~= "") then
-                self:LoadObject(0, sObj)
-                DebugLog("load %s",sObj)
+            if (sObj0 and sObj0 ~= "") then
+
+                local function l(m,s)
+                    if (string.sub(m,-3)==".chr") then
+                        self:LoadCharacter(s or 0, m)
+                    else
+                        self:LoadObject(s or 0, m)
+                    end
+                    DebugLog("%dload %s",s or 0, m)
+                end
+
+                local s0,s1 = string.match(sObj0, "(.*)|(.*)")
+                if (s0 and s1) then
+                    l(s0,0)
+                    l(s1,1)
+                else
+                    l(sObj0,0)
+                end
             end
 
             --ClientLog(sObj)
@@ -3555,7 +5735,34 @@ ClientMod.PatchGUI = function(client)
                 end
             end
 
-            DebugLog("GUI Spawned. Name is %s", sName)
+
+            --DebugLog("s=%s",sSound)
+            if (CryAction.IsClient()) then
+                if (sSound and sSound ~="") then
+                    local sndFlags = SOUND_DEFAULT_3D
+                    if (string.match(sSound, "&loop$")) then
+                        sndFlags = bor(sndFlags, SOUND_LOOP)
+                    end
+                    --DebugLog("s=%s",string.gsub(sSound, "&loop$", ""))
+                    self.SndSlot = self:PlaySoundEvent(string.gsub(sSound, "&loop$", ""), g_Vectors.v000, g_Vectors.v010, sndFlags, SOUND_SEMANTIC_PLAYER_FOLEY)
+                end
+
+                if (sEffect and sEffect ~= "") then
+                    local sNEffect, sEffectScale, iPulse = string.match(sEffect, "(.*),(%d+),(%d+)")
+                    if (sNEffect) then sEffect = sNEffect end
+
+                    iPulse = iPulse or nil
+                    if (iPulse == 0) then iPulse = nil end-- 0 bad
+                    if (g_Client) then
+                        DebugLog("effect :d %s",sEffect)
+                        g_Client:LoadEffectOnEntity(self, "sss"..math.random(), {Pos=self:GetPos(),Dir=self:GetDirectionVector(),PulsePeriod = iPulse , Effect = sEffect,CountScale=1,Scale=sEffectScale or 1}, true)
+                    end
+                end
+            end
+
+            self:SetScriptUpdateRate(100/1000)
+            DebugLog("GUI Spawned. Name is %s", string.sub(sName,1,70))
+            DebugLog(string.sub(sName,70)or"")
         end
     })
 
@@ -3626,8 +5833,10 @@ ClientMod.UpdateBLSell = function(self)
     if (hCurrent) then
         local def = self:GetItemDefByClass(hCurrent.class)
         if (def) then
-            g_gameRules.buyList["sell_1"].price = def.price * 0.75 -- FIXME, sync with server ! gobalsynchedvalue?? maybe??
-            g_gameRules.buyList["sell_2"].price = def.price * 0.75 -- FIXME, sync with server ! gobalsynchedvalue?? maybe??
+
+            -- cant do this, because if player has no prestige, this item will be greyed OUT! need c++ fix!
+            g_gameRules.buyList["sell_1"].price = 0--def.price * 0.75 -- FIXME, sync with server ! gobalsynchedvalue?? maybe??
+            g_gameRules.buyList["sell_2"].price = 0--def.price * 0.75 -- FIXME, sync with server ! gobalsynchedvalue?? maybe??
         end
     end
 
@@ -3637,6 +5846,24 @@ end
 --=========================================================
 -- Patch Game rules (and flags..)
 ClientMod.PatchBL = function(self)
+
+
+    if (CPPAPI.AddLocalizedLabel) then
+        local sTut = "Sells your currently equipped item"
+        for i = 1, 2 do
+            CPPAPI.AddLocalizedLabel("@mp_Tutsell_" .. i, {
+                english_text = sTut,
+                languages = { english = sTut }}
+            )
+        end
+
+        -- crysis wiki.. i didnt write this nonsense..
+        local sShiten = "The Shi Ten can kill most enemy units in a few shots. It has unlimited ammo, meaning that it's reusable and saves ammo."
+        CPPAPI.AddLocalizedLabel("@mp_Tutshiten", {
+            english_text = sShiten,
+            languages = { english = sShiten }}
+        )
+    end
 
     -- TODO: top tech price reducing! (also on server!)
     DebugLog("patching bl")
@@ -3656,8 +5883,8 @@ ClientMod.PatchBL = function(self)
     self.buyList["gauss"].price = 650
 
     -- Ammo!
-    self.weaponList["sell_1"]  = { id = "sell",   name = "Sell Current Item", 		category = "@mp_catExplosives", 	price = 0, 		loadout = 1};
-    self.ammoList["sell_2"]  = { id = "sell",   name = "Sell Current Item", 		ammo = true, category = "@mp_catAmmo", 	price = 0, 		loadout = 1};
+    self.weaponList["sell_1"]  = { id = "sell_1",   name = "Sell Current Item", 		category = "@mp_catExplosives", 	price = 0, 		loadout = 1};
+    self.ammoList["sell_2"]  = { id = "sell_2",   name = "Sell Current Item", 		ammo = true, category = "@mp_catAmmo", 	price = 0, 		loadout = 1};
     self.buyList["rocket"]   = { id = "rocket", name = "@mp_eRocket",       invisible = true, ammo = true, price = 25, amount = 1, category="@mp_catAmmo", loadout = 1 }
 
     -- Update!
@@ -3835,6 +6062,23 @@ ClientMod.PatchGameRules = function(self)
     -- =========================================================================================================
     self:Inject({
         Class    = "g_gameRules",
+        Target   = {"OnEnterVehicleSeat"},
+        Function = function(this, vehicle, seatId, passengerId)
+            g_Client:OnEnterVehicleSeat(vehicle, seatId, passengerId)
+        end
+    })
+    -- =========================================================================================================
+    self:Inject({
+        Class    = "g_gameRules",
+        Target   = {"OnLeaveVehicleSeat"},
+        Function = function(this, vehicle, seat, passengerId, exiting)
+            g_Client:OnLeaveVehicleSeat(vehicle, seat, passengerId, exiting)
+        end
+    })
+
+    -- =========================================================================================================
+    self:Inject({
+        Class    = "g_gameRules",
         Target   = {"Client.InGame.OnKill"},
         Function = function(this, playerId, shooterId, weapon, dmg, material, tpe)
             tpe = this.game:GetHitType(tpe) or ""
@@ -3950,8 +6194,8 @@ ClientMod.PatchGameRules = function(self)
                 end
 
                 if (action~="") then
-                    ClientLog("whats the error? its %s OR %s (maybe its %s)!!", g_ts(team), g_ts(action), g_ts(self.Properties.animationTemplate))
-                    local animation=string.format(self.Properties.animationTemplate, g_ts(team), action);
+                    DebugLog("whats the error? its %s OR %s (maybe its %s)!!", g_ts(team), g_ts(action), g_ts(self.Properties.animationTemplate))
+                    local animation=string.format(self.Properties.animationTemplate, g_ts(team), g_ts(action));
                     self:StartAnimation(0, animation, 0, 0.250, speed, false, false, true);
                     self:ForceCharacterUpdate(0, true);
                     local time=self:GetAnimationLength(0, animation)*1000/speed;
@@ -4029,6 +6273,15 @@ ClientMod.InitLibs = function()
         y = 0,
         z = math.deg(math.atan2(-v.x, v.y))
     }  end
+    vector.todir = function(v)
+        local cp = math.cos(v.x)
+        local d = {
+            x = cp * math.cos(v.z),
+            y = cp * math.sin(v.z),
+            z = -math.sin(v.x)
+        }
+        return d
+    end
 
 end
 
@@ -4232,7 +6485,7 @@ ClientMod.AnimationHandler = {
                 end
             end
         else
-            ClientLog( "Invalid sound event to SoundEvent(%s)", tostring(iEvent))
+            DebugLog( "Invalid sound event to SoundEvent(%s)", tostring(iEvent))
             return
         end
 
@@ -4343,10 +6596,17 @@ ClientMod.AnimationHandler = {
             return
         end
 
-        ClientLog( "Registering Animation Events for %s", hPlayer:GetName())
+        DebugLog( "Registering Animation Events for %s", hPlayer:GetName())
 
         self:StartAnimation(hPlayer, {
             Condition = function(hClient, aAnimation)
+
+                aAnimation.AnimatedCharacter = nil
+                aAnimation.CharacterOffset = nil
+                aAnimation.Events = nil
+                aAnimation.SoundEvents = nil
+                aAnimation.SoundVolume = nil
+
                 if (not hClient or hClient.CM.ID == 0) then
                     --ClientLog("no cm")
                     return false
@@ -4355,12 +6615,6 @@ ClientMod.AnimationHandler = {
                -- ClientLog("hClient.CM=%d",checkNumber(hClient.CM.ID,-1))
                 local sMelee, sAnim, sStagger, iSpeed, iTime, iStart
                 local iClientSpeed = hClient:GetSpeed()
-
-                aAnimation.AnimatedCharacter = nil
-                aAnimation.CharacterOffset = nil
-                aAnimation.Events = nil
-                aAnimation.SoundEvents = nil
-                aAnimation.SoundVolume = nil
 
                 if (hClient.CM.ID == CM_BUTTERFLY) then
                     sAnim = "fly_loop"
@@ -4390,6 +6644,29 @@ ClientMod.AnimationHandler = {
                     return true, sAnim, iSpeed, iTime
 
                 -- =================================================================================
+                elseif (hClient.CM.ID == CM_SCOUT) then
+
+
+                    sAnim = "fly_idle"
+                    if (iClientSpeed > 0.5) then
+                        sAnim = "fly_slow"
+                        iSpeed = 1--self:CalculateAnimationSpeedFromVelocity(iClientSpeed, nil, 1, 20)
+                    end
+
+                    aAnimation.SoundVolume = 5
+                    aAnimation.SoundEvents = {
+                        Idle = "sounds/environment:random_oneshots_natural:frog_idle",
+                        Melee = "sounds/environment:random_oneshots_natural:frog_scared",
+                        Jump = "sounds/environment:random_oneshots_natural:frog_idle",
+                        Flying = nil,
+                        Moving = nil,
+                        StartMoving = "sounds/environment:random_oneshots_natural:frog_scared",
+                        Death = "sounds/environment:random_oneshots_natural:frog_scared"
+                    }
+
+                    return true, sAnim, iSpeed, iTime
+
+                -- =================================================================================
                 elseif (hClient.CM.ID == CM_TERN) then
                     sAnim = "fly_loop"
                     if (iClientSpeed < 1) then
@@ -4403,7 +6680,7 @@ ClientMod.AnimationHandler = {
 
                     aAnimation.Events = { OnTick = function(hClient)
 
-                        local iMaxVelocity = 16
+                        local iMaxVelocity = 24
                         local iVelocity = hClient:GetSpeed()
                         if (iVelocity > iMaxVelocity) then
                             iVelocity = iMaxVelocity
@@ -4419,7 +6696,7 @@ ClientMod.AnimationHandler = {
 
                         PREVIOUS_GRAVITY = checkVar(PREVIOUS_GRAVITY, System.GetCVar("p_gravity_z"))
                         if (sCurrGravity ~= sNewGravity and hClient.id == g_localActorId) then
-                            Msg(1, "New gravity: %s",sNewGravity)
+                            DebugLog("New gravity: %s",sNewGravity)
                             CPPAPI.FSetCVar("p_gravity_z", sNewGravity)
                         end
                         GRAVITY_MODIFIED = true
@@ -4433,7 +6710,7 @@ ClientMod.AnimationHandler = {
                     return true, sAnim, iSpeed, iTime, iStart
 
                     -- =================================================================================
-                elseif (hClient.CM.ID == CM_EGIRL2) then
+                elseif (hClient.CM.IS_EGIRL) then
                     sAnim = "cineFleet_ab1_FlightDeckHelenaIdle_01"
                     return true, sAnim
 
@@ -4442,7 +6719,7 @@ ClientMod.AnimationHandler = {
                     sAnim = "shark_swim_01"
                     iSpeed = 0.25
                     if (not timerexpired(hClient.MeleeAnimTimer, self:GetAnimationLength(hPlayer, "shark_swim_bite_01"))) then
-                        Msg(1, "Shark melee")
+                        DebugLog( "Shark melee")
                         sAnim = "shark_swim_bite_01"
                         iSpeed = 1
                     elseif (iClientSpeed > 1) then
@@ -4543,7 +6820,7 @@ ClientMod.AnimationHandler = {
                     return true, sAnim, iSpeed, iTime
 
                     -- =================================================================================
-                elseif (hClient.CM == CM_FINCH or hClient.CM == CM_TURTLE or hClient.CM == CM_CRAB) then
+                elseif (hClient.CM.ID == CM_FINCH or hClient.CM.ID == CM_TURTLE or hClient.CM.ID == CM_CRAB) then
                     sAnim = "idle01"
                     iSpeed = 1
                     if (iClientSpeed > 1) then
@@ -4622,7 +6899,7 @@ ClientMod.AnimationHandler = {
 
         idInsert = idInsert or self:GetInsertName()
         if (self.ANIMATION_DATA[hPlayer.id][idInsert]) then
-            ClientLog( "WARNING: OVERWRITING EXISTING ANIMATION EVENT NOW")
+            DebugLog( "WARNING: OVERWRITING EXISTING ANIMATION EVENT NOW")
         end
 
         aProperties.ID = self:MakeAnimationID(hPlayer, aProperties.AnimName)
@@ -5278,6 +7555,44 @@ function GetVersion()
     end
     return version
 end
+--[[
+
+local
+eAnimationGraphLayerAll=0
+local eAnimationGraphLayer_UpperBody=1
+
+
+local
+
+
+PT="Objects/characters/alien/alienbase/alienBase.cdf"--Objects/characters/alien/trooper/trooper_base.cdf"
+STEP_M=(STEP_M or 0) + 1
+--g_localActor:LoadCharacter(0,STEP_M,PT)
+--ClientMod:RequestModel(g_localActor:GetChannel(),STEP_M,PT)
+
+--ClientMod.SetModel(g_localActor, STEP_M,PT)
+
+local
+XG="Copy of PlayerLoco.xml"
+g_localActor.actor:ChangeAnimGraph(XG,1)
+g_localActor:StartAnimation(0,"asianTruck_toSeat10_nw_01",10)
+
+for i,v in pairs( { BasicActor, Player, g_localActor}) do
+    v.Properties.fileModel=PT
+    v.AnimationGraph=XG
+    v.isAlien=1
+    v.Type="alien"
+    v.type="alien"
+    DebugLog(i)
+end
+
+for i=0,1 do
+g_localActor.actor:ChangeAnimGraph(XG,i)
+
+    end]]
+
+
+
 
 
 --=========================================================

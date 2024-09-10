@@ -4,6 +4,18 @@ PUNISH_BAN  = 0
 PUNISH_KICK = 1
 PUNISH_WARN = 2
 
+eCheat_WeaponRate   = "FireRate"
+eCheat_NoRecoil     = "NoRecoil"
+eCheat_NoSpread     = "NoSpread"
+eCheat_ClientSpeed  = "ClSpeed"
+eCheat_ServerSpeed  = "SvSpeed"
+eCheat_ClientPhys   = "Collider"
+eCheat_ClientFly    = "Flying"
+
+eCheat_DropItem = "SvRequestDropItem" -- should align with RMI name
+eCheat_UseItem  = "SvRequestUseItem" -- should align with RMI name
+eCheat_PickItem = "SvRequestPickupItem" -- should align with RMI name
+
 -------------------
 ServerDefense = {
 
@@ -11,6 +23,9 @@ ServerDefense = {
 
     Detects = {},
     Config  = {
+
+        -- Interval between logging cheats to console
+        CheatLogInterval = 0.75,
 
         -- Testing mode, no punishments will be given!
         TestMode = true,
@@ -21,16 +36,26 @@ ServerDefense = {
         -- Required detects to take action against a cheater
         ActionThreshold = {
 
-            ["Default"]           = 3,
-            ["SvRequestDropItem"] = 3,
+            ["Default"]             = 3,
+            [eCheat_DropItem]       = 3,
+            [eCheat_WeaponRate]     = 3,
+            [eCheat_NoRecoil]       = 2,
+            [eCheat_NoSpread]       = 2,
+            [eCheat_ClientPhys]     = 3,
+            [eCheat_ClientFly]      = 3,
+            [eCheat_ClientSpeed]    = 3,
+            [eCheat_ServerSpeed]    = 3,
         },
 
         -- Actions to be performed once a cheater is being dealt with
         ActionPunishments = {
 
-            ["SvRequestDropItem"]   = { 0, "21d" },
-            ["SvRequestUseItem"]    = { 1 },
-            ["SvRequestPickupItem"] = { 2 },
+            [eCheat_DropItem]   = { Action = PUNISH_KICK },
+            [eCheat_UseItem]    = { Action = PUNISH_KICK },
+            [eCheat_PickItem]   = { Action = PUNISH_KICK },
+
+            [eCheat_NoRecoil]   = { Action = PUNISH_BAN, Count = "1d" },
+            [eCheat_NoSpread]   = { Action = PUNISH_BAN, Count = "1d" },
         }
 
     },
@@ -50,7 +75,7 @@ ServerDefense = {
 
         local aDetects = {}
         for _, aInfo in pairs(self.Detects[iNetChannel] or {}) do
-            if (iTimeout == nil or aInfo.Time.expired(iTimeout)) then
+            if (iTimeout == nil or not aInfo.Time.expired(iTimeout)) then
                 if (bNoLag == nil or aInfo.Lag ~= true) then
                     table.insert(aDetects, table.copy(aInfo))
                 end
@@ -65,7 +90,7 @@ ServerDefense = {
 
     -------------------
     InitChannel = function(self, iNetChannel)
-        table.checkM(self.LogTimers, iNetChannel, timernew(3))
+        table.checkM(self.LogTimers, iNetChannel, {  })
         table.checkM(self.Detects, iNetChannel, {})
     end,
 
@@ -111,7 +136,7 @@ ServerDefense = {
             hActionC = (aInfo.Count or aInfo[2]) -- warn count, ban time..
         end
 
-        hActionC = checkNumber(hActionC, 0)
+        hActionC = ParseTime(hActionC)--checkNumber(hActionC, 0)
 
         if (hAction == PUNISH_WARN) then
             -- TODO!
@@ -170,19 +195,14 @@ ServerDefense = {
             Lag  = bLagging
         })
 
-        if (not self.Config.TestMode and self:GetDetects(iNetChannel, iTimeout, true, true) >= iThreshold) then
-            self:PunishCheater(iNetChannel, sInfo)
-        else
-            self:LogCheat(iNetChannel, sName, sInfo, bLagging, bSure)
+        self:LogCheat(iNetChannel, sName, sInfo, bSure, bLagging, hVictimID)
+        if (bSure and self:GetDetects(iNetChannel, iTimeout, true, true) >= iThreshold) then
+            self:PunishCheater(iNetChannel, sName)
         end
     end,
 
     -------------------
-    LogCheat = function(self, iNetChannel, sDetect, sInfo, bSure, bLag)
-
-        if (not self.LogTimers[iNetChannel].expired()) then
-            return
-        end
+    LogCheat = function(self, iNetChannel, sDetect, sInfo, bSure, bLag, hVictimID)
 
         local iLogClass = RANK_PLAYER
         local sName     = "Channel " .. iNetChannel
@@ -192,8 +212,28 @@ ServerDefense = {
             iLogClass = math.max(iLogClass, hPlayer:GetAccess())
         end
 
-        Logger:LogEventTo(GetPlayers({ Access = iLogClass }), eLogEvent_Cheat, "@l_ui_cheat_Detected", sName, sInfo, sDetect, (bSure and "Positively-" or ""), (bLag and "Lagger-" or ""))
-        self.LogTimers[iNetChannel].refresh()
+        ServerLog("[%s] Detected Cheat %s(%s) on [%s](%d)%s (Victim: %s, %s)",
+                (bSure and "POSITIVE" or "UNCERTAIN"),
+                (sDetect), (sInfo or sDetect),
+                (bLag and "LAGGING" or "NORMAL"),
+                iNetChannel, (hPlayer and hPlayer:GetName() or "<null>"),
+                g_ts(hVictimID), ServerUtils.EntityName(hVictimID, "<null>")
+        )
+
+        if (not self:CanLog(iNetChannel, sDetect)) then
+            return
+        end
+
+        SendMsg(CHAT_DEFENSE_LOCALE, GetPlayers({ Access = iLogClass }), "@l_ui_chat_cheatDetected", sName, sDetect, sInfo)
+        Logger:LogEventTo(GetPlayers({ Access = iLogClass }), eLogEvent_Cheat, "@l_ui_cheat_Detected", sName, sInfo, sDetect, (bSure and "Positive " or ""), (bLag and "${orange}Lagger ${red}" or ""))
+        self.LogTimers[iNetChannel][sDetect].refresh()
+    end,
+
+    -------------------
+    CanLog = function(self, iNetChannel, sDetect)
+
+        table.checkM(self.LogTimers[iNetChannel], sDetect, timernew(self.CheatLogInterval))
+        return self.LogTimers[iNetChannel][sDetect].expired()
     end,
 
     -------------------

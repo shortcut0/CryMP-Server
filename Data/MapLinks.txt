@@ -192,6 +192,7 @@ Multiplayer/PS/Crossroads = http://crymp.net/maps/hotspot/PS/Crossroads.zip
 Multiplayer/PS/Deadwater = http://crymp.net/maps/hotspot/PS/Deadwater.zip
 Multiplayer/PS/Desert-rivers = http://crymp.net/maps/hotspot/PS/Desert-rivers.zip
 Multiplayer/PS/Desolation = http://crymp.net/maps/hotspot/PS/Desolation.zip
+Multiplayer/PS/Frost = http://nomad.nullptr.one/~ctaoistrach/Frost.zip
 Multiplayer/PS/Frozen_Mesa = http://crymp.net/maps/hotspot/PS/Frozen_Mesa.zip
 Multiplayer/PS/Frozen_Plantation = http://crymp.net/maps/hotspot/PS/Frozen_Plantation.zip
 Multiplayer/PS/HighPS = http://crymp.net/maps/hotspot/PS/HighPS.zip

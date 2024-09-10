@@ -109,22 +109,25 @@ math.calctime = function(seconds, style, datemax)
 	end
 
 	local units = {
-		{ name = "mille", 	value = 86400 * 365 * 100 * 100 * 100 }, -- Decades
-		{ name = "c", 		value = 86400 * 365 * 100 * 100 }, 		 -- Decades
-		{ name = "dec", 	value = 86400 * 365 * 100 },			 -- Decades
-		{ name = "y", 		value = 86400 * 365 },      			 -- Years
-		{ name = "d", 		value = 86400 },           			 	 -- Days
-		{ name = "h", 		value = 3600 },            				 -- Hours
-		{ name = "m", 		value = 60 },               			 -- Minutes
-		{ name = "s", 		value = 1 }                			     -- Seconds
+		{ name = "millennia", value = 86400 * 365 * 100 * 100 * 100 },  -- Decades
+		{ name = "c", 		  value = 86400 * 365 * 100 * 100 },		-- Decades
+		{ name = "dec", 	  value = 86400 * 365 * 100 },			 	-- Decades
+		{ name = "y", 		  value = 86400 * 365 },      				-- Years
+		{ name = "d", 		  value = 86400 },           			 	-- Days
+		{ name = "h", 		  value = 3600 },            				-- Hours
+		{ name = "m", 		  value = 60 },               			 	-- Minutes
+		{ name = "s", 		  value = 1 }                			    -- Seconds
 	}
 
 	local count = table.count(units)
 	if (datemax) then
 		while (count > 1 and count > datemax) do
+			--ServerLog("%d<=%d",count,datemax)
 			table.popFirst(units)
 			count = table.count(units)
 		end
+
+		--ServerLog("rem:%s",table.tostring(units))
 	end
 
 	local result = {}
@@ -150,12 +153,17 @@ math.calctime = function(seconds, style, datemax)
 		end
 
 		local sGeneric = table.concat(formatted, ": ")
-		if (style == 5) then -- last 3.. or 2.. or 1......
-			return string.match(sGeneric, "^(%d+:%d+:%d+).*") or string.match(sGeneric, "^(%d+:%d+).*") or sGeneric
+		local sLast2 = string.match(sGeneric, "^(%d+%w+:?%s+%d+%w+).*")
+		local sLast3 = string.match(sGeneric, "^(%d+%w+:?%s+%d+%w+:?%s+%d+%w+).*")
+
+		if (style == 6) then -- last 3.. or 2
+			return sLast2 or sGeneric
+		elseif (style == 5) then -- last 3.. or 2.. or 1......
+			return sLast3 or sLast2 or sGeneric
 		elseif style == 3 then
 			return { result[6].value, result[5].value, result[4].value, result[3].value, result[2].value, result[1].value }
 		elseif style == 2 then
-			return table.concat(formatted, ", ")
+			return table.concat(y, ", ")
 		elseif style == 1 then
 			return table.concat(formatted, ": ")
 		else
@@ -165,6 +173,8 @@ math.calctime = function(seconds, style, datemax)
 
 	return formatResult(style)
 end
+
+--math.calctime(99999,nil,1)
 
 ---------------------------
 -- math.increase

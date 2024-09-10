@@ -53,14 +53,21 @@ end
 
 table.getnested = function(t, val, default)
 	local h = t
+	local f, l, sf, sl
 	for sMember in string.gmatch(val, "([^%.]+)") do
 		h = h[sMember]
+		if (f == nil) then
+			f = h
+			sf = sMember
+		end
+		l = h
+		sl = sMember
 		if (h == nil) then
-			--Debug("nil at ",sMember)
-			return default
+			ServerLog("nil at %s",sMember)
+			return default, f, l, sf, sl
 		end
 	end
-	return h
+	return h, f, l, sf, sl
 end
 
 ---------------------------
@@ -375,7 +382,7 @@ table.deepMerge = function(a, b, bOverwrite)
 	for i, v in pairs(b) do
 		if (bOverwrite) then
 			if (table.isarray(v)) then
-				n[i] = table.deepMerge(n[i], v)
+				n[i] = table.deepMerge(n[i], v, true)
 			else
 				n[i] = v
 			end
@@ -384,7 +391,7 @@ table.deepMerge = function(a, b, bOverwrite)
 				if (n[i] == nil) then
 					n[i] = v
 				else
-					n[i] = table.deepMerge(n[i], v)
+					n[i] = table.deepMerge(n[i], v, false)
 				end
 			elseif (n[i] == nil or (bOverwrite and n[i] ~= v)) then
 				n[i] = v
@@ -1173,7 +1180,7 @@ table.tostring = function(aArray, sTab, sName, bSubCall, bNoRecursion, iUnfoldDe
 		local vType = type(v)
 		local vKey = "[" .. tostring(i) .. "] = "
 		if (type(i) == "string") then
-			vKey = "[\"" .. tostring(i) .. "\"] = " end
+			vKey = "[\"" .. string.gsub(tostring(i), "\"", "\\\"") .. "\"] = " end
 				
 		if (vType == "table" and not bNoRecursion) then
 			sRec = (table.tostring(v, sTab, "[\"" .. tostring(i) .. "\"] = ", 1, nil, iUnfoldDepth, iUnfoldLevel + 1))
@@ -1193,7 +1200,7 @@ table.tostring = function(aArray, sTab, sName, bSubCall, bNoRecursion, iUnfoldDe
 				sRes = sRes .. sTab .. vKey .. string.format("%d", v)
 			end
 		elseif (vType == "string") then
-			sRes = sRes .. sTab .. vKey .. "\"" .. v .. "\""
+			sRes = sRes .. sTab .. vKey .. "\"" .. string.gsub(v, "\"", "\\\"") .. "\""
 		else
 			sRes = sRes .. sTab .. vKey .. tostring(v)
 		end

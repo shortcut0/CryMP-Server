@@ -25,6 +25,8 @@ ServerMaps = (ServerMaps or {
             }
         }
     },
+
+    FirstInit = true,
 })
 
 ---------------
@@ -37,6 +39,8 @@ ServerMaps.Init = function(self)
     self:CollectForbiddenMaps()
     self:CollectMaps()
     self:InitRotation()
+
+    self.FirstInit = false
 end
 
 ---------------
@@ -101,6 +105,19 @@ ServerMaps.InitRotation = function(self)
 
     if (true or self.MapRotation == nil or not table.compS(self.MapRotation, aRotationList)) then
         self.MapRotation = self:CreateRotation(aRotationList)
+    end
+
+    if (self.FirstInit) then
+        local sMap = string.lower(ServerDLL.GetMapName())
+        for _, aInfo in pairs(self.MapRotation.L) do
+            if (string.lower(aInfo.MapPath) == sMap) then
+                local iLimit = ParseTime(aInfo.TimeLimit or 0)
+                if (iLimit > 1) then
+                    self:SetTimeLimit(nil, iLimit)
+                end
+                ServerLog("Found Initial Map %s in Rotation, Overwriting TimeLimit to %s", aInfo.MapName or "<Undefined>", math.calctime(iLimit or 0, 6))
+            end
+        end
     end
 
     Logger:LogEventTo(RANK_ADMIN, eLogEvent_Maps, "@l_ui_initMapRotation", table.count(self.MapRotation.L))
@@ -319,7 +336,7 @@ end
 ---------------
 ServerMaps.StartMap = function(self, hAdmin, sMap, iTimer)
 
-    local aInfo, sMsg = self:GetMap(sMap)
+    local aInfo, sMsg = self:GetMap(sMap, hAdmin)
     if (not isArray(aInfo)) then
         return aInfo, sMsg
     end
@@ -333,10 +350,12 @@ ServerMaps.GetMap = function(self, sMap, hAdmin)
 
     local aInfo = self:FindLevel(sMap)
     if (table.empty(aInfo)) then
-        return false, hAdmin:Localize("@l_ui_levelNotFound", { sMap })
+        return false, hAdmin and hAdmin:Localize("@l_ui_levelNotFound", { sMap })
     elseif (table.size(aInfo) > 1) then
-        self:ListMaps(hAdmin, nil, self:SortResults(aInfo))
-        SendMsg(CHAT_SERVER, hAdmin, hAdmin:Localize("@l_ui_levelsListedInConsole", { table.count(aInfo) }))
+        if (hAdmin) then
+            self:ListMaps(hAdmin, nil, self:SortResults(aInfo))
+            SendMsg(CHAT_SERVER, hAdmin, hAdmin:Localize("@l_ui_levelsListedInConsole", { table.count(aInfo) }))
+        end
         return true
     end
 
