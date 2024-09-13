@@ -137,7 +137,7 @@ end
 
 --------------------------------
 --- Init
-ServerPCH.LogOnConnection = function(self, iChannel, sIP)
+ServerPCH.LogOnConnection = function(self, iChannel, sIP, aInfo)
 
     local sHost = ServerChannels:GetHost(iChannel)
     local sNick = (ServerDLL.GetChannelNick(iChannel) or "Nomad")
@@ -145,6 +145,10 @@ ServerPCH.LogOnConnection = function(self, iChannel, sIP)
     -- Just log
     SendMsg(CHAT_SERVER_LOCALE, GetPlayers(), "@l_chat_on_connection", sNick, iChannel, sIP)
     Logger:LogEvent(eLogEvent_Connection, "@l_console_on_connection", sNick, iChannel, sIP)
+    ClientMod:OnAll(string.format([[g_Client.Event(eEvent_BLE, eBLE_Information,"%s Connecting (%s, %s)")]],
+        sNick, (aInfo.isocode or "N/A"), (aInfo.provider or "N/A")
+    ))
+
 end
 
 --------------------------------

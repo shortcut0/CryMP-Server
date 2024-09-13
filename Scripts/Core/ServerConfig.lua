@@ -31,6 +31,7 @@ ServerConfig.Init = function(self)
 
     -----
     ConfigGet = self.Get
+    ConfigGetMerge = self.GetAndMerge
     ConfigCreate = self.Create
 
     -----
@@ -243,6 +244,19 @@ end
 --- Init
 ServerConfig.GetConfigId = function(self)
     return (string.format("Config-%02d", table.count(self.LoadedConfigs)))
+end
+
+--------------------------------
+--- Init
+ServerConfig.GetAndMerge = function(sGet, hMerge, hDefault, bDeep)
+    local hValue = ServerConfig.Get(sGet, hDefault, (eConfigGet_Array   ))
+
+    local hMerged
+    if (isArray(hValue)) then
+        hMerged = table.deepMerge(hMerge, hValue, bDeep)
+    end
+
+    return (hMerged or hValue)
 end
 
 --------------------------------

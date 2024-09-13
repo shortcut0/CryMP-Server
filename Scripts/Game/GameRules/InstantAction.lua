@@ -64,30 +64,30 @@ InstantAction.DamagePlayerToPlayer =
 Net.Expose {
 	Class = InstantAction,
 	ClientMethods = {
-		ClSetupPlayer			= { RELIABLE_UNORDERED, POST_ATTACH, ENTITYID, },
-		ClSetSpawnGroup			= { RELIABLE_UNORDERED, POST_ATTACH, ENTITYID, },
-		ClSetPlayerSpawnGroup	= { RELIABLE_UNORDERED, POST_ATTACH, ENTITYID, ENTITYID },
-		ClSpawnGroupInvalid		= { RELIABLE_UNORDERED, POST_ATTACH, ENTITYID, },
-		ClVictory				= { RELIABLE_ORDERED, POST_ATTACH, ENTITYID, },
-		ClNoWinner				= { RELIABLE_ORDERED, POST_ATTACH, },
-
-
 		------------------------
 		--- Fixes RMI Crash bug
+		ClSetupPlayer			= { RELIABLE_UNORDERED, NO_ATTACH, ENTITYID, },
+		ClSetSpawnGroup			= { RELIABLE_UNORDERED, NO_ATTACH, ENTITYID, },
+		ClSetPlayerSpawnGroup	= { RELIABLE_UNORDERED, NO_ATTACH, ENTITYID, ENTITYID },
+		ClSpawnGroupInvalid		= { RELIABLE_UNORDERED, NO_ATTACH, ENTITYID, },
+		ClVictory				= { RELIABLE_ORDERED, NO_ATTACH, ENTITYID, },
+		ClNoWinner				= { RELIABLE_ORDERED, NO_ATTACH, },
+
+
 		ClStartWorking			= { RELIABLE_ORDERED, NO_ATTACH, ENTITYID; STRINGTABLE },
 		ClStepWorking			= { RELIABLE_ORDERED, NO_ATTACH, INT8 },
 		ClStopWorking			= { RELIABLE_ORDERED, NO_ATTACH, ENTITYID, BOOL },
 		ClWorkComplete			= { RELIABLE_ORDERED, NO_ATTACH, ENTITYID, STRINGTABLE },
-		--- ...
 
-		ClClientConnect			= { RELIABLE_UNORDERED, POST_ATTACH, STRING, BOOL },
-		ClClientDisconnect		= { RELIABLE_UNORDERED, POST_ATTACH, STRING, },
-		ClClientEnteredGame		= { RELIABLE_UNORDERED, POST_ATTACH, STRING, },
+		ClClientConnect			= { RELIABLE_UNORDERED, NO_ATTACH, STRING, BOOL },
+		ClClientDisconnect		= { RELIABLE_UNORDERED, NO_ATTACH, STRING, },
+		ClClientEnteredGame		= { RELIABLE_UNORDERED, NO_ATTACH, STRING, },
+		--- ...
 	},
 	ServerMethods = {
-		RequestRevive		 			= { RELIABLE_UNORDERED, POST_ATTACH, ENTITYID, },
-		RequestSpawnGroup			= { RELIABLE_UNORDERED, POST_ATTACH, ENTITYID, ENTITYID },
-		RequestSpectatorTarget= { RELIABLE_UNORDERED, POST_ATTACH, ENTITYID, INT8 },
+		RequestRevive			= { RELIABLE_UNORDERED, NO_ATTACH, ENTITYID, },
+		RequestSpawnGroup		= { RELIABLE_UNORDERED, NO_ATTACH, ENTITYID, ENTITYID },
+		RequestSpectatorTarget	= { RELIABLE_UNORDERED, NO_ATTACH, ENTITYID, INT8 },
 	},
 	ServerProperties = {
 	},

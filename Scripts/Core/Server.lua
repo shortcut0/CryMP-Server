@@ -22,6 +22,8 @@ Server.Init = function(self)
     self.INIT_TIMER = timernew()
     self.Initializer = ServerInit
 
+    self.FastTickTimer = timernew(0.15)
+
     --------
     self.ResetListeners = {}
     RegisterReset = function(sID, hFunc)
@@ -384,6 +386,13 @@ Server.OnUpdate = function(self)
         --end
     --end
 
+    if (self.FastTickTimer.expired()) then
+        EventCall(eServerEvent_ScriptTickFast)
+        self.FastTickTimer.refresh()
+    end
+
+    g_gameRules:UpdateReviveQueue()
+
     EventCall(eServerEvent_ScriptUpdate)
 end
 
@@ -507,7 +516,7 @@ Server.OnMapReset = function(self)
 
     self:Reset()
     ServerMaps:OnReset()
-    CallEvent(eServerEvent_MapReset)
+    CallEvent(eServerEvent_MapReset, true)
 end
 
 ----------------

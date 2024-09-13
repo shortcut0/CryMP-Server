@@ -37,6 +37,9 @@ local ServerGameRules = {
         eGRMessage_GameEndRadio  = 1
 
         ---------
+        self.TEAM_CHANGE_MIN_TIME = 0
+
+        ---------
         g_sGameRules = self.class
 
         ---------
@@ -1219,7 +1222,7 @@ local ServerGameRules = {
                 local hPlayer = GetEntity(hPlayerID)
                 if (hPlayer) then
 
-                    if (hPlayer.last_team_change and (oldTeamId == 0 or iTeam ~= 0)) then
+                    if (hPlayer.last_team_change and (oldTeamId ~= 0 and iTeam ~= 0)) then
                         if (self:GetState() == "InGame") then
 
                             if (_time - hPlayer.last_team_change < self.TEAM_CHANGE_MIN_TIME) then
@@ -1279,15 +1282,18 @@ local ServerGameRules = {
             local iAutoSpecTime   = ConfigGet("General.GameRules.AutoSpectateTimer", 30, eConfigGet_Number)
             local iPremiumSpawnPP = ConfigGet("General.GameRules.PremiumSpawnPP", 1.25, eConfigGet_Number)
 
+           -- Debug("UPDATED!!")
             local reviveTimer = self.game:GetRemainingReviveCycleTime()
             if (reviveTimer>0) then
                 for playerId,revive in pairs(self.reviveQueue) do
                     if (revive.active) then
                         local player=System.GetEntity(playerId);
                         if (player and player.spawnGroupId and player.spawnGroupId~=NULL_ENTITY) then
+
                             if (not revive.announced) then
                                 self.onClient:ClReviveCycle(player.actor:GetChannel(), true);
                                 revive.announced=true;
+                                --Debug("show cycle!")
                             end
                         elseif (revive.announced) then -- spawngroup got invalidated while spawn cycle was up,
                             -- so need to make sure it gets sent again after the situation is cleared
@@ -1359,6 +1365,61 @@ local ServerGameRules = {
     },
 
     ---------------------------------------------
+    --- CanRevive
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "CanRevive" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, playerId)
+            local player=System.GetEntity(playerId);
+            if (not player) then
+                return false;
+            end
+
+            local groupId=player.spawnGroupId;
+            if ((not self.USE_SPAWN_GROUPS) or (groupId and groupId~=NULL_ENTITY)) then
+                Debug("can revive!")
+                return true;
+            end
+            return false;
+        end
+
+    },
+
+    ---------------------------------------------
+    --- QueueRevive
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "QueueRevive" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, playerId)
+            local revive=self.reviveQueue[playerId]
+
+            if (not revive) then
+                self:ResetRevive(playerId)
+                revive=self.reviveQueue[playerId]
+            end
+
+            revive.active=true;
+            --Debug("revive active?")
+
+            local player=System.GetEntity(playerId);
+            if (player) then
+                self.channelSpectatorMode[player.actor:GetChannel()]=nil;
+            end
+        end
+
+    },
+
+    ---------------------------------------------
     --- HandlePings
     ---------------------------------------------
     {
@@ -1371,9 +1432,13 @@ local ServerGameRules = {
         Function = function(self, hPlayerID)
 
             local hPlayer = GetEntity(hPlayerID)
+
+            --Debug("reques?")
+            --Debug("spawngrou=",g_ts(hPlayer.spawnGroupId),"team=",g_pGame:GetTeam(hPlayer.spawnGroupId),"(null=",NULL_ENTITY)
             if (hPlayer and hPlayer.actor) then
 
                 if (hPlayer:HasInstantRevive()) then
+                    --Debug("instant=")
                     return self:RevivePlayer(hPlayer.actor:GetChannel(), hPlayer)
                 end
 
@@ -1381,6 +1446,7 @@ local ServerGameRules = {
                     if (hPlayer.spawnGroupId and hPlayer.spawnGroupId ~= NULL_ENTITY) then
                         if (((hPlayer.actor:GetSpectatorMode() == 3 and self.game:GetTeam(hPlayerID) ~= 0) or (hPlayer:IsDead() and hPlayer.death_time and _time - hPlayer.death_time > 2.5)) and (not self:IsInReviveQueue(hPlayerID))) then
                             self:QueueRevive(hPlayerID)
+                            --Debug("SHOUL DBE IN QUEU !!")
                         elseif (self:IsInReviveQueue(hPlayerID)) then
                             self:ResetRevive(hPlayerID)
                             SendMsg(MSG_CENTER, hPlayer, "@l_ui_reviveQueuePaused")
@@ -1588,7 +1654,7 @@ local ServerGameRules = {
     },
 
     ---------------------------------------------
-    --- OnPlayerKilled
+    --- EquipPlayer
     ---------------------------------------------
     {
 
@@ -1605,19 +1671,21 @@ local ServerGameRules = {
                 return
             end
 
-            hPlayer:GiveItem("AlienCloak")
-            hPlayer:GiveItem("OffHand")
-            hPlayer:GiveItem("Fists")
+            Script.SetTimer(25, function()
+                hPlayer:GiveItem("AlienCloak")
+                hPlayer:GiveItem("OffHand")
+                hPlayer:GiveItem("Fists")
 
-          --  Debug("give stuff")
+                --  Debug("give stuff")
 
-            local bEquipped = ServerItemHandler:EquipPlayer(hPlayer, aForced)
-            if (not bEquipped) then
-                if (aAdditionalEquip and aAdditionalEquip ~= "") then
-                    hPlayer:GiveItemPack(aAdditionalEquip)
+                local bEquipped = ServerItemHandler:EquipPlayer(hPlayer, aForced)
+                if (not bEquipped) then
+                    if (aAdditionalEquip and aAdditionalEquip ~= "") then
+                        hPlayer:GiveItemPack(aAdditionalEquip)
+                    end
+                    hPlayer:GiveItem("SOCOM")
                 end
-                hPlayer:GiveItem("SOCOM")
-            end
+            end)
         end
 
     },
@@ -3255,7 +3323,7 @@ local ServerGameRules = {
         Type = eInjection_Replace,
 
         ------------------------
-        Function = function(self, hVehicle, iSeat, hPlayerID, bExiting)
+        Function = function(self, hVehicle, aSeat, hPlayerID, bExiting)
 
             ---------
             local hPlayer = System.GetEntity(hPlayerID)
@@ -3263,9 +3331,14 @@ local ServerGameRules = {
                 if (bExiting) then
                     hPlayer.ExitVehicleID = hVehicle.id
                     hPlayer.ExitVehicleTimer.refresh()
-
                     hPlayer:ResetServerFiring()
-
+                    if (aSeat.seat:IsDriver()) then
+                        if (hVehicle.HeliMGs) then
+                            for _, hMG in pairs(hVehicle.HeliMGs) do
+                                hMG.weapon:Sv_ResetFiringInfo()
+                            end
+                        end
+                    end
                 end
 
 
@@ -3301,6 +3374,111 @@ local ServerGameRules = {
 
                     if(hPlayerID==hVehicle.vehicle:GetOwnerId()) then
                         hVehicle.vehicle:SetOwnerId(NULL_ENTITY)
+                    end
+                end
+            end
+        end
+    },
+
+    ---------------------------------------------
+    --- OnExplosion
+    ---------------------------------------------
+    {
+
+        Class = "g_gameRules",
+        Target = { "OnExplosion" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, explosion)
+            local entities = explosion.AffectedEntities;
+            local entitiesObstruction = explosion.AffectedEntitiesObstruction;
+
+            if (entities) then
+                -- calculate damage for each entity
+                for i,entity in ipairs(entities) do
+
+                    local incone=true;
+                    if (explosion.angle>0 and explosion.angle<2*math.pi) then
+                        self.explosion_entity_pos = entity:GetWorldPos(self.explosion_entity_pos);
+                        local entitypos = self.explosion_entity_pos;
+                        local ha = explosion.angle*0.5;
+                        local edir = vecNormalize(vecSub(entitypos, explosion.pos));
+                        local dot = 1;
+
+                        if (edir) then
+                            dot = vecDot(edir, explosion.dir);
+                        end
+
+                        local angle = math.abs(math.acos(dot));
+                        if (angle>ha) then
+                            incone=false;
+                        end
+                    end
+
+                    local frozen = self.game:IsFrozen(entity.id);
+                    if (incone and (frozen or (entity.Server and entity.Server.OnHit))) then
+                        local obstruction=entitiesObstruction[i];
+                        local damage=explosion.damage;
+
+                        damage = math.floor(0.5+self:CalcExplosionDamage(entity, explosion, obstruction));
+
+                        local dead = (entity.IsDead and entity:IsDead());
+
+                        local explHit=self.explosionHit;
+                        explHit.pos = explosion.pos;
+                        explHit.dir = vecNormalize(vecSub(entity:GetWorldPos(), explosion.pos));
+                        explHit.radius = explosion.radius;
+                        explHit.partId = -1;
+                        explHit.target = entity;
+                        explHit.targetId = entity.id;
+                        explHit.weapon = explosion.weapon;
+                        explHit.weaponId = explosion.weaponId;
+                        explHit.shooter = explosion.shooter;
+                        explHit.shooterId = explosion.shooterId;
+                        explHit.materialId = 0;
+                        explHit.damage = damage;
+                        explHit.typeId = explosion.typeId or 0;
+                        explHit.type = explosion.type or "";
+                        explHit.explosion = true;
+                        explHit.impact = explosion.impact;
+                        explHit.impact_targetId = explosion.impact_targetId;
+
+                        local deadly=false;
+                        local canShatter = ((not entity.CanShatter) or (tonumber(entity:CanShatter())~=0));
+
+                        if (self.game:IsFrozen(entity.id) and canShatter) then
+                            if (damage>15) then
+                                local hitpos = entity:GetWorldPos();
+                                local hitdir = vecNormalize(vecSub(hitpos, explosion.pos));
+
+                                self:ShatterEntity(entity.id, explHit);
+                            end
+                        else
+                            if (entity.actor and entity.actor:IsPlayer()) then
+                                if (self.game:IsInvulnerable(entity.id)) then
+                                    explHit.damage=0;
+                                end
+                            end
+
+                            if ((not dead) and entity.Server and entity.Server.OnHit and entity.Server.OnHit(entity, explHit)) then
+                                -- special case for actors
+                                -- if more special cases come up, lets move this into the entity
+                                if (entity.actor and self.ProcessDeath) then
+                                    self:ProcessDeath(explHit);
+                                elseif (entity.vehicle and self.ProcessVehicleDeath) then
+                                    self:ProcessVehicleDeath(explHit);
+                                end
+
+                                deadly=true;
+                            end
+                        end
+
+                        local debugHits = self.game:DebugHits();
+
+                        if (debugHits>0) then
+                            self:LogHit(explHit, debugHits>1, deadly);
+                        end
                     end
                 end
             end

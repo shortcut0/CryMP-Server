@@ -66,6 +66,9 @@ eClientResp_DropItem = 73
 eClientResp_AttackStart = 74
 eClientResp_AttackStop = 75
 
+eClientResp_VehicleBoost = 76
+eClientResp_VehicleBoostStop = 77
+
 eClientResp_MCX = { 100, 107 }
 eClientResp_MCY = { 110, 117 }
 
@@ -79,6 +82,17 @@ eClientResp_CheatNoRecoil = 37
 eClientResp_CheatNoSpread = 38
 eClientResp_CheatFireRate = 39
 eClientResp_CheatEnd = 40
+
+---------------
+
+eClientCheat_Speed        = 4
+eClientCheat_Fly          = 5
+eClientCheat_Phys         = 6
+
+eClientCheat_NoRecoil     = 0
+eClientCheat_NoSpread     = 1
+eClientCheat_NoFireRate   = 2
+eClientCheat_BuySpoof     = 7
 
 ---------------
 
@@ -241,6 +255,19 @@ ClientMod.InitClient = function(self, hClient)
 end
 
 ---------------
+ClientMod.ClientTick = function(self, hClient)
+
+    -------
+    if (hClient:GetClientMod("IsInstalled")) then
+
+    else
+        if (hClient:GetClientMod("InstallFailed") ~= true and hClient.ClientInstallTimer.expired(30)) then
+            self:OnInstallFailed(hClient)
+        end
+    end
+end
+
+---------------
 ClientMod.StopSync = function(self, hID, sID)
 
     local hEnt = GetEntity(hID) and GetEntity(hID).id or hID
@@ -330,10 +357,12 @@ ClientMod.SyncAll = function(self, hClient)
                     end
                 else
                     iDeleted = (iDeleted + 1)
+                    aSS[_] = nil
                 end
             end
         else
             iDeleted = (iDeleted + 1)
+            aSS[_] = nil
         end
     end
 
@@ -634,6 +663,10 @@ ClientMod.DecodeSpecRequest = function(self, hClient, iMessage)
 
     elseif (iMessage == eClientResp_AttackStart or iMessage == eClientResp_AttackStop) then
 
+        if (hWeapon) then
+            hWeapon.weapon:Sv_SetRMIPlanting(iMessage == eClientResp_AttackStart)
+        end
+
         if (hVehicle or bParachuting) then
 
             if (hWeapon) then
@@ -658,7 +691,7 @@ ClientMod.DecodeSpecRequest = function(self, hClient, iMessage)
     elseif (iMessage == eClientResp_MeleeAttack or iMessage == eClientResp_StopMelee) then
         if (iMessage == eClientResp_MeleeAttack) then
             if (bMeleeFix) then
-                ClientMod:OnAll(string.format([[g_Client:ANIM(%d,"combat_weaponPunchUB_dualpistol_01")]], hClient:GetChannel()))
+                ClientMod:OnAll(string.format([[local c=%d if (c+1==g_Client.channel) then g_Client:IDLEFP(c,"melee_01",1,1) end g_Client:ANIM(c,"combat_weaponPunchUB_dualpistol_01")]], hClient:GetChannel()))
                 if (hFists) then
                     aRH = hClient:GetHitPos(2.5)
                     hRHEntity = aRH and aRH.entity
@@ -712,6 +745,15 @@ ClientMod.DecodeSpecRequest = function(self, hClient, iMessage)
     elseif (iMessage > eClientResp_CheatStart and iMessage < eClientResp_CheatEnd) then
         self:OnCheat(hClient, iMessage)
 
+    elseif (iMessage == eClientResp_VehicleBoost or iMessage == eClientResp_VehicleBoostStop) then
+        if (hVehicle) then
+            if (hVehicle.NitroRockets and hVehicle:GetDriver() == hClient) then
+                ClientMod:OnAll(string.format([[g_Client:NITRO_ROCKETS_EFFECT("%s",%s)]],
+                        hVehicle:GetName(), g_ts(iMessage == eClientResp_VehicleBoost)
+                ))
+            end
+        end
+
     else
         Logger:LogEventTo(RANK_DEVELOPER, eLogEvent_ClientMod, "@l_ui_clm_invalidResponse", hClient:GetName(),g_tn(iMessage or 0))
         bResolved = true -- dont put players into spectator mode....
@@ -724,17 +766,18 @@ end
 ClientMod.OnCheat = function(self, hClient, iMsg)
 
     local aInfo = {
-        [eClientResp_CheatSpeed]    = { ID = eCheat_ClientSpeed,    Positive = false, Description = "Speeding on Client" },
-        [eClientResp_CheatFly]      = { ID = eCheat_ClientFly,      Positive = false, Description = "Client Fly Mode" },
-        [eClientResp_CheatPhys]     = { ID = eCheat_ClientPhys,     Positive = false, Description = "Client Collider Mode" },
-        [eClientResp_CheatNoRecoil] = { ID = eCheat_NoRecoil,       Positive = false, Description = "0 Client Recoil" }, -- make positive once fixed..
-        [eClientResp_CheatNoSpread] = { ID = eCheat_NoSpread,       Positive = true,  Description = "0 Client Spread" },
-        [eClientResp_CheatFireRate] = { ID = eCheat_WeaponRate,     Positive = false, Description = "0 Client Rate" }
+        [eClientCheat_Speed]        = { ID = eCheat_ClientSpeed,    Positive = false, Description = "Speeding on Client" },
+        [eClientCheat_Fly]          = { ID = eCheat_ClientFly,      Positive = false, Description = "Client Fly Mode" },
+        [eClientCheat_Phys]         = { ID = eCheat_ClientPhys,     Positive = false, Description = "Client Collider Mode" },
+        [eClientCheat_NoRecoil]     = { ID = eCheat_NoRecoil,       Positive = false, Description = "0 Client Recoil" }, -- make positive once fixed..
+        [eClientCheat_NoSpread]     = { ID = eCheat_NoSpread,       Positive = true,  Description = "0 Client Spread" },
+        [eClientCheat_NoFireRate]   = { ID = eCheat_WeaponRate,     Positive = false, Description = "0 Client Rate" },
+        [eClientCheat_BuySpoof]     = { ID = eCheat_BuySpoof,       Positive = true,  Description = "Client Spoofing" },
     }
 
     local aCheat = aInfo[iMsg]
     if (not aCheat) then
-        return
+        return Logger:LogEventTo(GetDevs(), eLogEvent_ClientMod, "Invalid Cheat from %s (%d)", hClient:GetName(), (g_tn(iMsg) or -1))
     end
 
     ServerDefense:HandleCheater(hClient:GetChannel(), aCheat.ID, aCheat.Description, hClient.id, aCheat.Positive)
@@ -1431,6 +1474,9 @@ ClientMod.ChangeVehicleModel = function(self, hClient, hVehicle, iModel, bQuiet)
         if (vDir) then CM:SetLocalAngles(vDir) end
         if (iScale) then CM:SetScale(iScale) end
         if (bHideTires) then for i = 1, 4 do vehicle:DrawSlot(i, 0) end end
+        if (iModel == VM_AUDI or iModel == VM_TESLA) then
+            hVehicle:AttachHeliMGs()
+        end
 
         self:OnAll(string.format([[g_Client:V_MODEL('%s','%s',%d,{x=%f,y=%f,z=%f},{x=%f,y=%f,z=%f},%f,%s)]],
                 hVehicle:GetName(),

@@ -110,29 +110,34 @@ local ServerVehicleBase = {
                 if (hShooter:GetVehicle() ~= self) then
                     return
                 end
-
                 if (not self:IsOnDriverSeat(hShooter)) then
                     return
                 end
             end
 
+            self.UsePlayerMGDir = false
+
             for _, hMG in pairs(self.HeliMGs) do
 
+                hMG.weapon:Sv_SetPseudoOwnerId(self.id)
                 hMG.weapon:Sv_SetOwnerID(hShooter.id)
-                --hMG.OwnerID = hShooter.id
+                hMG.weapon:SetAmmoCount(nil, 10)
+                hMG.weapon:SetAmmoCount(hMG.weapon:GetAmmoType(), 10)
+                Debug(hMG.weapon:GetAmmoType())
+                Debug(hMG.weapon:GetAmmoType())
 
-                hMG.weapon:SetAmmoCount(nil, 250)
-                hMG.weapon:SetAmmoCount(hMG.weapon:GetAmmoType(), 250)
+                --if (not self.HeliMGClientSpawn) then
+                    if (bFire and not hMG.Firing) then
+                        hMG.Firing = true
+                        hMG.weapon:Sv_RequestStartFire()
+                        Debug("fire!")
 
-                if (bFire and not hMG.Firing) then
-                    hMG.Firing = true
-                    hMG.weapon:Sv_RequestStartFire()
-                    Debug("fire!")
-
-                elseif (not bFire and hMG.Firing) then
-                    hMG.Firing = false
-                    hMG.weapon:Sv_RequestStopFire()
-                end
+                    elseif (not bFire and hMG.Firing) then
+                        hMG.Firing = false
+                        hMG.weapon:Sv_RequestStopFire()
+                        Debug("stop RIGHT NOW")
+                    end
+                --end
             end
 
             if (bFire and not bEndless) then
@@ -211,13 +216,6 @@ local ServerVehicleBase = {
             self.HeliMGs[hMG1.id] = hMG1
             self.HeliMGs[hMG2.id] = hMG2
 
-            self:AttachChild(hMG1.id, 1)
-            self:AttachChild(hMG2.id, 1)
-
-            local vDir = self:GetDirectionVector()
-            hMG1:SetDirectionVector(vDir)
-            hMG2:SetDirectionVector(vDir)
-
             local aBBox = self:GetLocalBBox(1)
             local iX = 3.05
             local iY = -0.65
@@ -226,7 +224,7 @@ local ServerVehicleBase = {
 
                 iX = 1.8
                 iY = 1.2
-                iZ = 1.2
+                iZ = 1.0
                 if (self.class:find("tank") or self.class:find("apc") or self.class:find("Asian_aaa")) then
                     iX = 2.2
                     iY = -0.5
@@ -246,26 +244,125 @@ local ServerVehicleBase = {
                     vHood = {
                         x = vHood.x + 1.2,
                         y = vHood.y + 2,
-                        z = vHood.z + 1.3,
+                        z = vHood.z + 1.1,
                     }
                     iX = vHood.x
                     iY = vHood.y
                     iZ = vHood.z
                     Debug("hood",vHood)
                 end
+
+                -- Firing info
+                --local aEmptyVec = vector.make()
+                --hMG1.weapon:Sv_SetFiringInfo(aEmptyVec, aEmptyVec, aEmptyVec, 0.0999339912)
+                --hMG2.weapon:Sv_SetFiringInfo(aEmptyVec, aEmptyVec, aEmptyVec, 0.0999339912)
             end
 
-            hMG1:SetLocalPos({ x = iX,  y = iY, z = iZ })
-            hMG2:SetLocalPos({ x = -iX, y = iY, z = iZ })
 
-            ClientMod:OnAll(string.format("g_Client:HELIMG(\"%s\",%f,%f,%f)",
+
+            -- Right now, only used to determine fire rates..
+            local sFM = hMG1.weapon:Sv_GetFireModeName()
+            local bClientSpawn = (sFM ~= "Automatic" and sFM ~= "Rapid") --hMG1.weapon:IsClientSpawn()
+            Debug(hMG1.weapon:Sv_GetFireModeName())
+
+            Script.SetTimer(100, function()
+
+                hMG1.SvFireRate = (bClientSpawn and 0.2 or -1)
+                hMG2.SvFireRate = (bClientSpawn and 0.2 or -1)
+
+                self:AttachChild(hMG1.id, 1)
+                self:AttachChild(hMG2.id, 1)
+
+                local vDir = self:GetDirectionVector()
+                hMG1:SetDirectionVector(vDir)
+                hMG2:SetDirectionVector(vDir)
+                hMG1:SetLocalPos({ x = iX,  y = iY, z = iZ })
+                hMG2:SetLocalPos({ x = -iX, y = iY, z = iZ })
+
+                --g_pGame:SetSynchedEntityValue(hMG1.id, 100, bClientSpawn and 1 or 0)
+                --g_pGame:SetSynchedEntityValue(hMG2.id, 100, bClientSpawn and 1 or 0)
+
+                ClientMod:OnAll(string.format("g_Client:HELIMG(\"%s\",%f,%f,%f)",
+                        self:GetName(),
+                        iX, iY, iZ
+                ), {
+                    Sync = true,
+                    SyncID = "HeliMG",
+                    BindID = self.id,
+                })
+            end)
+
+            self.HeliMGClientSpawn = bClientSpawn
+        end
+    },
+
+    ---------------------------------------------
+    --- DetachNitro
+    ---------------------------------------------
+    {
+
+        Class = table.append({ "VehicleBase" }, GetVehicleClasses() ),
+        Target = { "DetachNitro" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, iCount)
+
+            if (not self.NitroRockets) then
+                return
+            end
+
+            ClientMod:OnAll(string.format([[g_Client:NITRO_ROCKETS("%s",0,%f,%f,%f)]],
+                self:GetName(),
+                    0, 0, 0
+            ))
+            ClientMod:StopSync(self, "NitroRockets")
+            self.NitroRockets = nil
+        end
+    },
+
+    ---------------------------------------------
+    --- AttachNitro
+    ---------------------------------------------
+    {
+
+        Class = table.append({ "VehicleBase" }, GetVehicleClasses() ),
+        Target = { "AttachNitro" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, iCount)
+
+            iCount = (iCount or 1) -- per side
+
+            local vDir = self:GetDirectionVector()
+            local sClass = self.class
+
+            local aBBox = self:GetLocalBBox(1)
+            local iX = 1.4
+            local iY = 1
+            local iZ = 0.2
+            if (sClass:find("tank") or sClass:find("apc") or sClass:find("Asian_aaa")) then
+                iX = 2.2
+                iY = -0.5
+                iZ = 0.2
+            elseif (sClass:find("vtol")) then
+                iZ = -2
+                iY = -1.5
+                iX = 1.8
+            end
+
+            ClientMod:OnAll(string.format("g_Client:NITRO_ROCKETS(\"%s\",%d,%f,%f,%f)",
                     self:GetName(),
+                    iCount,
                     iX, iY, iZ
             ), {
                 Sync = true,
-                SyncID = "HeliMG",
+                SyncID = "NitroRockets",
                 BindID = self.id,
             })
+
+            self.NitroRockets = iCount
         end
     },
 
@@ -477,7 +574,7 @@ local ServerVehicleBase = {
 
             ServerItemHandler:CheckVehicleHit(self, aHitInfo)
 
-            self.vehicle:OnHit(targetId, aHitInfo.shooterId, aHitInfo.damage, aHitInfo.pos, aHitInfo.radius, hitType, explosion)
+            self.vehicle:OnHit(targetId, aHitInfo.shooterId, aHitInfo.damage, aHitInfo.pos or vector.make(), aHitInfo.radius, hitType, explosion)
 
             --[[
             if (AI and hit.type ~= "collision") then

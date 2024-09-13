@@ -206,6 +206,46 @@ ServerArena = {
     end,
 
     --------------------
+    Init = function(self)
+
+        LinkEvent(eServerEvent_OnClientInit, "ServerArena", self.InitClient)
+        LinkEvent(eServerEvent_OnClientTick, "ServerArena", self.CheckPlayer)
+    end,
+
+    --------------------
+    InitClient = function(self, hClient)
+
+        table.checkM(hClient, "ArenaInfo", {
+            ID = nil,
+            LastInside = nil
+        })
+
+        hClient:AddInstantRevive("Arena", function(this)
+            return (this.ArenaInfo.ID ~= nil)
+        end)
+        hClient:AddSpawnLocation("Arena", {
+
+            OnUsed = function(hPlayer)
+                ServerArena:OnEntered(hPlayer, hPlayer.ArenaInfo.ID)
+            end,
+
+            Check = function(this, hPlayer)
+                local hID = hPlayer.ArenaInfo.ID
+                if (hID) then
+                    local vPos, vDir = ServerArena:GetSpawnLocation(hPlayer, hID)
+                    this.Pos = vPos
+                    this.Dir = vDir
+                end
+                return hID ~= nil
+            end,
+
+            Priority = 1,
+            Pos      = nil,
+            Dir      = nil,
+        })
+    end,
+
+    --------------------
     CheckArena = function(self, hID)
 
         local bExists = self:ArenaExists(hID)
@@ -241,7 +281,6 @@ ServerArena = {
 
         aBBox.min = vector.addInPlace(aBBox.min, vPos)
         aBBox.max = vector.addInPlace(aBBox.max, vPos)
-
 
 
         self.Temp[hID] = {

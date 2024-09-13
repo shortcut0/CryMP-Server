@@ -2,9 +2,9 @@
 ServerInjector = {
     QueuedFunctions = {},
 
-    FILE = nil,
+    CACHE        = {},
+    FILE         = nil,
     LOADED_FILES = {},
-    CACHE = {},
 
     DataDir = (SERVER_DIR_INTERNAL .. "Injections\\"),
 }
@@ -73,6 +73,22 @@ ServerInjector.ExecuteQueue = function(self)
     end
 
     self.QueuedFunctions = nil
+end
+
+-------------------
+ServerInjector.InjectEntity = function(hEntity)
+
+    local hInj = ServerInjector
+    local aCache = hInj.CACHE[hEntity.class]
+    if (aCache) then
+        for fFunction, aPatchList in pairs(aCache) do
+            for _, sTarget in pairs(aPatchList) do
+                --ServerLog("replaced %s%s", hEntity.class,sTarget)
+                table.setM(hEntity, sTarget, fFunction)
+                --Debug(table.getM(hEntity, sTarget)==fFunction)
+            end
+        end
+    end
 end
 
 -------------------
@@ -167,7 +183,18 @@ ServerInjector.Inject = function(aParams, aInfo)
         end
     end
 
+    if (sEntity) then
+    end
+
     for __, sC in pairs(checkArray(sEntity, sEntity)) do
+
+        -- =====================================
+
+        table.checkM(ServerInjector.CACHE, sC, {})
+        ServerInjector.CACHE[sC][fFunction] = checkArray(sTarget, sTarget)
+        --ServerLog(sEntity..g_ts(fFunction).."="..table.tostring(ServerInjector.CACHE[sEntity][fFunction]))
+
+        -- =====================================
 
         if (isArray(sTarget)) then
             for _, s in pairs(sTarget) do

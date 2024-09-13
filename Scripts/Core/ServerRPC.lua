@@ -202,8 +202,8 @@ end
 
 --------------------------------
 --- Init
-ServerRPC.Callbacks.OnExplosiveRemoved = function(self, nPlayer, nExplosive, iType, iCount)
-    return (ServerItemHandler:OnExplosiveRemoved(nPlayer, nExplosive, iType, iCount))
+ServerRPC.Callbacks.OnExplosiveRemoved = function(self, nPlayer, nExplosive, iType, iCount, ...)
+    return (ServerItemHandler:OnExplosiveRemoved(nPlayer, nExplosive, iType, iCount, ...))
 end
 
 --------------------------------
@@ -250,13 +250,13 @@ end
 --- Init
 ServerRPC.Callbacks.OnVehicleSpawn = function(self, hVehicleID)
 
-    local hVehicle = GetEntity(hVehicleID)
-    if (not hVehicle) then
-        return
-    end
+    --local hVehicle = GetEntity(hVehicleID)
+    --if (not hVehicle) then
+    --    return
+    --end
 
-    VehicleBase.SvInit(hVehicle)
-    ServerLog("Init Vehicle!")
+    --VehicleBase.SvInit(hVehicle)
+    --ServerLog("Init Vehicle!")
 end
 
 --------------------------------
@@ -269,9 +269,10 @@ ServerRPC.Callbacks.OnEntitySpawn = function(self, hEntity, hEntityID, bIsVehicl
 
     if (bIsVehicle) then
         VehicleBase.SvInit(hEntity)
-        ServerLog("Init Vehicle!")
+        ServerLog("Init Vehicle %s!", hEntity:GetName())
     end
 
+    ServerInjector.InjectEntity(hEntity)
     ServerStats:SetEntityUpdateRate(hEntity)
 end
 
@@ -289,4 +290,11 @@ ServerRPC.Callbacks.OnEntityCollision = function(self, hEntityID, hEntity, hTarg
     if (hEntity.SvOnCollision) then
         hEntity:SvOnCollision(GetEntity(hTargetID), aInfo)
     end
+end
+
+--------------------------------
+--- Init
+ServerRPC.Callbacks.OnScriptLoaded = function(self, sFilePath)
+
+    ServerLog("load %s",sFilePath)
 end

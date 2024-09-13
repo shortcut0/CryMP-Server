@@ -188,6 +188,14 @@ CreateMapSetup("Mesa", "PS", {
                 Pos = { x = 2552.274170, y = 2506.794922, z = 58.124428 },
                 Dir = { x = -0.042831, y = -0.999082, z = 0.000000 }
             },
+            {
+                RespawnTimer = 60,
+                VehicleID = VM_TESLA,
+                Class = "Civ_car1",
+                Team = TEAM_NK,
+                Pos = { x = 2563.850342, y = 2468.661865, z = 59.192135 },
+                Dir = { x = 0.996786, y = -0.079864, z = 0.006267 }
+            },
 
 
         }) do
@@ -199,12 +207,9 @@ CreateMapSetup("Mesa", "PS", {
                     Properties = {
                         Paint = (aInfo.Paint or getrandom({ "red", "silver", "brown", "green", "blue" })),
                         Modification = (aInfo.Modification),
-                        Respawn = {
-                            bRespawn = 1,
-                            bUnique  = 1,
-                            nTimer   = (aInfo.RespawnTimer or 30),
-                        }
-                    }
+                    },
+                    Respawn = true,
+                    RespawnTimer = (aInfo.RespawnTimer or 120)
                 })
 
                 hSpawned.SvCanEnter = aInfo.SvCanEnter

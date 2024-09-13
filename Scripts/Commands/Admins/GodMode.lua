@@ -142,3 +142,60 @@ AddCommand({
         return true
     end
 })
+
+------------
+AddCommand({
+    Name = "rapidfire",
+    Access = RANK_ADMIN, -- Must be accessible to all!
+
+    Arguments = {
+        {
+            Name = "@l_ui_player",
+            Desc = "@l_ui_player_d",
+            Optional = true,
+            SelfOk = true,
+            IsPlayer = true,
+            Default = "self",
+        }, { "@l_ui_scale", "@l_ui_scale_d", IsNumber = true, Min = 0, Max = 60, Auto = true, Default = 3 }
+    },
+
+    Properties = {
+    },
+
+    -- self is the user unless specified otherwise
+    Function = function(self, hTarget, iThreshold)
+
+        local sMode = "@l_ui_enabled"
+        if (hTarget and hTarget ~= self) then
+            if (hTarget:GetActorMode(ACTORMODE_RAPIDFIRE) > 0) then
+                sMode = "@l_ui_disabled"
+                hTarget:SetActorMode(ACTORMODE_RAPIDFIRE, 0)
+            else
+                hTarget:SetActorMode(ACTORMODE_RAPIDFIRE, iThreshold)
+            end
+
+            SendMsg(CHAT_SERVER, self, self:LocalizeNest(string.format(
+                    "(%s: @l_ui_rapidFire: %s)", hTarget:GetName(),
+                    sMode
+            )))
+            SendMsg(CHAT_SERVER, hTarget, hTarget:LocalizeNest(string.format(
+                    "(@l_ui_rapidFire: %s)",
+                    sMode
+            )))
+            return true
+        end
+
+        if (self:GetActorMode(ACTORMODE_RAPIDFIRE) > 0) then
+            sMode = "@l_ui_disabled"
+            self:SetActorMode(ACTORMODE_RAPIDFIRE, 0)
+        else
+            self:SetActorMode(ACTORMODE_RAPIDFIRE, iThreshold)
+        end
+
+        SendMsg(CHAT_SERVER, self, self:LocalizeNest(string.format(
+                "(@l_ui_rapidFire: %s)",
+                sMode
+        )))
+        return true
+    end
+})

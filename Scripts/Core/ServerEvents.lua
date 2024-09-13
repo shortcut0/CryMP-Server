@@ -32,9 +32,10 @@ eServerEvent_OnExit                 = 18  -- ()           When Server Initialize
 eServerEvent_SpectorTarget          = 19  -- ()           When Server Initialized
 eServerEvent_OnShoot                = 20  -- ()           When Server Initialized
 eServerEvent_MapReset               = 21  -- ()           When Server Initialized
+eServerEvent_ScriptTickFast               = 22  -- ()           When Server Initialized
 
 eServerEvent_Begin          = 0
-eServerEvent_End            = 22
+eServerEvent_End            = 23
 
 ------------------------------------
 --- Init

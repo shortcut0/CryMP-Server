@@ -20,8 +20,8 @@ CreatePlugin(sPluginID, {
         },
 
         PowerStruggle = {
-            RestoreKills  = false,
-            RestoreDeaths = false,
+            RestoreKills  = true,
+            RestoreDeaths = true,
             RestoreCP     = false,
             RestorePP     = false,
             RestoreRank   = false,
@@ -70,6 +70,9 @@ CreatePlugin(sPluginID, {
             HandleError("Error saving File %s (%s)", self.DataFile, sErr)
             ServerLogError("Failed to open file %s for writing", sFile)
         end
+
+        SetPluginData(self.ID, "Score", self.Score)
+       -- ServerLog(table.tostring(self.Score))
 
     end,
 

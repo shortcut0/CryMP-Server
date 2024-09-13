@@ -19,6 +19,9 @@ ServerPlugins.Init = function(self)
     PluginGetData = function(...)
         return ServerPlugins:GetPluginData(...)
     end
+    SetPluginData = function(...)
+        return ServerPlugins:SetPluginData(...)
+    end
     PluginSaveCall = function(...)
         return ServerPlugins:PluginSaveCall(...)
     end
@@ -55,6 +58,12 @@ ServerPlugins.OnEvent = function(self, ...)
 
     local aParams   = { ... }
     local iEvent    = table.popLast(aParams)
+
+    if (iEvent == eServerEvent_OnScriptReload) then
+        for _, aPlugin in pairs(self.Plugins) do
+            --self.PluginData[_] = table.getM(aPlugin, )
+        end
+    end
 
     local aLinks = self.PluginEvents[iEvent]
     if (table.count(aLinks) > 0) then
@@ -103,14 +112,27 @@ ServerPlugins.PluginSaveCall = function(self, sID, sCall, ...)
 end
 
 -------------------
+ServerPlugins.SetPluginData = function(self, sID, sNest, hData)
+    table.checkM(self.PluginData, sID, {})
+    table.setM(self.PluginData[sID], sNest, hData)
+end
+
+-------------------
 ServerPlugins.GetPluginData = function(self, sID, sNested, hDefault)
 
     --Debug(sNested)
     --Debug("stored:",self.PluginData[sID])
 
+    --table.checkM(self.PluginData, sID, {})
+    --table.checkNestedM(self.PluginData[sID], sNested, hDefault)
+    --local hData = table.getnested(self.PluginData[sID], sNested)
+
     table.checkM(self.PluginData, sID, {})
-    table.checkNestedM(self.PluginData[sID], sNested, hDefault)
-    local hData = table.getnested(self.PluginData[sID], sNested)
+    local hData = table.getM(self.PluginData[sID], sNested, hDefault)
+
+    --ServerLog("PluginData = %s",table.tostring(self.PluginData))
+    --ServerLog("Data = %s",table.tostring(hData))
+    --ServerLog("hDefault = %s",table.tostring(hDefault))
 
     --if (hData == nil) then
     --    self.PluginData[sID] = { }
@@ -119,7 +141,10 @@ ServerPlugins.GetPluginData = function(self, sID, sNested, hDefault)
     --Debug("DATA FOUND::",hData)
 
     -- hData or hDefault -- not working, what if hData it "false"!!
-    return checkVar(hData, hDefault)
+    if (hData == nil )then
+        return hDefault
+    end
+    return hData
 end
 
 -------------------

@@ -480,6 +480,7 @@ end
 ----------------------
 ServerItemHandler.CanDropWeapon = function(self, hPlayerID, hItemID)
 
+    Debug("droppa")
     local hPlayer = GetEntity(hPlayerID)
     if (not hPlayer or not hPlayer.IsPlayer) then
         return true
@@ -503,9 +504,22 @@ ServerItemHandler.CanDropWeapon = function(self, hPlayerID, hItemID)
             hItem.LAWDropTimer = (hItem.LAWDropTimer or timernew(2))
             return
         end
+
+        hItem.LAWDropTimer = nil
     end
 
-    hItem.LAWDropTimer = nil
+    local aRH = hPlayer:GetHitPos(1.8, nil, hPlayer:GetHeadDir())
+    if (aRH) then
+        if (aRH.surface == 155) then
+            return false -- dont allow dropping on glass surfaces!
+        end
+
+        if (hPlayer:GetHitPos(1.5, nil, vector.neg(hPlayer:GetDirectionVector(1)))) then
+            return false
+        end
+        return (aRH.dist > 1.5)
+    end
+
     return true
 end
 
@@ -597,6 +611,11 @@ ServerItemHandler.OnItemHit = function(self, hItem, aHitInfo)
         ServerUtils.AddImpulse(hItem, aHitInfo.dir, 9999999)
     end
 
+    hItem.LastPlayerShooterId = (hShooter and hShooter.IsPlayer) and hShooter.id
+    hItem.LastShooterId   = aHitInfo.shooterI
+    hItem.LastShooterTeam = g_pGame:GetTeam(aHitInfo.shooterId)
+    hItem.LastShooterName = EntityName(aHitInfo.shooterId)
+
     ServerItemSystem:CheckHit(hItem, aHitInfo)
 end
 
@@ -606,8 +625,9 @@ ServerItemHandler.OnStartReload = function(self, hPlayer, hWeapon)
 end
 
 ----------------------
-ServerItemHandler.OnEndReload = function(self, hPlayer, hWeapon)
+ServerItemHandler.OnEndReload = function(self, hPlayer, hWeaponID)
 
+    local hWeapon = GetEntity(hWeaponID)
     if (not hWeapon) then
         return
     end
@@ -619,6 +639,7 @@ ServerItemHandler.OnEndReload = function(self, hPlayer, hWeapon)
         if (self.DoubleGrenadeLauncher) then
             Script.SetTimer(10, function()
                 hWeapon.weapon:SetAmmoCount("scargrenade", 2)
+                hPlayer.inventory:SetAmmoCount("scargrenade", math.max(0, (hPlayer.inventory:GetAmmoCount("scargrenade") or 1) - 1))
             end)
         end
     end
@@ -737,7 +758,7 @@ ServerItemHandler.CheckHit = function(self, aHitInfo)
     -----------
     local hShooter = GetEntity(aHitInfo.shooterId)
     local hTarget = GetEntity(aHitInfo.targetId)
-    if (hShooter and hShooter.IsPlayer and hShooter.id ~= aHitInfo.targetId and aHitInfo.target and not aHitInfo.explosion and not ServerDefense:CheckDistance(hShooter, aHitInfo.target:GetPos(), aHitInfo.pos)) then
+    if (hShooter and hShooter.IsPlayer and hShooter.id ~= aHitInfo.targetId and aHitInfo.target and not aHitInfo.explosion and not ServerDefense:CheckDistance(hShooter, aHitInfo.target:GetPos(), aHitInfo.pos, "Hit")) then
         return false
     end
 
@@ -796,6 +817,10 @@ ServerItemHandler.CheckHit = function(self, aHitInfo)
             Debug("blocked vehicle kill hit!")
             aHitInfo.damage = 0
         end
+    end
+
+    if (hTarget and hTarget.IsPlayer and aHitInfo.explosion and hTarget:Distance(aHitInfo.explosion_pos) < 25) then
+        PluginSaveCall("PlayerAnimations", "OnExplosion", hTarget, aHitInfo)
     end
 
     local hObject = GetEntity(aHitInfo.shooterId)
@@ -986,7 +1011,7 @@ ServerItemHandler.UpdateExplosionEffects = function(self, pWeapon, sWeapon, nPro
         return
     end
 
-    local aHit = RWI_GetHit(vector.modifyz(vPos,99), g_Vectors.down, 5)
+    local aHit = RWI_GetHit(vector.modifyz(vPos,1), g_Vectors.down, 5)
     if (not aHit) then
         return
     end
@@ -1027,7 +1052,7 @@ ServerItemHandler.UpdateExplosionEffects = function(self, pWeapon, sWeapon, nPro
                 "objects/natural/rocks/vulkan_rocks/vulkan_rock_b.cgf",
                 "objects/natural/rocks/vulkan_rocks/vulkan_rock_c.cgf",
             }
-            for i = 1, math.random(7, 11) do
+            for i = 1, math.random(3, 7) do
                 Script.SetTimer(i * 15, function()
 
                     local vRock = table.copy(vPos)
@@ -1115,13 +1140,13 @@ end
 
 
 ----------------------
-ServerItemHandler.OnExplosiveRemoved = function(self, nPlayer, nExplosive, iType, iCount)
+ServerItemHandler.OnExplosiveRemoved = function(self, nPlayer, nExplosive, iType, iCount, bExploded)
 
     local hExplosive = GetEntity(nExplosive)
     local hPlayer    = GetEntity(nPlayer)
     local sType      = ({ [2] = "C4", [0] = "Claymore", [1] = "AVMine" })[iType]
 
-    if (hExplosive and not hExplosive.WAS_DISARMED) then
+    if (bExploded and hExplosive and not hExplosive.WAS_DISARMED) then
 
         local sMode = (iType == 2 and "@l_ui_detonated_u" or "@l_ui_exploded_u")
         SendMsg(MSG_CENTER, hPlayer, "(" .. sType:upper() .. ": " .. sMode .. " - (" .. iCount .. " @l_ui_remaining))")
@@ -1146,6 +1171,19 @@ ServerItemHandler.OnExplosivePlaced = function(self, nPlayer, nExplosive, iType,
 
     -- FIXME: AntiCheat()
     -- Check distance!!!
+    local iDistance = hPlayer:Distance(nExplosive)
+    if (iDistance > 5 and iType ~= 2) then
+        ServerLogWarning("[CRITICAL] %s placed explosive of type %s %fm away!!", EntityName(nPlayer), sType, iDistance)
+        if (iDistance > 8) then -- no lag should cause this!
+
+            local sCheatID   = eCheat_ExpDistance
+            local sCheatDesc = (sType .. " " .. iDistance .. "m")
+            ServerDefense:HandleCheater(hPlayer:GetChannel(), sCheatID, sCheatDesc, nPlayer, false)
+
+            --ServerDLL.SetProjectilePos(nExplosive, hPlayer:GetPos())
+            --ServerDLL.ExplodeProjectile(nExplosive)
+        end
+    end
 
     -- Plugin
     PluginSaveCall("PlayerVoices", "ProcessEvent", hPlayer, eVE_PlaceExplosive)
@@ -1167,6 +1205,9 @@ ServerItemHandler.OnExplosivePlaced = function(self, nPlayer, nExplosive, iType,
     if (hExplosive) then
 
         Script.SetTimer(350, function()
+            if (not GetEntity(nExplosive)) then
+                return
+            end
             local vPos = hExplosive:GetPos()
             local iTeam = g_pGame:GetTeam(nExplosive)
             ClientMod:OnAll(string.format([[g_Client:ESLH("%s","%s",{x=%f,y=%f,z=%f},%d,0.15)]],
@@ -1196,6 +1237,7 @@ ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, hAmmo, sAmmo, vPos
     if (hShooter and hShooter.IsPlayer) then
         hShooter.Info.FiringTimer.refresh()
         if (hShooter:IsTesting()) then
+            --[[
             self:UpdateExplosionEffects(hWeapon, hWeapon and hWeapon.class or "", hAmmo, sAmmo, vHit, vDir)
             --self:UpdateExplosionEffects(hWeapon and hWeapon.class or "", "rocket", vHit, vDir)
 
@@ -1206,7 +1248,7 @@ ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, hAmmo, sAmmo, vPos
                 Dir = vDir,
                 Owner = hShooter,
                 Weapon = hWeapon
-            })
+            })]]
         end
     end
 
@@ -1243,10 +1285,12 @@ ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, hAmmo, sAmmo, vPos
         ["repairkit"] = true,
         ["lockpick"] = true,
         ["detonator"] = true,
+        ["c4"] = true,
     }
-    if (not aIgnore[string.lower(hWeapon.class)] and not ServerDefense:CheckDistance(hShooter, hShooter:GetPos(), vPos)) then
-        return false
-    end
+    -- not needed atm, such cheat doesnt even exist?
+    --if (not aIgnore[string.lower(hWeapon.class)] and not ServerDefense:CheckDistance(hShooter, hShooter:GetPos(), vPos, "Shoot")) then
+    --    return false
+    --end
 
     local vFollowed = AutoFollow(vPos, 5, vPos)
     local aShotInfo = {

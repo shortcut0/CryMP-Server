@@ -623,9 +623,9 @@ AddCommand({
             })
 
             if (hVehicle.HeliMGs) then
-                SendMsg(CHAT_SERVER, self, self:Localize("@l_ui_xRemoved", {"Mounted Miniguns"}))
                 hVehicle:DeleteHeliMGs()
                 if (sClass == hVehicle.HeliMGClass) then
+                    SendMsg(CHAT_SERVER, self, self:Localize("@l_ui_xRemoved", {"Mounted Miniguns"}))
                     return
                 end
             end
@@ -636,5 +636,79 @@ AddCommand({
             end)
         end)
 
+    end
+})
+
+------------
+AddCommand({
+    Name = "nitro",
+    Access = RANK_MODERATOR,
+
+    Arguments = {
+        { "@l_ui_count", "@l_ui_count_d", Min = 0, Auto = true, IsNumber = true, Default = 1 }
+    },
+
+    Properties = {
+    },
+
+    -- self is the user unless specified otherwise
+    Function = function(self, iCount)
+
+        Script.SetTimer(1, function()
+            local hVehicle = self:GetVehicle() or SvSpawnEntity({
+                Class = "Civ_car1",
+                Pos = self:GetFacingPos(eFacing_Front, 8),
+                Dir = self:SmartGetDir(1)
+            })
+
+            local iAttached = hVehicle.NitroRockets
+            if (iAttached or iCount == 0) then
+                hVehicle:DetachNitro()
+                if (iAttached == iCount or iCount == 0) then
+                    SendMsg(CHAT_SERVER, self, self:Localize("@l_ui_xRemoved", {"Nitro"}))
+                    return
+                end
+            end
+
+            Script.SetTimer(1, function()
+                SendMsg(CHAT_SERVER, self, self:Localize("@l_ui_hereIsYour", {"x" .. iCount .. " Nitro"}))
+                hVehicle:AttachNitro(iCount)
+            end)
+        end)
+
+    end
+})
+
+------------
+AddCommand({
+    Name = "stadium",
+    Access = RANK_MODERATOR,
+
+    Arguments = {
+    },
+
+    Properties = {
+    },
+
+    -- self is the user unless specified otherwise
+    Function = function(self)
+        return ServerStadium:Create()
+    end
+})
+
+------------
+AddCommand({
+    Name = "delstadium",
+    Access = RANK_MODERATOR,
+
+    Arguments = {
+    },
+
+    Properties = {
+    },
+
+    -- self is the user unless specified otherwise
+    Function = function(self)
+        return ServerStadium:Remove()
     end
 })

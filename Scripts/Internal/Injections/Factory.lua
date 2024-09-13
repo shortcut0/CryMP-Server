@@ -10,6 +10,63 @@ local ServerFactory = {
     end,
 
     ---------------------------------------------
+    --- Queue
+    ---------------------------------------------
+    {
+
+        Class = "Factory",
+        Target = { "Queue" },
+        Type = eInjection_Replace,
+
+        ------------------------
+        Function = function(self, class, ownerId)
+
+            local hPlayer = GetEntity(ownerId)
+            if (hPlayer and hPlayer.IsPlayer) then
+                table.checkM(self, "JobFloods", {})
+                table.checkM(self.JobFloods, ownerId, { Timer = timernew(0.5), Flood = 0 })
+
+                local aJob = self.JobFloods[ownerId]
+                local bExpired = aJob.Timer.expired()
+
+                aJob.Timer.refresh()
+
+                if (not bExpired) then
+                    aJob.Flood = (aJob.Flood + 1)
+                    if (aJob.Flood > 2) then
+                        -- No more than 2 vehicles within 0.5s, otherwise it's considered spam!
+                        --SendMsg(MSG_ERROR, hPlayer, hPlayer:Localize("@l_ui_floodBlocked"))
+                        return
+                    end
+                else
+                    aJob.Flood = 0
+                end
+            end
+
+            local slot=self:GetFreeSlot();
+            if (slot) then
+                local time=self:GetBuildTime(class);
+                if (not time) then
+                    Log("Vehicle Factory %s - Can't build that!", self:GetName());
+
+                    return false;
+                end
+                self:StartBuilding(slot, time, class, ownerId, g_gameRules.game:GetTeam(ownerId));
+
+                return true;
+            end
+
+            if (self:AddToQueue(class, ownerId)) then
+                return true;
+            else
+                Log("Vehicle Factory %s - No free factory slots available and queue is full!", self:GetName());
+
+                return false;
+            end
+        end
+    },
+
+    ---------------------------------------------
     --- KillPlayers
     ---------------------------------------------
     {
@@ -23,15 +80,14 @@ local ServerFactory = {
 
             local def=g_gameRules:GetItemDef(hSlot.buildVehicle);
             if ((not def) or (not def.vehicle)) then
-                return;
+                return
             end
 
-            local pos,dir=self:GetParkingLocation(hSlot);
-
+            local pos, dir = self:GetParkingLocation(hSlot)
             if (def.modification) then
-                self.spawnparams.properties.Modification=def.modification;
+                self.spawnparams.properties.Modification=def.modification
             else
-                self.spawnparams.properties.Modification=nil;
+                self.spawnparams.properties.Modification=nil
             end
 
             if (def.abandon) then
@@ -64,13 +120,10 @@ local ServerFactory = {
                 Log("Vehicle Factory %s - Built %s at door %s...", self:GetName(), hSlot.buildVehicle, hSlot.id);
 
                 vehicle.builtas=hSlot.buildVehicle;
-
                 vehicle.vehicle:SetOwnerId(hSlot.buildOwnerId);
                 g_gameRules.game:SetTeam(hSlot.buildTeamId, vehicle.id);
-
                 self:AdjustVehicleLocation(vehicle); -- adjust the position of the vehicle so that the vehicle is centered in the spawn helper,
                 -- using the center of the bounding box
-
                 vehicle:AwakePhysics(1);
             end
 

@@ -349,6 +349,101 @@ CreateLocalization("l_ui_teleportedUP", {
 
 
 
+CreateLocalization("l_ui_xcoord_d", {
+    english = "The X Coordinate"
+})
+CreateLocalization("l_ui_ycoord_d", {
+    english = "The Y Coordinate"
+})
+CreateLocalization("l_ui_zcoord_d", {
+    english = "The Z Coordinate"
+})
+
+
+
+CreateLocalization("l_ui_teleportedTo", {
+    english = "Teleported to ${1}"
+})
+
+
+
+
+
+
+
+CreateLocalization("l_ui_joinedStadium", {
+    english = "(#${1}: ${2} Joined Team ${3} in The Stadium)"
+})
+CreateLocalization("l_ui_leftStadium", {
+    english = "(${1}: Left the Stadium)"
+})
+
+CreateLocalization("l_ui_invalidTeam", {
+    english = "Invalid Team"
+})
+CreateLocalization("l_ui_stadiumNotSpawned", {
+    english = "The Stadium has not been Spawned Yet"
+})
+CreateLocalization("l_ui_notInStadium", {
+    english = "You're not in the Stadium"
+})
+CreateLocalization("l_ui_stadiumMVP", {
+    english = "(MVP: ${1} With ~ ( #${2} ) ~ Goals)"
+})
+CreateLocalization("l_ui_stadiumGameOver", {
+    english = "(Game Over: Team ${1} WON With ${2} Goals!)"
+})
+
+CreateLocalization("l_ui_stadiumEqualPoints", {
+    english = "Both Teams have Equal Points"
+})
+CreateLocalization("l_ui_stadiumLesserPoints", {
+    english = "They are ( #${1} ) Behind ${2}"
+})
+CreateLocalization("l_ui_stadiumGreaterPoints", {
+    english = "They are ( #${1} ) Ahead of ${2}"
+})
+CreateLocalization("l_ui_stadiumGoal", {
+    english = "(${1}: Scored - ( #${2} ) - Points for ${3} (${4}))"
+})
+CreateLocalization("l_ui_stadiumRestarting", {
+    english = "(Match Restarting in - ( ${1} ) - Seconds!)"
+})
+CreateLocalization("l_ui_stadiumSpawned", {
+    english = "The Stadium has been Spawned! Join Using >> JoinStadium <<"
+})
+CreateLocalization("l_ui_stadiumRemoved", {
+    english = "The Stadium has been Deleted!"
+})
+
+
+
+
+
+
+
+CreateLocalization("l_ui_floodBlocked", {
+    english = ""
+})
+CreateLocalization("l_ui_targetKilled", {
+    english = "${1}: Killed x${2}"
+})
+CreateLocalization("l_ui_targetRepaired", {
+    english = "${1}: Repaired"
+})
+CreateLocalization("l_ui_targetInvulnerable", {
+    english = "${1} is Invulnerable"
+})
+CreateLocalization("l_ui_playerInvulnerable", {
+    english = "Player is Invulnerable"
+})
+
+
+
+
+
+
+
 CreateLocalization("l_ui_playerAlreadyBanned", {
     english = "${1}: Ban already exists ( #${2} )"
 })

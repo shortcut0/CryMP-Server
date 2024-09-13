@@ -33,6 +33,7 @@ ServerChat.Init = function(self)
         { ID = "EQUIP",     Name = "Server-Equip" },
         { ID = "VOTING",    Name = "Voting" },
         { ID = "DEFENSE",   Name = "Defense" },
+        { ID = "STADIUM",   Name = "Stadium" },
     }
 
     ----------
@@ -290,24 +291,34 @@ ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage,
     local bShow = true
 
     if (hSender.IsPlayer) then
-
         if (ClientMod) then
             ClientMod:ChatEffect(hSender,false)
         end
-
     end
 
     if (ServerCommands:OnChatMessage(iType, hSender, hTarget, sMessage)) then
         return { ShowMessage = false }
     end
 
-    if (hSender.IsPlayer) then
-
+    local function fCheckMute(hSender)
         local aMuteInfo = hSender:GetMute()
         if (aMuteInfo) then
             SendMsg(CHAT_SERVER_LOCALE, hSender, "@l_ui_youAreMuted", aMuteInfo:GetReason(), math.calctime(aMuteInfo:GetRemaining(), nil, 3))
             Logger:LogEventTo(GetPlayers({ Access = hSender:GetAuthority(RANK_MODERATOR) }), eLogEvent_Punish, "@l_ui_logMutedMessage", hSender:GetName(), sMessage)
 
+            return true
+        end
+        return false
+    end
+
+    if (hSender.IsPlayer) then
+
+        if (fCheckMute(hSender)) then
+            return { ShowMessage = false }
+        end
+
+        if (not ServerDefense:CheckChatSpam(hSender, sMessage, bServerMessage)) then
+            fCheckMute(hSender) -- for message!
             return { ShowMessage = false }
         end
 

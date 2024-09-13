@@ -217,15 +217,17 @@ CreatePlugin("PlayerAnimations", {
 
             SaluteInfo = {},
 
-            CanStartNewAnim = function(this) return (this.AnimationTime == nil or this.AnimationTimer.expired(this.AnimationTime)) end,
+            CanStartNewAnim = function(this) local bWasIdle = this.WasIdle ~= true return (this.AnimationTime == nil or this.AnimationTimer.expired(this.AnimationTime)) end,
             SetPackID       = function(this, pack) this.AnimationPack = pack end,
             SetAnimID       = function(this, anim) this.AnimationName = anim end,
             SetStance       = function(this, mode) this.AnimationStance = mode end,
             SetLean         = function(this, lean) this.AnimationLean = lean end,
             Refresh         = function(this, time) this.AnimationTimer.refresh(time) this.AnimationTime = time  end,
 
+            WasIdle         = nil, -- Was last animation an idle animation?
             LastAnim        = "",
 
+            StaggerTimer    = timernew(1),
             AnimationTimer  = timernew(),
             AnimationTime   = nil,
         }
@@ -253,6 +255,100 @@ CreatePlugin("PlayerAnimations", {
     Push = function(self, sPush)
 
         ClientMod:OnAll(sPush)
+    end,
+
+    ---------------------
+    OnExplosion = function(self, hPlayer, aHitInfo)
+
+        if (hPlayer:IsDead() or hPlayer:IsSpectating() or hPlayer:IsFrozen()) then
+            return
+        end
+
+        local hVehicle   = hPlayer:GetVehicle()
+        local iSpeed     = hPlayer:GetSpeed()
+        if (iSpeed > 3 or hVehicle) then
+            return
+        end
+
+        local iStance    = hPlayer.actorStats.stance
+        local bFlying    = hPlayer.actor:IsFlying()
+        local hItem      = hPlayer:GetCurrentItem()
+        if (not hItem) then
+            hItem = { class = "Fists" } -- fallback
+        end
+
+        local iLean = hPlayer:GetLean()
+
+        local bFists         = not hItem or (hItem.class == "Fists" or hItem.class == "Binoculars")
+        local bPistol        = hItem.class == "SOCOM"
+        local bRocket        = hItem.class == "LAW"
+        local bSniper        = (hItem.class == "DSG1" or hItem.class == "GaussRifle")
+        local bKit           = (hItem.class == "RadarKit" or hItem.class == "RepairKit" or hItem.class == "LockpickKit")
+        local bMini          = (hItem.class == "Hurricane" or hItem.class == "AlienMount" or hItem.class == "ShiTen")
+        local bRifle         = not bMini and not bSniper and not bFists and not bRocket and not bPistol and not bKit
+
+
+        local hAnimationList = self.Animations.Stagger
+        local hAnimationPack
+
+        if (not bFlying) then
+            if (iStance == STANCE_STAND) then
+                hAnimationList = hAnimationList[1].Stand
+                if (bPistol) then
+                    hAnimationPack = hAnimationList.Pistol
+
+                elseif (bRifle) then
+                    hAnimationPack = hAnimationList.Rifle
+
+                else
+                    hAnimationPack = hAnimationList.Fist
+                end
+
+            elseif (iStance == STANCE_CROUCH) then
+                hAnimationList = hAnimationList[1].Crouch
+                if (bRifle) then
+                    hAnimationPack = hAnimationList.Rifle
+
+                else
+                    hAnimationPack = hAnimationList.Rifle -- FIXME
+                end
+
+            end
+        end
+
+        if (hAnimationPack) then
+
+            local sRandom = table.random(hAnimationPack)
+            local iAnimationLength = self:GetAnimationLength(sRandom)
+            if (iAnimationLength < 1) then
+                iAnimationLength = 2
+            end
+
+            --hPlayer.IdleInfo.WasIdle = false
+            if (hPlayer.IdleInfo.WasIdle or (hPlayer.IdleInfo.StaggerTimer.expired() and hPlayer.IdleInfo:CanStartNewAnim())) then
+
+                hPlayer.IdleInfo.WasIdle = false
+                hPlayer.IdleInfo.LastAnim = sRandom
+                hPlayer.IdleInfo:Refresh(1)
+                hPlayer.IdleInfo:SetPackID(hAnimationPack)
+                hPlayer.IdleInfo:SetAnimID(sRandom)
+                hPlayer.IdleInfo:SetStance(iStance)
+                hPlayer.IdleInfo:SetLean(iLean)
+                hPlayer.IdleInfo.StaggerTimer.refresh()
+
+                -- FIXME: Stack calls on top of each other !!
+                ClientMod:OnAll(string.format([[g_Client:IDLE_F(%d,"%s")]],
+                        hPlayer:GetChannel(),
+                        sRandom
+                ))
+
+               -- Debug("play")
+            else
+               -- Debug("no play!")
+            end
+        else
+           -- Debug("no pack")
+        end
     end,
 
     ---------------------
@@ -399,6 +495,7 @@ CreatePlugin("PlayerAnimations", {
                     sFPRandom = table.random({ "cineFleet_nomadShieldsEysRightHand_01", "cineRescue_ExitHandsDawdle_01","cineRescue_nomadHandsExit_01","idle_01" })
                 end
 
+                hPlayer.IdleInfo.WasIdle = true
                 hPlayer.IdleInfo.LastAnim = sRandom
                 hPlayer.IdleInfo:Refresh(iAnimationLength)
                 hPlayer.IdleInfo:SetPackID(hAnimationPack)

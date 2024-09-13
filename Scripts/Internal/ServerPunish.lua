@@ -228,7 +228,8 @@ ServerPunish.MutePlayer = function(self, hAdmin, hPlayer, sTime, sReason)
         Reason = sReason,
         Admin  = { hAdmin:GetProfileID(), hAdmin:GetName() },
         Player = { hPlayer:GetProfileID(), hPlayer:GetName() },
-        IPs    = { sIP, sHost },
+        IPs    = { sIP },
+        Host   = { sHost },
         IDs    = { sID },
     }
     self:SetupEntry(aMuteInfo, (self:GetTypeCount(ePunishType_Mute) + 1))
@@ -274,7 +275,8 @@ ServerPunish.OnTick = function(self)
             aInfo.ID = iID
             if (aInfo:Expired()) then
 
-                self:RemoveType(sType, aInfo, self.Data[sType], iID, BAN_EXPIRED)
+                -- FIXME: Correct "Expired" !
+                self:RemoveType(sType, aInfo, self.Data[sType], iID, (sType == ePunishType_Ban and BAN_EXPIRED or MUTE_EXPIRED))
                 iRemoved = (iRemoved + 1)
             end
         end
@@ -700,7 +702,7 @@ ServerPunish.RemoveMute = function(self, aBanInfo, aList, hID, sReason)
         bOk = false
 
         for __, sID in pairs({
-            unpack(aBanInfo.Host),
+            unpack(aBanInfo.Host or {}),
             unpack(aBanInfo.IPs),
             unpack(aBanInfo.IDs),
             unpack(self:GetHardwareIDs(aBanInfo))

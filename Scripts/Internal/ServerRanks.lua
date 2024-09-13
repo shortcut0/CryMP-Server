@@ -95,7 +95,7 @@ ServerAccess.InitClient = function(self, hClient)
 
     if (self:IsIPLocalHost(sIP)) then
         ServerLog("Client %s Connecting on localhost, Assigning Highest Access %s", sName, GetRankName(GetHighestRank()))
-        self:AssignAccess(hClient, GetHighestRank())
+        self:AssignAccess(hClient, GetHighestRank(), nil, nil, true)
         return
     end
 
@@ -291,7 +291,7 @@ ServerAccess.IsHardCodedUser = function(self, sID)
 end
 
 ----------------
-ServerAccess.AssignAccess = function(self, hClient, iRank, bPending, bQuiet)
+ServerAccess.AssignAccess = function(self, hClient, iRank, bPending, bQuiet, bForceValidation)
 
     if (hClient:IsAccess(iRank)) then
         return ServerLog("Client %s Already Rank %d", hClient:GetName(), iRank)
@@ -301,6 +301,12 @@ ServerAccess.AssignAccess = function(self, hClient, iRank, bPending, bQuiet)
         hClient:SetPendingAccess(iRank)
     else
         hClient:SetAccess(iRank)
+        if (bForceValidation) then
+            hClient.Info.Validated  = true
+            hClient.Info.Validating = false
+            hClient.InitTimer.setexpiry(0)
+            hClient:Tick() -- Update!
+        end
     end
 
     if (not bQuiet) then

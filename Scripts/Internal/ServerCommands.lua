@@ -1204,7 +1204,7 @@ ServerCommands.CreateCommand = function(self, aInfo)
     self.Commands[sName] = aCommand
 
     if (self.CreateCCommand) then
-        local sConsoleArgs = string.rep("%%1{%a:,}", table.count(hArgs))
+        local sConsoleArgs = string.repeats("%%1{%a:,}", table.count(hArgs))
         local sConsoleFunc = string.format("ServerCommands:OnServerCommand(\"%s\"%s)", sName, (sConsoleArgs ~= "" and ("," .. sConsoleArgs) or sConsoleArgs))
         local sConsoleName = string.format("server_cmd_" .. sName)
 

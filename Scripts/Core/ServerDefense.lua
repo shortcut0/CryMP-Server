@@ -3,6 +3,7 @@
 PUNISH_BAN  = 0
 PUNISH_KICK = 1
 PUNISH_WARN = 2
+PUNISH_MUTE = 3
 
 eCheat_WeaponRate   = "FireRate"
 eCheat_NoRecoil     = "NoRecoil"
@@ -11,15 +12,23 @@ eCheat_ClientSpeed  = "ClSpeed"
 eCheat_ServerSpeed  = "SvSpeed"
 eCheat_ClientPhys   = "Collider"
 eCheat_ClientFly    = "Flying"
+eCheat_ExpDistance  = "EDistance"
+eCheat_BuySpoof     = "BuySpoof"
 
-eCheat_DropItem = "SvRequestDropItem" -- should align with RMI name
-eCheat_UseItem  = "SvRequestUseItem" -- should align with RMI name
-eCheat_PickItem = "SvRequestPickupItem" -- should align with RMI name
+eCheat_ChatSpam     = "ChatSpam"
+eCheat_ChatFlood    = "ChatFlood"
+
+eCheat_DropItem  = "SvRequestDropItem" -- should align with RMI name
+eCheat_UseItem   = "SvRequestUseItem" -- should align with RMI name
+eCheat_PickItem  = "SvRequestPickupItem" -- should align with RMI name
+eCheat_StopFire  = "SvRequestStopFire" -- should align with RMI name
+eCheat_StartFire = "SvRequestStartFire" -- should align with RMI name
 
 -------------------
 ServerDefense = {
 
     LogTimers = {},
+    ChatLogTimers = {},
 
     Detects = {},
     Config  = {
@@ -27,11 +36,30 @@ ServerDefense = {
         -- Interval between logging cheats to console
         CheatLogInterval = 0.75,
 
+        -- Interval between logging cheats to console
+        ChatLogInterval = 5,
+
         -- Testing mode, no punishments will be given!
         TestMode = true,
 
         -- Timeout for detected cheats
         ActionTimeout = 120,
+
+        -- a List of detected cheats that will be ignored (blocked, but ignored)
+        Blacklist = {
+            eCheat_StopFire,
+            eCheat_StartFire
+        },
+
+        ChatProtection = {
+
+            FloodThreshold = 5, -- no more than this amount of any messages
+            FloodTime      = 1, -- within this amount of time
+
+            SpamThreshold  = 5, -- no more than this amount of the same message
+            SpamTime       = 1, -- within this amount of time
+
+        }, ---< ChatProtection
 
         -- Required detects to take action against a cheater
         ActionThreshold = {
@@ -45,6 +73,10 @@ ServerDefense = {
             [eCheat_ClientFly]      = 3,
             [eCheat_ClientSpeed]    = 3,
             [eCheat_ServerSpeed]    = 3,
+            [eCheat_ExpDistance]    = 3,
+
+            [eCheat_ChatSpam]       = 1,
+            [eCheat_ChatFlood]      = 1,
         },
 
         -- Actions to be performed once a cheater is being dealt with
@@ -56,6 +88,9 @@ ServerDefense = {
 
             [eCheat_NoRecoil]   = { Action = PUNISH_BAN, Count = "1d" },
             [eCheat_NoSpread]   = { Action = PUNISH_BAN, Count = "1d" },
+
+            [eCheat_ChatSpam]   = { Action = PUNISH_MUTE, Count = "30m" },
+            [eCheat_ChatFlood]  = { Action = PUNISH_MUTE, Count = "30m" },
         }
 
     },
@@ -63,11 +98,16 @@ ServerDefense = {
     -------------------
     Init = function(self)
 
-        self.Config = ConfigGet("General.AntiCheat", self.Config, eConfigGet_Array)
+        self.Config = ConfigGetMerge("General.AntiCheat", self.Config, self.Config, eConfigGet_Array)
+        ServerLog(table.tostring(self.Config.Blacklist))
         table.checkM(self.Config, "ActionTimeout", 120)
+        table.checkM(self.Config, "Blacklist", {})
         table.checkM(self.Config, "ActionPunishments", {})
         table.checkM(self.Config, "ActionThreshold", {})
         table.checkM(self.Config, "ClientCVars", {})
+        table.checkM(self.Config, "ChatProtection", {})
+
+        LinkEvent(eServerEvent_OnClientInit, "ServerDefense", self.InitClient)
     end,
 
     -------------------
@@ -90,8 +130,19 @@ ServerDefense = {
 
     -------------------
     InitChannel = function(self, iNetChannel)
+        table.checkM(self.ChatLogTimers, iNetChannel, {  })
         table.checkM(self.LogTimers, iNetChannel, {  })
         table.checkM(self.Detects, iNetChannel, {})
+    end,
+
+    -------------------
+    InitClient = function(self, hClient)
+        hClient.SvChatTimer      = timernew(10) -- any number for initialisin..
+        hClient.SvChatSpam       = 0  -- same message over and over
+        hClient.SvChatFlood      = 0  -- flooding lots of messages
+
+        hClient.SvBuyTimer       = timernew(0.5)
+        hClient.BuyFlood         = 0
     end,
 
     -------------------
@@ -108,19 +159,84 @@ ServerDefense = {
     end,
 
     -------------------
-    CheckDistance = function(self, hPlayer, vFrom, vTo)
+    CheckChatSpam = function(self, hPlayer, sMessage)
+
+        local aConfig = self.Config.ChatProtection
+
+        local iSpamThreshold  = aConfig.SpamThreshold   or 5
+        local iSpamTime       = aConfig.SpamTime        or 1 -- no more than 5 messages with the same content within 1s
+        local iFloodThreshold = aConfig.FloodThreshold  or 5
+        local iFloodTime      = aConfig.FloodTime       or 1 -- no more than 5 messages within 1s
+
+        local bExpiredSpam = (hPlayer.SvChatTimer.expired(iSpamTime))
+        local bExpiredFlood = hPlayer.SvChatTimer.expired(iFloodTime)
+
+        local bOk = true
+
+        -- Check Spamming first
+        if (not bExpiredSpam and sMessage == hPlayer.SvLastChatMessage) then
+            hPlayer.SvChatSpam = (hPlayer.SvChatSpam + 1)
+            if (hPlayer.SvChatSpam > iSpamThreshold) then
+                bOk = false
+                self:HandleCheater(hPlayer:GetChannel(), eCheat_ChatSpam, string.format("Spamming Chat (%d / %d)", hPlayer.SvChatSpam, iSpamThreshold), hPlayer.id, true)
+                hPlayer.SvChatSpam = 0
+            end
+        else
+            hPlayer.SvChatSpam = 0
+        end
+
+        -- If no spamming has been detected, check for flooding!
+        if (bOk) then
+            if (not bExpiredFlood) then
+                hPlayer.SvChatFlood = (hPlayer.SvChatFlood + 1)
+                if (hPlayer.SvChatFlood > iFloodThreshold) then
+                    bOk = false
+                    self:HandleCheater(hPlayer:GetChannel(), eCheat_ChatFlood, string.format("Flooding Chat (%d / %d)", hPlayer.SvChatFlood, iFloodThreshold), hPlayer.id, true)
+                    hPlayer.SvChatFlood = 0
+                end
+            else
+                hPlayer.SvChatFlood = 0
+            end
+        end
+
+        hPlayer.SvLastChatMessage = sMessage
+        hPlayer.SvChatTimer.refresh()
+
+        return bOk
+    end,
+
+    -------------------
+    CheckBuyFlood = function(self, hPlayer, sMessage)
+
+        local bExpired = hPlayer.SvBuyTimer.expired()
+        hPlayer.SvBuyTimer.refresh()
+
+        if (not bExpired) then
+            hPlayer.BuyFlood = (hPlayer.BuyFlood + 1)
+            if (hPlayer.BuyFlood > 30) then
+                return false
+            end
+        else
+            hPlayer.BuyFlood = 0
+        end
+
+        return true
+    end,
+
+    -------------------
+    CheckDistance = function(self, hPlayer, vFrom, vTo, sFunc)
 
         local iDistance = vector.distance(vFrom, vTo)
         if (iDistance < 120) then
             return true
         end
 
-        self:HandleCheater(hPlayer:GetChannel(), "Distance", string.format("%0.2f > %0.2f", iDistance, 120.0), nil, false)
+        self:HandleCheater(hPlayer:GetChannel(), ((sFunc or "") .. " Distance"), string.format("%0.2f > %0.2f", iDistance, 120.0), nil, false)
         return false
     end,
 
     -------------------
-    PunishCheater = function(self, iNetChannel, sCheat)
+    PunishCheater = function(self, iNetChannel, sCheat, sReason)
 
         local aConfig = self.Config
         local aPunishments = (aConfig.ActionPunishments or {})
@@ -145,6 +261,12 @@ ServerDefense = {
             else
                 -- WriteWarn()
             end
+
+        elseif (hAction == PUNISH_MUTE) then
+            if (hPlayer) then
+                ServerPunish:MutePlayer(Server.ServerEntity, hPlayer, hActionC, sReason)
+            end
+
 
         elseif (hAction == PUNISH_KICK) then
             if (hPlayer) then
@@ -176,6 +298,9 @@ ServerDefense = {
 
         local aConfig = self.Config
         local sInfo   = string.match(sDetect, "^%w-:?:?Handle_(.*)") or sDetect
+        if (table.findv(aConfig.Blacklist, sInfo)) then
+            return ServerLog("Blocked Blacklisted Cheat %s from channel %d", sInfo, iNetChannel)
+        end
 
         local iThreshold = (aConfig.ActionThreshold[sInfo] or aConfig.ActionThreshold["Default"] or 3)
         local iTimeout   = aConfig.ActionTimeout
@@ -197,7 +322,7 @@ ServerDefense = {
 
         self:LogCheat(iNetChannel, sName, sInfo, bSure, bLagging, hVictimID)
         if (bSure and self:GetDetects(iNetChannel, iTimeout, true, true) >= iThreshold) then
-            self:PunishCheater(iNetChannel, sName)
+            self:PunishCheater(iNetChannel, sName, sDetect)
         end
     end,
 
@@ -207,9 +332,16 @@ ServerDefense = {
         local iLogClass = RANK_PLAYER
         local sName     = "Channel " .. iNetChannel
         local hPlayer   = self:GetActor(iNetChannel)
+
+        local hItem
+        local sItems = "None"
+        local sVictim = GetEntityName(hVictimID, "<Null>")
+
         if (hPlayer) then
             sName = hPlayer:GetName()
             iLogClass = math.max(iLogClass, hPlayer:GetAccess())
+            hItem = hPlayer:GetCurrentItem()
+            sItems = hItem and hItem.class or "None"
         end
 
         ServerLog("[%s] Detected Cheat %s(%s) on [%s](%d)%s (Victim: %s, %s)",
@@ -220,19 +352,33 @@ ServerDefense = {
                 g_ts(hVictimID), ServerUtils.EntityName(hVictimID, "<null>")
         )
 
-        if (not self:CanLog(iNetChannel, sDetect)) then
-            return
+
+        if (self:CanLog(iNetChannel, sDetect)) then
+            Logger:LogEventTo(GetPlayers({ Access = iLogClass }), eLogEvent_Cheat, "@l_ui_cheat_Detected", sName, sInfo, sDetect, (bSure and "Positive " or ""), (bLag and "${orange}Lagger ${red}" or ""))
+            Logger:LogEventTo(GetPlayers({ Access = iLogClass }), eLogEvent_Cheat, string.format("${gray}Victim ${orange}%s", sVictim))
+            Logger:LogEventTo(GetPlayers({ Access = iLogClass }), eLogEvent_Cheat, string.format("${gray}Equip ${orange}%s", sItems))
+            self.LogTimers[iNetChannel][sDetect].refresh()
         end
 
-        SendMsg(CHAT_DEFENSE_LOCALE, GetPlayers({ Access = iLogClass }), "@l_ui_chat_cheatDetected", sName, sDetect, sInfo)
-        Logger:LogEventTo(GetPlayers({ Access = iLogClass }), eLogEvent_Cheat, "@l_ui_cheat_Detected", sName, sInfo, sDetect, (bSure and "Positive " or ""), (bLag and "${orange}Lagger ${red}" or ""))
-        self.LogTimers[iNetChannel][sDetect].refresh()
+        if (self:CanChatLog(iNetChannel, sDetect)) then
+            SendMsg(CHAT_DEFENSE_LOCALE, GetPlayers({ Access = iLogClass }), "@l_ui_chat_cheatDetected", sName, sDetect, sInfo)
+            self.ChatLogTimers[iNetChannel][sDetect].refresh()
+        end
+
+
+    end,
+
+    -------------------
+    CanChatLog = function(self, iNetChannel, sDetect)
+
+        table.checkM(self.ChatLogTimers[iNetChannel], sDetect, timernew(self.Config.ChatLogInterval))
+        return self.ChatLogTimers[iNetChannel][sDetect].expired()
     end,
 
     -------------------
     CanLog = function(self, iNetChannel, sDetect)
 
-        table.checkM(self.LogTimers[iNetChannel], sDetect, timernew(self.CheatLogInterval))
+        table.checkM(self.LogTimers[iNetChannel], sDetect, timernew(self.Config.CheatLogInterval))
         return self.LogTimers[iNetChannel][sDetect].expired()
     end,
 

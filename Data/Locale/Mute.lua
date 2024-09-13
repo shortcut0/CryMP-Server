@@ -49,13 +49,13 @@ CreateLocalization("l_ui_logMutedMessage", {
 })
 
 CreateLocalization("l_ui_youAreMuted", {
-    english     = "(${1}: You are Muted. (Remaining: ${2})",
-    german      = "(${1}: Du bist stummgeschaltet. (Verbleibend: ${2})",
-    spanish     = "(${1}: Estas silenciado. (Restante: ${2})",
-    russian     = "(${1}: Vy zaglusheny. (Ostalos: ${2})",
-    turkish     = "(${1}: Susturuldunuz. (Kalan: ${2})",
-    czech       = "(${1}: Jsi ztlumen. (Zbyva: ${2})",
-    french      = "(${1}: Vous etes mis en sourdine. (Restant: ${2})"
+    english     = "You are Muted: ${1}. (Remaining: ${2})",
+    german      = "(Du bist stummgeschaltet: ${1}. (Verbleibend: ${2})",
+    spanish     = "(Estas silenciado: ${1}. (Restante: ${2})",
+    russian     = "(Vy zaglusheny: ${1}. (Ostalos: ${2})",
+    turkish     = "(Susturuldunuz: ${1}. (Kalan: ${2})",
+    czech       = "(Jsi ztlumen: ${1}. (Zbyva: ${2})",
+    french      = "(Vous etes mis en sourdine: ${1}. (Restant: ${2})"
 })
 
 CreateLocalization("l_ui_youHaveBeenUnMuted", {

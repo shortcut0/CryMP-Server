@@ -9,4 +9,9 @@ scripts/gamerules/instantaction.lua = scripts/game/gamerules/instantaction.lua
 scripts/main.lua = scripts/game/main.lua
 scripts/entities/others/gui.lua = scripts/game/entities/gui.lua
 scripts/entities/multiplayer/forbiddenarea.lua = scripts/game/entities/forbiddenarea.lua
+
+-- RMI Crash Fix Patches below!
+scripts/entities/multiplayer/factory.lua = scripts/game/entities/factory.lua
+scripts/entities/multiplayer/door.lua = scripts/game/entities/door.lua
+scripts/entities/multiplayer/elevatorswitch.lua = scripts/game/entities/elevatorswitch.lua
 IGNORE/scripts/entities/sound/soundspot.lua = scripts/game/entities/soundspot.lua

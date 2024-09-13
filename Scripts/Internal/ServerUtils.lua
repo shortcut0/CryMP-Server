@@ -95,12 +95,14 @@ ServerUtils.Init = function(self)
     GetItemClasses    = self.GetItemClasses
     IsEntityClass     = function(s, l) return table.it(l or GetEntityClasses(), function(x, i, v) return (x or string.lower(v) == string.lower(s))  end)  end
     IsItemClass       = function(s, l) return table.it(l or GetItemClasses(),   function(x, i, v) return (x or v == s)  end)  end
+    IsVehicleClass    = function(s, l) return table.it(l or GetVehicleClasses(),   function(x, i, v) return (x or v == s)  end)  end
 
     AwakeEntity     = self.AwakeEntity
 
     GetEntities     = self.GetEntities
     GetEntity       = self.GetEntity
     GetEntityN      = self.GetEntityName
+    GetEntityName   = self.GetEntityName
     DeleteEntity    = System.RemoveEntity
     RemoveEntity    = System.RemoveEntity
     SpawnEntity     = function(...) UpdateCounter(eCounter_Spawned) return System.SpawnEntity(...) end
@@ -229,8 +231,8 @@ ServerUtils.SpawnGUI = function(aParams)
             ServerModel = aParams.ServerModel
         },
         position = aParams.Pos,
-        orientation = aParams.Dir,
-        fMass = (aParams.Mass or 0)
+        orientation = aParams.Dir or aParams.Ang,
+        mass = (aParams.Mass or 0)
     })
 
 
@@ -676,7 +678,7 @@ ServerUtils.GetTeamName = function(iTeam, sNeutral)
         return (sNeutral or "Neutral")
     end
 
-    throw_error("INVALID team. learn to code.")
+  --  throw_error("INVALID team. learn to code.")
 end
 
 ----------------
@@ -691,7 +693,7 @@ ServerUtils.GetOtherTeam = function(iTeam)
         return TEAM_NEUTRAL -- ???
     end
 
-    throw_error("INVALID team. learn to code.")
+ --   throw_error("INVALID team. learn to code.")
 end
 
 ----------------
@@ -1108,11 +1110,23 @@ ServerUtils.SvSpawnEntity = function(aParams)
     end
 
     -- Vehicles ?
-    aProperties.properties.Respawn  = (aProperties.properties.Respawn or {
-        nTimer = g_gameRules.WEAPON_ABANDONED_TIME,
-        bUnique = 0,
-        bRespawn = (aParams.Respawn and 1 or 0),
-    })
+    -- For vehicles use g_pGame system
+    -- name sRespawnName
+    if (IsVehicleClass(sClass)) then
+        aProperties.properties.Respawn = nil --[[(aProperties.properties.Respawn or {
+            nTimer   = 10,--(aParams.RespawnTimer or g_gameRules.WEAPON_ABANDONED_TIME * 2),
+            bUnique  = 1,
+            bRespawn = (aParams.Respawn and 1 or 0),
+        })]]
+
+        --Debug(aProperties.properties)
+    else
+        aProperties.properties.Respawn  = (aProperties.properties.Respawn or {
+            nTimer   = g_gameRules.WEAPON_ABANDONED_TIME,
+            bUnique  = 0,
+            bRespawn = (aParams.Respawn and 1 or 0),
+        })
+    end
 
     local hLastSpawned
     local aEquip = aParams.Equipment
@@ -1133,6 +1147,9 @@ ServerUtils.SvSpawnEntity = function(aParams)
                 aProperties.name = (sName .. UpdateCounter(eCounter_Spawned, 1))
             end
 
+            aProperties.properties.sRespawnName =  aProperties.name
+            aProperties.properties.bUniqueRespawn =  false
+
             vSpawn = vector.modifyz(vSpawn, iZAdd)
             aProperties.position = vSpawn
 
@@ -1141,6 +1158,7 @@ ServerUtils.SvSpawnEntity = function(aParams)
             if (hEntity) then
 
                 hEntity.ServerSpawned = true
+                hEntity.Properties.sRespawnName = hEntity:GetName()
 
                 iZAdd = math.positive(vector.length(hEntity:GetLocalBBox()))
                 if (aTagList) then
@@ -1168,6 +1186,14 @@ ServerUtils.SvSpawnEntity = function(aParams)
                     end
 
                     hEntity.REMOVAL_TIMER = timernew(iRemovalTimer)
+                end
+
+                if (hEntity.vehicle) then
+                    if (aParams.Respawn) then
+                        hEntity.Properties.sRespawnName = hEntity:GetName()
+                        g_pGame:ScheduleEntityRespawn(hEntity.id, true, (aParams.RespawnTimer or 120))
+                        --Debug("SCHEUDLEEE")
+                    end
                 end
 
                 AwakeEntity(hEntity)

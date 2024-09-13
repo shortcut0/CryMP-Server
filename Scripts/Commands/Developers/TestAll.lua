@@ -232,6 +232,48 @@ AddCommand({
 })
 ------------
 AddCommand({
+    Name = "spamdebug",
+    Access = RANK_DEVELOPER, -- Must be accessible to all!
+
+    Arguments = {
+    },
+
+    Properties = {
+    },
+
+    Function = function(self)
+
+
+        local fa =g_gameRules.SortedBuildings["war"][1]
+        Debug("FACTORY TEST: ",fa:GetName())
+        for i = 1, 30 do
+
+            g_gameRules.Server.SvBuy(g_gameRules,self.id,"nktruck")
+
+           -- self:Execute([[L:ClientEvent(eEvent_BLE,eBLE_Currency,"Vehicle %1 Bought ( -0 PP )","@mp_eTruck")]])
+           -- D-ebug("sItem","nktruck")
+        end
+    end
+})
+------------
+AddCommand({
+    Name = "debugrapid",
+    Access = RANK_DEVELOPER, -- Must be accessible to all!
+
+    Arguments = {
+    },
+
+    Properties = {
+    },
+
+    Function = function(self)
+
+
+        self:GetCurrentItem().weapon:Sv_RequestStartFire()
+    end
+})
+------------
+AddCommand({
     Name = "pushstatus",
     Access = RANK_DEVELOPER, -- Must be accessible to all!
 

@@ -17,6 +17,57 @@ arrayutils = {
 table.__NO__RECURSION__ = {}
 
 ---------------------------
+-- table.setM
+
+table.setM = function(t, m, param, only_if_nil)
+
+	local c = (string.count(m, "%.") + 1)
+	local i = 0
+	for sm in string.gmatch(m, "([^%.]+)") do
+		i = i + 1
+		if (i == c) then
+			if (only_if_nil) then
+				if (t[sm] == nil) then
+					t[sm] = param
+				else
+				end
+			else
+				t[sm] = param
+			end
+		else
+			table.checkM(t, sm, {})
+			t = t[sm]
+		end
+	end
+end
+
+---------------------------
+-- table.getM
+
+table.getM = function(t, m, def)
+
+	local h = nil
+
+	local c = (string.count(m, "%.") + 1)
+	local i = 0
+	for sm in string.gmatch(m, "([^%.]+)") do
+		i = i + 1
+		if (i == c) then
+			h = t[sm]
+		else
+			t = t[sm]
+			if (t == nil) then break end
+		end
+	end
+
+	if (h == nil) then
+		return def
+	end
+	return h
+end
+
+
+---------------------------
 -- table.checkM (finish this)
 
 table.checkM = function(t, m, d)
@@ -29,8 +80,15 @@ end
 -- table.checkNestedM (finish this)
 
 table.checkNestedM = function(t, nest, d)
+
+
+	do return table.setM(t, nest, d, true) end
+
+	-- this is broken beyond good or evil!!
+	throw_error("DO NOT USE TIS FUNCTION! USE .getM instead!")
+
 	local h = t
-	local c = string.count(nest, ".")
+	local c = string.count(nest, "%.")
 	local i = 0
 	for sMember in string.gmatch(nest, "([^%.]+)") do
 		i = i + 1
@@ -47,6 +105,7 @@ table.checkNestedM = function(t, nest, d)
 	end
 	--Debug(t)
 end
+
 
 ---------------------------
 -- table.getnested (finish this)

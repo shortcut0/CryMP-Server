@@ -63,6 +63,8 @@ ServerChannels.OnChannelBanned = function(self, iChannel)
     if (self.ChannelData[iChannel]) then
         self.ChannelData[iChannel].Banned = true
     end
+
+    self:OnChannelDisconnect(iChannel)
 end
 
 -------------------
@@ -157,7 +159,7 @@ ServerChannels.PostResolve = function(self, iChannel)
     local aChannel = self.ChannelData[iChannel]
 
     ServerNames:HandleChannelNick(aChannel.ID, { Country = self:GetCountryCode(aChannel.IP), Channel = aChannel.ID, Profile = aChannel.ID })
-    ServerPCH:LogOnConnection(aChannel.ID, aChannel.IP)
+    ServerPCH:LogOnConnection(aChannel.ID, aChannel.IP, self.IPData[aChannel.IP])
 end
 
 -------------------

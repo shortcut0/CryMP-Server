@@ -23,6 +23,11 @@ local ServerPlayer = {
 
             BasicActor.Server.OnUpdate(self,iFrameTime)
 
+            -- PlayerHandler
+            if (self.IsPlayer) then
+                self:Update()
+            end
+
             --FIXME:temporary
             if (self.stopEPATime and self.stopEPATime < 0) then
                 self.actor:SetParams({followCharacterHead = 0,})
@@ -90,7 +95,7 @@ local ServerPlayer = {
         ------------------------
         Function = function(self, aHitInfo)
             if (self.actor:GetSpectatorMode()~=0) then
-                return;
+                return
             end
 
 

@@ -212,12 +212,15 @@ local ServerGameRulesBuying = {
         Function = function(self, hPlayerID, sItem)
 
             local hPlayer = System.GetEntity(hPlayerID)
-            if (not hPlayer) then
+            if (not hPlayer or not hPlayer.IsPlayer) then
                 return
             end
 
-            -- FIXME: AntiCheat()
-            -- CheckFlood()
+            -- ======================================================
+            -- Flood Check
+            if (not ServerDefense:CheckBuyFlood(hPlayer, sItem)) then
+                return
+            end
 
             local iChannel = hPlayer:GetChannel()
             local bFrozen  = hPlayer:IsFrozen()
@@ -319,12 +322,16 @@ local ServerGameRulesBuying = {
         Function = function(self, hPlayerID, sItem)
 
             local hPlayer = System.GetEntity(hPlayerID)
-            if (not hPlayer) then
+            if (not hPlayer or not hPlayer.IsPlayer) then
                 return
             end
 
-            -- FIXME: AntiCheat()
-            -- CheckFlood()
+            -- ======================================================
+            -- Flood Check
+            if (not ServerDefense:CheckBuyFlood(hPlayer, sItem)) then
+                return
+            end
+
             Debug("sItem",sItem)
 
             local bOk = false
@@ -504,7 +511,16 @@ local ServerGameRulesBuying = {
 
                             if (bAlive) then
 
-                                hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest("%1 @l_ui_ammo @l_ui_bought ( -" .. iPrice .. " PP )")..[[","]]..(aDef.name or "")..[[")]])
+                                local sName = aDef.name
+                                local sFmt = "%1"
+                                if (string.empty(sName)) then
+                                    --sFmt = aDef.class or aDef.buyammo or aDef.name or aDef.category or ""
+                                    --sName = ""
+                                    --sName = aDef.class or aDef.buyammo or aDef.name or aDef.category or ""
+                                    sFmt = ""
+                                    sName = ""
+                                end
+                                hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest(sFmt .. " @l_ui_ammo @l_ui_bought ( -" .. iPrice .. " PP )")..[[","]]..(sName or "")..[[")]])
                                 self:AwardPPCount(hPlayerID, -iPrice, nil, hPlayer:HasClientMod())
                             else
                                 aReviveQueue.ammo_price = (aReviveQueue.ammo_price + iPrice)

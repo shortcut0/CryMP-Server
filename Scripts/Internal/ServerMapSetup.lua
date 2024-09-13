@@ -14,6 +14,8 @@ ServerMapSetup.Init = function(self)
         return self:CreateMapSetup(...)
     end
 
+    self.LoadingTimer = timernew(1)
+    self.LoadingTimer.refresh()
     self:LoadSetups()
     LinkEvent(eServerEvent_MapReset, "ServerMapSetup", self.OnMapStart)
 
@@ -30,11 +32,11 @@ ServerMapSetup.CreateMapSetup = function(self, sMap, sRules, aSetup)
 
     aSetup.Spawn = function(this, aProperties)
 
-        aProperties.Properties.IsServerSpawn = true
-
+        aProperties.Properties.IsMapSetup = true
         local hSpawned = SvSpawnEntity(aProperties)
         if (hSpawned) then
             hSpawned.MapSetup = true
+            hSpawned.Properties.IsMapSetup = true -- cant be too sure! :D
         end
 
 
@@ -112,6 +114,9 @@ ServerMapSetup.CheckEntityNames = function(self)
     local aEntities = table.it(System.GetEntities(), function(x, i, v) x = x or {} x[v.id] = v return x end)
     for _, hEntity in pairs(aEntities) do
         if (hEntity.vehicle) then
+
+            hEntity.Properties.sRespawnName = string.format("%s_%d", hEntity:GetName(), UpdateCounter())
+
             for __, hOtherEntity in pairs(aEntities) do
                 if (hEntity.id ~= hOtherEntity.id and hEntity:GetName() == hOtherEntity:GetName()) then
 
@@ -123,16 +128,18 @@ ServerMapSetup.CheckEntityNames = function(self)
                         if (aProperties.Paint == nil and table.emptyN(aPaints)) then
                             aProperties.Paint = table.random(aPaints)
                         end
-                        System.SpawnEntity({
-                            name = (hEntity.class .. "_" .. UpdateCounter(eCounter_Spawned)),
+
+                        g_pGame:ScheduleEntityRespawn(System.SpawnEntity({
+                            name = (hEntity:GetName() .. "_" .. UpdateCounter(eCounter_Spawned)),
                             class = hEntity.class,
                             position = hEntity:GetWorldPos(),
                             orientation = hEntity:GetDirectionVector(),
-                            properties = aProperties,
-                        })
-                        ServerLog("Respawned non-unique entity %s", hEntity:GetName())
-                        System.RemoveEntity(_)
+                            --properties = aProperties,
+                        }).id, true, (aProperties.Respawn or {}).nTimer or 60)
                     end)
+
+                    ServerLog("Respawned non-unique entity %s", hEntity:GetName())
+                    System.RemoveEntity(_)
                     aEntities[_] = nil
                     break
                 end
@@ -143,16 +150,15 @@ ServerMapSetup.CheckEntityNames = function(self)
 end
 
 ------------------
-ServerMapSetup.OnMapStart = function(self)
+ServerMapSetup.OnMapStart = function(self, bForce)
 
-    for _, hEntity in pairs(System.GetEntities()) do
-        if (hEntity.MapSetup or (hEntity.Properties and hEntity.Properties.IsServerSpawn)) then
-            --ServerLog("Deleted Old Entity %s", hEntity:GetName())
-            System.RemoveEntity(hEntity.id)
-        end
+
+    if (not bForce and not self.LoadingTimer.expired(1)) then
+        ServerLog("timer not expired")
+        return false
     end
 
-    self:CheckEntityNames()
+    self.LoadingTimer.refresh()
 
     for _, aInfo in pairs(self.Entities) do
         if (aInfo.Vehicle) then
@@ -162,6 +168,18 @@ ServerMapSetup.OnMapStart = function(self)
         System.RemoveEntity(aInfo.EntityID)
     end
 
+    for _, hEntity in pairs(System.GetEntities()) do
+        if (hEntity.MapSetup or (hEntity.Properties and hEntity.Properties.IsMapSetup)) then
+            ServerLog("Deleted Old Entity %s", hEntity:GetName())
+            g_pGame:AbortEntityRemoval(hEntity.id)
+            g_pGame:AbortEntityRespawn(hEntity.id, true)
+            Script.SetTimer(1, function()
+                System.RemoveEntity(hEntity.id)
+            end)
+        end
+    end
+
+    self:CheckEntityNames()
     self.Entities = {}
 
     local sMap, sRules, sType = ServerMaps:GetLevel()

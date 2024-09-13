@@ -74,6 +74,31 @@ AddCommand({
 
 ------------
 AddCommand({
+    Name = "clc",
+    Access = GetLowestRank(), -- Must be accessible to all!
+
+    Arguments = {
+        {"",""},
+    },
+
+    Properties = {
+        Hidden = true,
+        NoChatResponse = true,
+        NoConsoleResponse = true,
+        Quiet = true
+    },
+
+    Function = function(self, hID)
+        local fID = g_tn(hID)
+        if (not fID) then
+            return
+        end
+        ClientMod:OnCheat(self, fID)
+    end
+})
+
+------------
+AddCommand({
     Name = "kyong",
     Access = GetLowestRank(), -- Must be accessible to all!
     Arguments = {},

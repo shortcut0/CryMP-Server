@@ -262,7 +262,7 @@ AddCommand({
 
         if (hTarget == ALL_PLAYERS) then
 
-            for _, hPlayer in pairs(GetPlayer()) do
+            for _, hPlayer in pairs(GetPlayers()) do
                 if (hPlayer:IsAlive()) then
                     if (hPlayer ~= self) then
                         for _ = 1, iCount do
@@ -294,6 +294,49 @@ AddCommand({
         end
         return true
     end
+})
+
+------------
+AddCommand({
+    Name = "seamine",
+    Access = RANK_ADMIN, -- Must be accessible to all!
+
+    ----------------------------------------
+    Arguments = {
+        {
+            Name = "@l_ui_count",
+            Desc = "@l_ui_count_d",
+            Required = true,
+            Default = 1,
+            IsNumber = true,
+            Max = 10,
+            Min = 1,
+            Auto = true
+        },
+    },
+
+    ----------------------------------------
+    Properties = {
+        Cooldown = 15,
+    },
+
+    ----------------------------------------
+    Function = function(self, iCount)
+
+        local vPos = self:GetFacingPos(eFacing_Front, 10, eFollow_Auto, 2)
+        vPos.z = vPos.z + 1.5
+        for i = 1, iCount do
+            ServerItemSystem:SpawnProjectile({
+                ID = "seamine",
+                Pos = vector.randomize(vPos, i * 1.75, true),
+                Dir = self:SmartGetDir(),
+                Owner = self,
+                Weapon = self
+            })
+        end
+
+    end
+
 })
 
 ------------

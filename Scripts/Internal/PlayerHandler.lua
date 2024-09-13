@@ -146,6 +146,10 @@ PlayerHandler.OnClientDisconnect = function(self, hClient, bNoSave, bQuiet, bRel
     if (hClient.VoteKicked) then hClient:SetData(ePlayerData_LastVoteKicked, GetTimestamp()) end
 
     local sID   = hClient:GetProfileID()
+    if (not hClient:IsValidated()) then
+        ServerLog("Client didnt validate, discarding data...")
+        return
+    end
     local aData = hClient:GetStoredData()
 
     ServerLog("============================================= [ OLD ] ====================================")
@@ -520,6 +524,8 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
         --Debug("req2=",vDir)
         --Debug("req3=",iPosP)
 
+        --SpawnEffect(ePE_Flare,vPos,vDir,0.1)
+
         local nIgnore = (self:GetVehicleId() or self.id)
         local iHits = (ServerDLL.RayWorldIntersection or Physics.RayWorldIntersection)(vPos, vDir, 1, iTypes, self.id, self:GetVehicleId(), g_PlayerRayTable)
         local aHit = g_PlayerRayTable[1]
@@ -665,6 +671,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.GetRealPing     = function(self) return (g_pGame:GetPing(self:GetChannel() or 0) * 1000)  end
     hClient.SetRealPing     = function(self, real) g_pGame:SetSynchedEntityValue(self.id, g_gameRules.SCORE_PING_KEY, math.floor(real))  end
     hClient.GetCurrentItem  = function(self) return self.inventory:GetCurrentItem() end
+    hClient.GetCurrentItemClass = function(self) local c =  self.inventory:GetCurrentItem() return c and c.class end
     hClient.GetItemByClass  = function(self, class) local h = self.inventory:GetItemByClass(class) return GetEntity(h) end
     hClient.HasItem         = function(self, class) return self.inventory:GetItemByClass(class) end
     hClient.GetItem         = function(self, class) return self.inventory:GetItemByClass(class) end
@@ -674,6 +681,8 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.SelectItem      = function(self, class) return self.actor:SelectItemByNameRemote(class) end
     hClient.GetEquipment    = function(self) local a = self.inventory:GetInventoryTable() local e for i, v in pairs(a) do local x = GetEntity(v) if (x and x.weapon) then if (e == nil) then e = {} end table.insert(e, { x.class, table.it(x.weapon:GetAttachedAccessories(), function(ret, index, val) local class = GetEntity(val) if (ret == nil) then return { class }  end table.insert(ret, class) end) }) end end return e end
     hClient.GetInventory    = function(self) local a = self.inventory:GetInventoryTable() local n = {} for _,id in pairs(a or {}) do table.insert(n,GetEntity(id)) end return n end
+    hClient.SetActorMode    = function(self, m, v) self.actor:SetActorMode(m,v) end
+    hClient.GetActorMode    = function(self, m) return self.actor:GetActorMode(m) end
 
     hClient.IsPunished      = function(self, f) return (self.Info.Punishment:Is(f))  end
     hClient.SetBanned       = function(self, mode) self.Info.Punishment.WasBanned = mode  end
@@ -832,7 +841,8 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
                 local aData = PlayerHandler:GetPlayerData(sID)
                 if (aData) then
                     if (not self:DataLoaded()) then
-                        self:SetStoredData(table.merge(self:GetStoredData(), aData))
+                        ServerLog("Assigned data %s",table.tostring(table.merge(aData, self:GetStoredData(), true)))
+                        self:SetStoredData(table.merge(aData, self:GetStoredData(), true))
                         self:SetDataLoaded(true)
 
                         -- Language Perferrence!
@@ -897,7 +907,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
         end
 
         -- =================================================
-
+        if (ClientMod) then ClientMod:ClientTick(self) end
 
         self.LastTick.refresh()
     end
@@ -931,9 +941,31 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
             ClientMod:UpdateClient(self)
         end
 
+        local hVehicle = self:GetVehicle()
         local hItem = self:GetCurrentItem()
+
         if (hItem) then
             self:UpdateFiringInfo(hItem)
+            if (hItem.class == "C4" and self:GetActorMode(ACTORMODE_RAPIDFIRE) > 0) then
+                hItem.weapon:Sv_Update()
+            end
+        elseif (hVehicle and hVehicle:GetDriverId() == self.id) then
+            local hMGs = hVehicle.HeliMGs
+            if (hMGs) then
+                for _, hMG in pairs(hMGs) do
+                    local vDir = hVehicle:GetDirectionVector()
+                    if (self:HasGodMode(2) or hVehicle.UsePlayerMGDir) then
+                        vDir = self:SmartGetDir()
+                    end
+                    --self:UpdateFiringInfo(hMG, vDir, (hMG.SvFireRate or -1))
+                    hMG.weapon:Sv_SetFiringInfo(vDir, hMG:GetWorldPos(), vector.sum(hMG:GetWorldPos(), vDir, 2024), (hMG.SvFireRate or -1))--vDir, vHand, vHit)
+                    hMG.weapon:Sv_Update()
+                    hMG.weapon:SetAmmoCount(nil, 10)
+                    --ServerLog("Lua updated..")
+                    --hMG:SetAngles(vector.toang(vDir))
+                    --Debug("uwupdate")
+                end
+            end
         end
 
         local bFlying = self:IsFlying()
@@ -948,11 +980,15 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
         self.FrameTick.refresh()
     end
 
-    hClient.UpdateFiringInfo = function(self, hItem)
-        local vDir = self:SmartGetDir()
+    hClient.UpdateFiringInfo = function(self, hItem, vDir, iRate)
+
+        if (not hItem.weapon:Sv_IsFiring()) then
+            return
+        end
+
+        vDir = vDir or self:SmartGetDir()
         local vHand = self:GetBonePos("Bip01 R Hand") or self:GetPos()
-        --SpawnEffect(ePE_Flare,vHand,vDir,0.1)
-        hItem.weapon:Sv_SetFiringInfo(vDir, vHand, vector.sum(vHand, vDir, 2024))--vDir, vHand, vHit)
+        hItem.weapon:Sv_SetFiringInfo(vDir, vHand, vector.sum(vHand, vDir, 2024), (iRate or -1))--vDir, vHand, vHit)
     end
 
     hClient.ResetServerFiring = function(self)

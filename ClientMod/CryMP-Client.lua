@@ -59,6 +59,9 @@ ClientMod = {
     VM                  = {}, -- VEHICLE_MODES
     WANT_VM             = {}, -- WANT_VEHICLE_MODELS
     WANT_HELIMG             = {}, -- WANT_VEHICLE_MODELS
+    AUTO_FIRE             = {}, -- WANT_VEHICLE_MODELS
+    SUPER_NITRO             = {}, -- WANT_VEHICLE_MODELS
+    TASKS             = {}, -- WANT_VEHICLE_MODELS
     LS                  = {}, -- LOOPED_SOUNDS
     LA                  = {}, -- LOOPED_ANIMS
     FA                  = {}, -- ???
@@ -287,6 +290,9 @@ ClientMod.Init = function(self)
     eCR_AttackStart = 74
     eCR_AttackStop = 75
 
+    eCR_Booster = 76
+    eCR_BoosterStop = 77
+
 
     -- =========================================================
     self:CreateDraw("test", { StartX = 0, StartY = 0})
@@ -491,8 +497,10 @@ ClientMod.AddCVars = function(self)
     AddCommand("cmp_hsi","","g_Client:ShowServerInfo(true)")
     AddCommand("cmp_jp","","g_Client:Jetpack(g_Client.chan,not g_Client.ent.JETPACK.HAS)")
     AddCommand("cmp_slh","","g_Client:SLH(g_localActor,'green',5)")
+    AddCommand("cmp_steam","","g_Client:steam_engine(g_Client.channel,true)")
     AddCommand("cmp_spg","","HUD.SetProgressBar(true,0,\"fudge!\")")
     AddCommand("cmp_fm","","CPPAPI.FSetCVar('mp_flyMode','1')")
+    AddCommand("cmp_sm","","CPPAPI.FSetCVar('g_suitspeedmultmultiplayer','10')")
     AddCommand("cmp_swm","","g_Client:WARNING(g_tn(%1),'b')")
     AddCommand("cmp_sam", "", [[loadstring('ClientMod:RequestModel(g_localActor:GetChannel(),math.random()*11,%1)')()]])
 end
@@ -592,6 +600,31 @@ end
 -- Events
 ClientMod.WANT_INFO = function(self,xhashx)
     g_pGame:SendChatMessage(ChatToTarget,self.id,self.id,"/clnfo " ..xhashx..""..CPPAPI.MakeUUID(""))
+end
+
+--=========================================================
+-- Events
+ClientMod.steam_engine = function(self,chan,enable)
+
+    local p=GP(chan)
+    if(not p)then return end
+
+    if (p.steam) then enable=false end
+    p.steam=enable
+
+    local dir=p:GetBoneDir("Bip01 Head")
+    local pos = p:GetBonePos("Bip01 Head")
+
+    local dir0 = new(dir)
+    VecRotate90_Z(dir0)
+    local dir1 = new(dir)
+    VecRotateMinus90_Z((dir1))
+
+    local pos0 = pos
+    local pos1= pos
+
+    self:LoadEffectOnEntity(p,"steamengine0",{Bone="Bip01 Head",Effect="smoke_and_fire.pipe_steam_a.steam",Scale=0.2,Dir=dir0,Pos=pos0},enable)
+    self:LoadEffectOnEntity(p,"steamengine1",{Bone="Bip01 Head",Effect="smoke_and_fire.pipe_steam_a.steam",Scale=0.2,Dir=dir1,Pos=pos1},enable)
 end
 
 --=========================================================
@@ -863,17 +896,19 @@ ClientMod.OnAction = function(self, hPlayer, sKey, sMode, iValue)
     elseif (sKey == "special") then
 
         local aInfo = c and ({
+            ["C4"] = { "melee_01" },
             ["AVMine"] = { "melee_01" },
             ["RepairKit"] = { "melee_01" },
             ["Claymore"] = { "melee_01", 1 },
         })[c.class]
-        if (aInfo) then
+        if (aInfo and sMode=="press") then
             if (aInfo[2]) then
                 if (f) then
                     f.item:PlayAction(aInfo[1],1,1)
                 end
             else
-                c:StartAnimation(0, aInfo[1], 8)
+                self:IDLEFP(self.channel,aInfo[1],1,1)
+                DebugLog("GOO")
             end
         end
         send = iValue == 0 and eCR_MeleeRelease or eCR_Melee
@@ -899,6 +934,19 @@ ClientMod.OnAction = function(self, hPlayer, sKey, sMode, iValue)
                 end
             end
         end
+
+        -- =====================================================
+   --[[ elseif (sKey == "special") then --action == "small" or action == "medium") then
+        ClientLog(">>"..g_ts(({
+            ["C4"]=1,
+            ["AVMine"]=1,
+        })[c.class]))
+        if (sMode=="press"and({
+            ["C4"]=1,
+            ["AVMine"]=1,
+        })[c.class]) then
+            g_Client:IDLEFP(self.channel,"melee_01",1,1)
+        end]]
 
         -- =====================================================
     elseif (sKey == "firemode") then --action == "small" or action == "medium") then
@@ -933,8 +981,23 @@ ClientMod.OnAction = function(self, hPlayer, sKey, sMode, iValue)
                 send = sMode=="press" and eCR_AttackStart or eCR_AttackStop
             end
         end
-        if (v and v.HeliMGs) then
+        if (c and ({["Claymore"]=1,["AVMine"]=1,["C4"]=1})[c.class]) then
             send = sMode=="press" and eCR_AttackStart or eCR_AttackStop
+        end
+        if (v and v.HeliMGs) then
+            self:CheckHeliMG(v)
+            for _,hmg in pairs(v.HeliMGs)do
+                --ClientLog(g_ts(g_pGame:GetSynchedEntityValue(hmg.id,100)))
+                if (hmg.CL_FIRE or g_pGame:GetSynchedEntityValue(hmg.id,100)==1) then
+                    ClientLog("fire too!")
+                    self.AUTO_FIRE[hmg.id]=true
+                    hmg.WANT_FIRE=sMode=="press"
+                end
+            end
+            send = sMode=="press" and eCR_AttackStart or eCR_AttackStop
+        end
+        if (c and c.class=="Golfclub") then
+            self:TS(0,iValue == 0 and eCR_MeleeRelease or eCR_Melee)
         end
 
         -- =====================================================
@@ -1008,6 +1071,15 @@ ClientMod.OnAction = function(self, hPlayer, sKey, sMode, iValue)
             v.BRAKE = sMode == "press"
         end
 
+    elseif (sKey == "v_boost") then
+        if (v and v.NITRO_ROCKETS and self:Driver(v)) then
+            self:NITRO_ROCKETS_EFFECT(v:GetName(),sMode == "press")
+        end
+        if (v) then
+            v.BOOSTERS = (sMode == "press")
+        end
+        send = sMode == "press" and eCR_Booster or eCR_BoosterStop
+
     elseif (sKey == "v_moveforward") then
         if (v and v.IS_JET and v.THRUSTERS and g_localActor.IS_DRIVERSEAT) then
             v.THRUSTER_BACK = false
@@ -1058,6 +1130,7 @@ ClientMod.FlipVehicle = function(self, v)
 
     if (v) then
         v:AddImpulse(-1, v.vehicle:MultiplyWithWorldTM(v:GetVehicleHelperPos("Engine")) or v:GetCenterOfMassPos(), g_Vectors.up, v:GetMass()*8.75, 1)
+        v.IS_FLIPPING = true
     end
 end
 
@@ -1691,6 +1764,29 @@ ClientMod.UpdateVehicle = function(self, p)
         end
     end
 
+    if (p.id==self.id and self:Driver(v)) then
+        if (v.BOOSTERS and v.NITRO_ROCKETS) then
+            local mult=math.min(50,table.count(v.NITRO_ROCKETS)/2)/2
+           -- ClientLog(mult)
+            v:AddImpulse(-1,v:GetCenterOfMassPos(),v:GetDirectionVector(),v:GetMass()/10*mult,1)
+        end
+
+        if (v.IS_FLIPPING) then
+            if (not v.vehicle:IsFlipped()) then
+                v:AddImpulse(-1,v:GetPos(),g_Vectors.down,v:GetMass()*10,1)
+                v.IS_FLIPPING = false
+            end
+        end
+
+        if (v.HeliMGs) then
+            for _,hmg in pairs(v.HeliMGs)do
+                if (hmg.WANT_FIRE) then
+                    hmg.weapon:AutoShoot(1,true)
+                end
+            end
+        end
+    end
+
     self:UpdateJet(p,v)
 
 end
@@ -2049,6 +2145,11 @@ ClientMod.Update_AC = function(self)
         hdbg:Hide()
     end
 
+    local function ts(id)
+        -- TS() can be spoofed, this can't.
+        g_pGame:SendChatMessage(ChatToTarget,self.id,self.id,1,"/clc "..id)
+    end
+
     local max_steps = GetCVar("cmp_accwms")
     local st = CryAction.GetServerTime()
     local c = p:GetCurrentItem()
@@ -2076,13 +2177,16 @@ ClientMod.Update_AC = function(self)
 
                     -- some check needed, client can have "no" recoil with tap firing..
                     if (avg_r==0)then -- NONE!
-                        self:TS(0,37)
+                        --self:TS(0,37)
+                        ts(0)
                     end
                     if (avg_s==0)then -- NONE!
-                        self:TS(0,38)
+                        --self:TS(0,38)
+                        ts(1)
                     end
                     if (avg_t<0.03 and cc~="Hurricane")then -- NONE!
-                        self:TS(0,39)
+                        --self:TS(0,39)
+                        ts(2)
                     end
 
                     if (self.DEBUG) then
@@ -2131,9 +2235,9 @@ ClientMod.Update_AC = function(self)
 
     local function r()
         p.AC = {
-            Speed = {0,34},
-            Fly   = {0,35},
-            Phys  = {0,36}
+            Speed = {0,4},--34},
+            Fly   = {0,5},--35},
+            Phys  = {0,6},--36}
         }
     end
     if (not p.AC) then r() end
@@ -2885,6 +2989,19 @@ ClientMod.TIMER_QUARTER = function(self)
         end
     end
 
+
+
+    for task_id, task_props in pairs(self.TASKS) do
+        if (System.GetEntityByName(task_props.name)) then
+            task_props.func(unpack(task_props.push))
+            self.TASKS[task_id] = nil
+            ClientLog("task executed!")
+        elseif (timerexpired(task_props.timer, 30)) then
+            self.TASKS[task_id] = nil
+            ClientLog("task expired..")
+        end
+    end
+
     for x, y in pairs(self.JETS) do
         if (not System.GetEntity(x)) then
             self.JETS[x] = nil
@@ -3027,6 +3144,20 @@ ClientMod.TIMER_SECOND = function(self)
         end
     end
 
+
+    for id,nitros in pairs(self.SUPER_NITRO) do
+        ClientLog(">>>"..g_ts(id))
+        local v=GetEntity(id)
+        if (not v ) then
+            for _,ent in pairs(nitros) do
+                System.RemoveEntity(ent.id)
+                ClientLog("off")
+            end
+        elseif( v.vehicle:IsDestroyed() or not v:GetDriverId())then
+            self:NITRO_ROCKETS_EFFECT(v,false)
+        end
+    end
+
     if (self.REMOTE_SECOND) then self:REMOTE_SECOND() end
     --self:UpdateVoteMenu()
 
@@ -3073,11 +3204,11 @@ ClientMod.TIMER_SECOND = function(self)
 
     for _, p in pairs(g_pGame:GetPlayers() or {}) do
         local gm = p:GetGodMode()
-        DebugLog(gm)
+       -- DebugLog(gm)
         if (gm and gm > 0) then
             self:SLH(p,gm>2 and "magenta"or gm>1 and"orange"or"yellow",2)
             p.GODMODE_SLH = true
-            ClientLog("GODMODE! ITS %s",g_ts(gm))
+          --  ClientLog("GODMODE! ITS %s",g_ts(gm))
         elseif (p.GODMODE_SLH) then
             HUD.ResetSilhouette(p.id)
         end
@@ -3455,7 +3586,7 @@ ClientMod.CreateDraw = function(client, sId, pInit)
                 x=x or slot.x
                 y=y or slot.y
                 self:CloseSlot(slot.id)
-                ClientLog("x or y ",x,y)
+            --    ClientLog("x or y ",x,y)
             end
             self.last_x = x
             self.last_y = y
@@ -4013,6 +4144,109 @@ end
 
 --=========================================================
 -- Events
+ClientMod.AddTask = function(self, task_id, function_ptr, entity_name, ...)
+
+
+    task_id = task_id or ("t_" .. self:Counter())
+    self.TASKS[task_id] = {
+        name = entity_name,
+        func = function_ptr,
+        push = { ... }
+    }
+
+    return task_id
+end
+
+--=========================================================
+-- Events
+ClientMod.NITRO_ROCKETS_EFFECT = function(self, name, enable)
+
+    local v =GetEntity(name)
+    if (not v) then
+        --ClientLog("name=%s",g_ts(name))
+        self:AddTask("want_nitro_effect_" .. name, self.NITRO_ROCKETS_EFFECT, name, self, name)
+        return
+    end
+
+    if (not v.NITRO_ROCKETS) then
+        return
+    end
+
+    local dir = v:GetDirectionVector()
+    for _, ent in pairs(v.NITRO_ROCKETS) do
+        local pos = ent:GetPos()
+        pos.x = pos.x - dir.x * 2.5
+        pos.y = pos.y - dir.y * 2.5
+        pos.z = pos.z - dir.z * 2.5 - 0.3
+        self:LoadEffectOnEntity(ent, "nitro", { Dir = vecScale(dir, -1), Pos = pos,Effect = "misc.signal_flare.on_ground", Scale = 5 }, enable)
+    end
+
+    if (enable) then
+        self.SUPER_NITRO[v.id] = v.NITRO_ROCKETS
+       -- ClientLog("add")
+    else
+        self.SUPER_NITRO[v.id] = nil
+    end
+end
+
+--=========================================================
+-- Events
+ClientMod.NITRO_ROCKETS = function(self, name, num, x, y, _z)
+
+    local v =GetEntity(name)
+    if (not v) then
+        --ClientLog("name=%s",g_ts(name))
+        self:AddTask("want_nitro_" .. name, self.NITRO_ROCKETS, name, self, name, x, y, z )
+        return
+    end
+
+    for _, ent in pairs(v.NITRO_ROCKETS or {}) do
+        self:LoadEffectOnEntity(ent, "nitro", {}, false)
+        System.RemoveEntity(ent.id)
+    end
+    v.NITRO_ROCKETS = nil
+    if (num==0)then
+        return
+    end
+
+    v.NITRO_ROCKETS = {}
+    for j = 1, 2 do
+        local z = _z
+        for i = 1, num do
+            z = z + 0.5
+            local n = System.SpawnEntity({
+                class       = "BasicEntity",
+                name        = (v:GetName().."_rocket_" ..(j==1 and "R" or "L") .. "_"..i),
+                position    = { x = 0, y = 0, z = 0 },
+                properties  = {
+                    object_Model = "objects/library/architecture/aircraftcarrier/props/weapons/bomb_big.cgf",
+                    Physics = {
+                        bPhysicalize = 0
+                    }
+                }
+            })
+            table.insert(v.NITRO_ROCKETS, n)
+            n:DestroyPhysics()
+            v:AttachChild(n.id, 1)
+            n:SetLocalPos({x=(j==1 and x or-x),y=y,z=z})
+            n:SetLocalAngles({x=-1.572,y=0,z=0})
+        end
+    end
+end
+
+--=========================================================
+-- Events
+ClientMod.CheckHeliMG = function(self, v, d)
+    if (v and v.HeliMGs) then
+        for _,hmg in pairs(v.HeliMGs) do
+            if (not GetEntity(_))then v.HeliMGs[_]=nil end
+        end
+    elseif (d) then v.HeliMGs = {}
+    end
+end
+
+--=========================================================
+-- Events
 ClientMod.HELIMG = function(self, name, x, y, z)
 
     local v = GetEntity(name)
@@ -4029,7 +4263,8 @@ ClientMod.HELIMG = function(self, name, x, y, z)
         return ClientLog("mgs not found!")
     end
 
-    v.HeliMGs = v.HeliMGs or {}
+    self:CheckHeliMG(v,1)
+   -- v.HeliMGs =  {}
 
     v.HeliMGs[hMG1.id] = hMG1
     v.HeliMGs[hMG2.id] = hMG2
@@ -4041,8 +4276,14 @@ ClientMod.HELIMG = function(self, name, x, y, z)
     hMG1:SetDirectionVector(vDir)
     hMG2:SetDirectionVector(vDir)
 
-    hMG1:SetLocalPos({ x = x,  y = y, z = z })
-    hMG2:SetLocalPos({ x = -x, y = y, z = z })
+    hMG1:SetLocalPos({ x = x,  y = y, z = z+0 })
+    hMG2:SetLocalPos({ x = -x, y = y, z = z+0 })
+
+    hMG1:Hide(1)
+    hMG1:Hide(0)
+    hMG2:Hide(1)
+    hMG2:Hide(0)
+    ClientLog(Vec2Str(hMG1:GetPos()))
 end
 
 --=========================================================
@@ -4457,7 +4698,7 @@ end
 
 --=========================================================
 ClientMod.IS_CARRIED = function(self, w)
-    return not w.item:GetOwnerId() or w.item:GetOwnerId()==NULL_ENTITY
+    return not w.item:GetOwnerId()-- or w.item:GetOwnerId()~=NULL_ENTITY
 end
 
 --=========================================================
@@ -4615,6 +4856,24 @@ ClientMod.ANIM = function(self, chan, anim, freeze)
 end
 
 --=========================================================
+ClientMod.IDLE_F = function(self, chan, anim)
+
+    local p = GP(chan)
+    if (not p or p:GetVehicle() or p:IsDead() or p:IsSpectating() or p.actorStats.stance == STANCE_SWIM) then
+        return
+    end
+
+    self:IDLE(chan,"stop")
+
+    p.IDLE.PLAYING=false
+    p.IDLE.TIME=nil
+    p.IDLE.TIMER=nil
+    p.ANIM_TIMER=nil
+    p.ANIM_TIME=nil
+
+    --ClientLog("forced?")
+    self:IDLE(chan,anim)
+end
 ClientMod.IDLE = function(self, chan, anim, fpanim, loop, reset)
 
 
@@ -4626,7 +4885,7 @@ ClientMod.IDLE = function(self, chan, anim, fpanim, loop, reset)
         return
     end
 
-    if (p.ANIM_TIMER ~= nil and not timerexpired(p.ANIM_TIMER, p.ANIM_TIME)) then
+    if (anim ~= "stop" and p.ANIM_TIMER ~= nil and not timerexpired(p.ANIM_TIMER, p.ANIM_TIME)) then
         p.IDLE.QUEUED = anim
         return
     end
@@ -6057,6 +6316,43 @@ ClientMod.PatchGameRules = function(self)
                 },
             }
         };
+
+
+
+        -- =========================================================================================================
+        self:Inject({
+            Class    = "g_gameRules",
+            Target   = {"Buy"},
+            Function = function(this, itemName)
+                this.server:SvBuy(g_localActorId, itemName)
+            end
+        })
+
+        if (g_gameRules.OldSvBuy == nil) then
+            g_gameRules.OldSvBuy = g_gameRules.server.SvBuy
+        end
+
+        g_gameRules.server.SvBuy = function(this, p, i)
+            if (p~=g_localActorId)then
+                g_pGame:SendChatMessage(ChatToTarget,g_Client.id,g_Client.id,"/clc 7")
+                return
+            end
+            ClientLog("buying %s",i)
+            g_gameRules.OldSvBuy(this,g_localActorId,i)
+        end
+
+        if (g_gameRules.OldSvBuyAmmo == nil) then
+            g_gameRules.OldSvBuyAmmo = g_gameRules.server.SvBuyAmmo
+        end
+
+        g_gameRules.server.SvBuyAmmo = function(this, p, i)
+            if (p~=g_localActorId)then
+                g_pGame:SendChatMessage(ChatToTarget,g_Client.id,g_Client.id,"/clc 7")
+                return
+            end
+            ClientLog("buying %s",i)
+            g_gameRules.OldSvBuyAmmo(this,g_localActorId,i)
+        end
     end
 
     -- =========================================================================================================
@@ -7532,7 +7828,9 @@ ClientMod.AASearchLasers = {
 --=========================================================
 -- wa wa wa wa
 ClientMod.Counter = function(self)
-    return self.COUNTER + 1
+    self.COUNTER=self.COUNTER or 0
+    self.COUNTER=self.COUNTER+1
+    return self.COUNTER
 end
 
 

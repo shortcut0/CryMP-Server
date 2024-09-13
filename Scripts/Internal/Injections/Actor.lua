@@ -35,15 +35,9 @@ local ServerActor = {
         ------------------------
         Function = function(self, iFrameTime)
 
-            -- PlayerHandler
-            if (self.IsPlayer) then
-                self:Update()
-            end
-
             if (not self:IsDead()) then
                 self:UpdateEvents(iFrameTime)
             end
-
             --ServerLog("hi")
         end
     },

@@ -140,7 +140,7 @@ ConfigCreate({
                 BanInvalidProfile = false, -- sometimes there are false positives or timeouts!
 
                 -- Kick profile spoofers
-                KickInvalidProfile = true,
+                KickInvalidProfile = false,
 
                 -- Bind bans to hardware ids of clients
                 UseHardwareBans = true,
@@ -286,11 +286,30 @@ ConfigCreate({
                 -- Interval between logging cheats to console
                 CheatLogInterval = 0.75,
 
+                -- Interval between logging cheats to chat
+                ChatLogInterval = 5,
+
                 -- Testing mode, no punishments will be given!
                 TestMode = true,
 
                 -- Timeout for detected cheats
                 ActionTimeout = 120,
+
+                -- a List of detected cheats that will be ignored (blocked, but ignored)
+                Blacklist = {
+                    eCheat_StopFire,
+                    eCheat_StartFire,
+                }, ---< Blacklist
+
+                ChatProtection = {
+
+                    FloodThreshold = 5, -- no more than this amount of any messages
+                    FloodTime      = 1, -- within this amount of time
+
+                    SpamThreshold  = 5, -- no more than this amount of the same message
+                    SpamTime       = 1, -- within this amount of time
+
+                }, ---< ChatProtection
 
                 -- Required detects to take action against a cheater
                 ActionThreshold = {
@@ -304,6 +323,11 @@ ConfigCreate({
                     [eCheat_ClientFly]      = 3,
                     [eCheat_ClientSpeed]    = 3,
                     [eCheat_ServerSpeed]    = 3,
+                    [eCheat_ExpDistance]    = 3,
+
+                    [eCheat_ChatSpam]       = 1,
+                    [eCheat_ChatFlood]      = 1,
+                    
                 }, ---< ActionThreshold
 
                 -- Actions to be performed once a cheater is being dealt with
@@ -315,6 +339,10 @@ ConfigCreate({
 
                     [eCheat_NoRecoil]   = { Action = PUNISH_BAN, Count = "1d" },
                     [eCheat_NoSpread]   = { Action = PUNISH_BAN, Count = "1d" },
+
+                    [eCheat_ChatSpam]   = { Action = PUNISH_MUTE, Count = "30m" },
+                    [eCheat_ChatFlood]  = { Action = PUNISH_MUTE, Count = "30m" },
+
                 } ---< ActionPunishments
 
             }, ---< AntiCheat
