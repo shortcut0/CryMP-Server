@@ -14,8 +14,8 @@
 ---------------------------------------------------------
 
 Script.ReloadScript("CryMP-Client.lua")
-local f=loadfile("CryMP-Client.lua")
-if (f) then f() end
+local crymp_file=loadfile("CryMP-Client.lua")
+if (crymp_file) then crymp_file() end
 if (not g_localActor) then return end
 
 --=========================================================
@@ -57,6 +57,7 @@ ClientMod = {
     JPS                 = {}, -- jetpack pointers
     NW                  = {}, -- NITRO_VEHICLES
     VM                  = {}, -- VEHICLE_MODES
+    TURR_ANGS             = {}, -- WANT_VEHICLE_MODELS
     WANT_VM             = {}, -- WANT_VEHICLE_MODELS
     WANT_HELIMG             = {}, -- WANT_VEHICLE_MODELS
     AUTO_FIRE             = {}, -- WANT_VEHICLE_MODELS
@@ -156,11 +157,11 @@ ClientLog = function(sMsg, ...)
     if (#p>0) then
         s = string.format(s,unpack(p))
     end
-    local p=0
+    local l=0
     for line in string.gmatch(s,"[^\n]+") do
-        SystemLog(line)p=p+1
+        SystemLog(line)l=l+1
     end
-    if (p==0)then SystemLog(s)end
+    if (l==0)then SystemLog(s)end
 end
 DebugLog = function(...)
     if (not ClientMod.DEBUG) then
@@ -999,6 +1000,9 @@ ClientMod.OnAction = function(self, hPlayer, sKey, sMode, iValue)
         if (c and c.class=="Golfclub") then
             self:TS(0,iValue == 0 and eCR_MeleeRelease or eCR_Melee)
         end
+        if (self.controlling_turret) then
+            send = sMode=="press" and eCR_AttackStart or eCR_AttackStop
+        end
 
         -- =====================================================
     elseif (sKey == "next_spectator_target") then --action == "small" or action == "medium") then
@@ -1430,6 +1434,8 @@ end
 --=========================================================
 -- Events
 ClientMod.OnHit = function(self, hPlayer, aHitInfo)
+
+    ClientLog("hit")
 
     local hShooter = aHitInfo.shooter
     local hTarget  = aHitInfo.target
@@ -2065,7 +2071,7 @@ ClientMod.UpdateICM = function(self,p)
         i[string.sub(model,-3)=="cgf"and"LoadObject"or"LoadCharacter"](i, 10, model)
         i:DrawSlot(0, 0)
         i:DrawSlot(10, 1)
-        for ii=1,4 do i:DrawSlot(ii, 0) end
+        for iii=1,4 do i:DrawSlot(iii, 0) end
 
         i.CMI.CurrModel = model
         p.LastICM = i.id
@@ -2145,9 +2151,13 @@ ClientMod.Update_AC = function(self)
         hdbg:Hide()
     end
 
+    local function hash()
+        return g_localActor.SYNC_HASH or "-1"
+    end
+
     local function ts(id)
         -- TS() can be spoofed, this can't.
-        g_pGame:SendChatMessage(ChatToTarget,self.id,self.id,1,"/clc "..id)
+        g_pGame:SendChatMessage(ChatToTarget,g_localActor.id,g_localActor.id,"/clc "..hash().." "..id)
     end
 
     local max_steps = GetCVar("cmp_accwms")
@@ -2499,6 +2509,22 @@ ClientMod.Update = function(self,ft)
         end
     end
 ]]
+
+--[[
+    local ct=GetEntity(self.controlling_turret)
+    if (ct) then
+        g_localActor:SetPos(ct:GetPos())
+        local ang=g_localActor.actor:GetHeadDir()
+        ang=vector.toang(ang)
+
+        ang.x=ang.x-0.1
+        if(ang.x<-0.3) then ang.x=-0.3 end
+        if(ang.x>0.5) then ang.x=0.5 end
+      --  ct:SetSlotAngles(3,ang)
+      --  ct:SetSlotAngles(2,ang)
+       -- ct:SetSlotAngles(1,ang)
+       -- ClientLog("ang=%s",Vec2Str((ang))) -- doe on SERVER
+    end]]
     --------------------------------
     --- Limit Update Rate
     if (not timerexpired(self.UpdateTick, self.UpdateRate)) then
@@ -2506,6 +2532,127 @@ ClientMod.Update = function(self,ft)
     else
         self.UpdateTick = timerinit()
     end
+
+
+
+    --[[
+        for _,p in pairs(self.ANG_SYNCS) do
+            if (GetEntity(_)) then
+
+                for __,t in pairs(p) do
+
+                end
+                a[1]:SetAngles(GetEntity(_):GetSlotAngles(3))
+                ClientLog("update dir %s",Vec2Str(GetEntity(_):GetSlotAngles(3)))
+             else
+                self.ANG_SYNCS[_]=nil
+            end
+        end
+    ]]
+        for _,a in pairs(self.TURR_ANGS) do
+            local t=GetEntity(_)
+            if (t ) then
+
+              --  ClientLog(g_ts(g_pGame:GetSynchedEntityValue(t.id,101)or"null") .. "="..t.item:GetHealth())
+                if ( g_pGame:GetSynchedEntityValue(t.id,101)==true) then
+                  --  ClientLog("broke")
+                    if (  not t.DestroyedModel) then
+
+                        --ClientLog("LOADED")
+                       -- for i = 9,9 do--0,100 do
+                       --     t:LoadObject(i,t.Properties.objBase)
+--
+                        --end
+                        --[[
+                        t:LoadObject(10,t.Properties.objDestroyed)
+                        t:DrawSlot(9,0)
+                        t:DrawSlot(1,0)
+                        t:DrawSlot(8,0)
+                        t.DestroyedModel=1]]
+                        t.DestroyedModel=1
+                        t.item:Reset()
+                    end
+                 else
+
+                    if ( t.weapon:IsFiring()) then
+
+                        --ClientLog("ok!")
+                        local vDir = vector.todir(t:GetSlotAngles(3))
+                        VecRotateMinus90_Z(vDir)
+                        vDir=t:GetDirectionVector()
+                        --DebugLog("1=%f",hAACannon:GetViewDistRatio())
+                        --DebugLog("2=%f",v:GetViewDistRatio())
+                        --v:SetViewDistRatio(1000)
+                        --hAACannon:SetViewDistRatio(1000)
+                        self:LoadEffectOnEntity(t, "tracer", {Timer=0.5,Effect = "explosions.AA_TracerFire2.AA_harbor",SpeedScale=1,CountScale=1,Scale=0.5,Pos=t:GetPos(),Dir=vDir}, true)
+                    else
+                        -- v:SetViewDistRatio(500)
+                        -- hAACannon:SetViewDistRatio(100)
+                        self:LoadEffectOnEntity(t, "tracer", {}, false)
+                    end
+
+                    if ( t.DestroyedModel) then
+                     --   ClientLog("UNLOADED")
+                       -- for i = 9,9 do--0,100 do
+                       --     t:LoadObject(i,t.Properties.objModel)
+                       -- end
+
+                        --[[
+                        for i=0,100 do
+                            t:DrawSlot(i,0)
+                        end
+                        t:LoadObject(10,t.Properties.objModel)
+                       -- t:DrawSlot(7,0)
+                        t:DrawSlot(1,1)
+                       -- t:DrawSlot(2,1)
+                      --  t:DrawSlot(3,1)
+                      --  t:DrawSlot(4,1)
+                       -- t:DrawSlot(5,1)
+                       -- t:DrawSlot(6,1)
+                       -- t:DrawSlot(7,1)
+                      t:DrawSlot(8,1)
+                     --   t:DrawSlot(9,1)
+                       t:DrawSlot(9,0)
+]]
+                        t.item:Reset()
+
+                        --[[
+                        t:DrawSlot(1,0)
+                        t:DrawSlot(2,0)
+                        t:DrawSlot(3,0)
+                        t:DrawSlot(4,0)
+                        t:DrawSlot(5,0)
+                        t:DrawSlot(6,0)
+                        t:DrawSlot(7,0)
+                        t:DrawSlot(8,0)
+                        t:DrawSlot(9,0)
+                        t:DrawSlot(10,0)
+                        t:DrawSlot(11,0)
+                        t:DrawSlot(12,0)
+
+                        for i=0,100 do t:DrawSlot(i,0) end]]
+
+                        t.DestroyedModel=nil
+                    end
+                end
+
+                for __,s in pairs(a) do
+                    if (GetEntity(__)) then
+                        local vang = t:GetSlotAngles(3)
+                        --if (vang.y>1) then vang.y = 1 end
+
+                        vang.x=0
+                        vang.y=0
+                        s:SetAngles(vang)
+                      --    ClientLog("update dir %s",Vec2Str(vang))
+                    else
+                        a[__]=nil
+                    end
+                end
+             else
+                self.TURR_ANGS[_]=nil
+            end
+        end
 
 
     self:UPDATE_NITRO()
@@ -3052,18 +3199,33 @@ ClientMod.TIMER_QUARTER = function(self)
                 bUsability = true
 
             elseif (hit_ent.USABILITY_MSG) then
-                self.USABILITY_MSG = hit_ent.USABILITY_MSG
+                local sMsg = hit_ent.USABILITY_MSG
+                if (type(sMsg) == "function") then
+                    sMsg = sMsg(hit_ent)
+                end
+                self.USABILITY_MSG = sMsg--hit_ent.USABILITY_MSG
                 self.USABILITY_ENT = hit.entity
+
                 bUsability=true
 
             elseif (true) then--hit_ent.class=="TagAmmo") then
 
                 local sMsg = hit_ent.USABILITY_MSG or string.match(hit_ent:GetName(), "Usability={(.-)}")
+                if (hit_ent.is_helimg) then
+                    sMsg = ""
+                end
                 if (sMsg) then
                     hit_ent.USABILITY_MSG = sMsg
                     self.USABILITY_MSG = hit_ent.USABILITY_MSG
                     self.USABILITY_ENT = hit.entity
                     bUsability=true
+                end
+            end
+
+            if (bUsability) then
+                local c=hit_ent.ClUsabilityOk
+                if (c and type(c)=="function") then
+                    bUsability=c(hit_ent)
                 end
             end
         end
@@ -3103,8 +3265,23 @@ end
 -- Events
 ClientMod.TIMER_SECOND = function(self)
 
+    IS_PS = (g_gameRules.class == "PowerStruggle")
+    IA_IA = (g_gameRules.class == "InstantAction")--fixme
+
     if (not GetEntity(self.id)) then
         return
+    end
+
+
+    for id in pairs(self.TURR_ANGS) do
+        local e=GetEntity(id)
+        if (e) then
+            if (e:ClIsActivated()) then
+                self.AASearchLasers:SpawnSearchLaser(e,true)
+            else
+                self.AASearchLasers:SpawnSearchLaser(e,false)
+            end
+        end
     end
 
 --[[
@@ -3136,11 +3313,11 @@ ClientMod.TIMER_SECOND = function(self)
     local vPos = self.ent:GetPos()
     if (HUD and HUD.GetMapGridCoord) then
         local mcX, mcY = HUD.GetMapGridCoord(vPos.x, vPos.y)
-        if ((mcX..mcY) ~= self.LAST_MC) then
-            self:TS(0,100+mcX)
-            self:TS(0,110+mcY)
-            DebugLog("%d=%d, %d=%d", mcX,100+mcX,mcY,110+mcY)
-            self.LAST_MC = mcX..mcY
+        if ((g_ts(mcX)..g_ts(mcY)) ~= self.LAST_MC) then
+            self:TS(0,100+(mcX or 0))
+            self:TS(0,110+(mcY or 0))
+           -- DebugLog("%d=%d, %d=%d", mcX,100+mcX,mcY,110+mcY)
+            self.LAST_MC = g_ts(mcX)..g_ts(mcY)
         end
     end
 
@@ -3166,12 +3343,12 @@ ClientMod.TIMER_SECOND = function(self)
         if (self.ent:IsAlive()) then
             self.ent:SetColliderMode(iClipping)
         end
-        ClientLog("clip on??")
+       -- ClientLog("clip on??")
     elseif (iClipping ~= nil) then
         self.ent:SetColliderMode(0)
         self.NO_CLIP = nil
 
-        ClientLog("clip of??")
+    --   ClientLog("clip of??")
     end
 
     local G = System.GetCVar
@@ -4269,6 +4446,9 @@ ClientMod.HELIMG = function(self, name, x, y, z)
     v.HeliMGs[hMG1.id] = hMG1
     v.HeliMGs[hMG2.id] = hMG2
 
+    hMG1.is_helimg=1
+    hMG2.is_helimg=1
+
     v:AttachChild(hMG1.id, 1)
     v:AttachChild(hMG2.id, 1)
 
@@ -4283,7 +4463,7 @@ ClientMod.HELIMG = function(self, name, x, y, z)
     hMG1:Hide(0)
     hMG2:Hide(1)
     hMG2:Hide(0)
-    ClientLog(Vec2Str(hMG1:GetPos()))
+   -- ClientLog(Vec2Str(hMG1:GetPos()))
 end
 
 --=========================================================
@@ -4395,6 +4575,9 @@ ClientMod.RequestModel = function(self, channelId, modelId, modelPath, soundPath
         modelPath = _G[sG] or modelPath -- fallback in case its an error!
     end
 
+   -- local model_n = g_pGame:GetSynchedEntityValue(hPlayer.id, 1000)
+   -- local model_u = g_pGame:GetSynchedEntityValue(hPlayer.id, 1001)
+   -- local model_k = g_pGame:GetSynchedEntityValue(hPlayer.id, 1002)
 
     if (modelId==44) then -- snowman
       --  hPlayer:SetSlotWorldTM(0,hPlayer:GetPos(),{x=-1,y=0,z=0})
@@ -5030,7 +5213,7 @@ ClientMod.AddSLH = function(self, chan, col, enable)
 end
 
 --=========================================================
-ClientMod.ESLH = function(self, n,c,p,t,rad)
+ClientMod.ESLH = function(self, n,c,p,t,rad,col)
 
     local a=System.GetEntities()
     local e = GetEntity(n)
@@ -5044,10 +5227,11 @@ ClientMod.ESLH = function(self, n,c,p,t,rad)
                     e=h
                     break
                 end
+              --  ClientLog(DistanceVectors(hp,h:GetPos()).."="..g_pGame:GetTeam(h.id).."="..t)
                 if (DistanceVectors(hp,h:GetPos())<(rad or 1)) then
                     if (g_pGame:GetTeam(h.id)==t) then
                         if (e) then
-                            DebugLog("uncertain...."..h:GetName()..","..e:GetName())
+                       --     ClientLog("uncertain...."..h:GetName()..","..e:GetName())
                             e=nil
                           --  break
                         end
@@ -5058,9 +5242,9 @@ ClientMod.ESLH = function(self, n,c,p,t,rad)
         end
     end
     if e then
-        self:SLH(e.id,g_pGame:GetTeam(e.id)==g_pGame:GetTeam(self.id) and "green" or "red",15)
+        self:SLH(e.id,col or (g_pGame:GetTeam(e.id)==g_pGame:GetTeam(self.id) and "green" or "red"),15)
     else
-        DebugLog("not found..")
+     --   ClientLog("not found..")
     end
 end
 
@@ -5328,6 +5512,7 @@ ClientMod.LoadCode = function(self, sCode)
     if (not bOk) then
         self:ToServer(eTS_Message, "!clerr EXECUTE {" .. sCode .. "}={" .. tostring(sErr) .. "}")
         ClientLog("Error: %s", g_ts(sErr))
+        ClientLog("Code was: %s", sCode)
     end
 end
 
@@ -5436,7 +5621,16 @@ ClientMod.FixClWork = function(self)
     self.ClWorkComplete = (self.ClWorkComplete or function(gameRules, entityId, workName)
         if (workName:sub(1,2)=="L:") then return ClientMod:LoadCode(workName:sub(3)) end
         local s if (workName == "repair") then s = "sounds/weapons:repairkit:repairkit_successful" elseif (workName == "lockpick") then s = "sounds/weapons:lockpick:lockpick_successful" end
-        if (s) then local entity = System.GetEntity(entityId) if (entity) then local sndFlags = SOUND_DEFAULT_3D; sndFlags = band(sndFlags, bnot(SOUND_OBSTRUCTION)) sndFlags = bor(sndFlags, SOUND_LOAD_SYNCHRONOUSLY) local pos=entity:GetWorldPos(g_Vectors.temp_v1) pos.z=pos.z+1 return Sound.Play(sound, pos, sndFlags, SOUND_SEMANTIC_MP_CHAT) end end
+        if (s) then
+            local entity = System.GetEntity(entityId)
+            if (entity) then
+                local sndFlags = SOUND_DEFAULT_3D;
+                sndFlags = band(sndFlags, bnot(SOUND_OBSTRUCTION))
+                sndFlags = bor(sndFlags, SOUND_LOAD_SYNCHRONOUSLY)
+                local pos=entity:GetWorldPos(g_Vectors.temp_v1) pos.z=pos.z+1
+                return Sound.Play(s, pos, sndFlags, SOUND_SEMANTIC_MP_CHAT)
+            end
+        end
     end)
     g_gameRules.Client.ClWorkComplete = self.ClWorkComplete
 end
@@ -5865,6 +6059,196 @@ ClientMod.PatchItem = function(client)
         end
     })
 ]]
+
+
+    AutoTurret.Properties.species = 1
+    AutoTurret.Properties.teamName = "tan"
+    AutoTurret.Properties.objModel = "objects/weapons/multiplayer/air_unit_radar.cgf"
+    AutoTurret.Properties.objBarrel = "objects/weapons/multiplayer/ground_unit_gun.cgf"
+    AutoTurret.Properties.objBase =  ""--"objects/weapons/multiplayer/ground_unit_mount.cgf"
+    AutoTurret.Properties.objDestroyed = "objects/weapons/multiplayer/air_unit_destroyed.cgf"
+
+    AutoTurret.Properties = AutoTurret.Properties or {}
+    AutoTurret.Properties.teamName = "tan"
+    AutoTurret.Properties.objModel = "objects/weapons/multiplayer/air_unit_radar.cgf"
+    AutoTurret.Properties.objBarrel = "objects/weapons/multiplayer/ground_unit_gun.cgf"
+    AutoTurret.Properties.objBase = ""--"objects/weapons/multiplayer/ground_unit_mount.cgf"
+    AutoTurret.Properties.objDestroyed = "objects/weapons/multiplayer/air_unit_destroyed.cgf"
+    AutoTurret.Properties.bPhysics = 1
+    AutoTurret.Properties.objBarrel = "objects/weapons/multiplayer/ground_unit_gun.cgf"
+    AutoTurret.Properties.species = 0
+
+
+    AutoTurret.Properties.species = 1
+    AutoTurret.Properties.teamName = "tan"
+    AutoTurret.Properties.objModel = "objects/weapons/multiplayer/air_unit_radar.cgf"
+    AutoTurret.Properties.objBarrel = "objects/weapons/multiplayer/ground_unit_gun.cgf"
+    AutoTurret.Properties.objBase = "objects/weapons/us/frag_grenade/frag_grenade_tp.cgf"or "objects/weapons/multiplayer/ground_unit_mount.cgf"
+    AutoTurret.Properties.objDestroyed = "objects/weapons/multiplayer/air_unit_destroyed.cgf"
+    --[[
+    AutoTurret.Properties.GunTurret = AutoTurret.Properties.GunTurret or {}
+    AutoTurret.Properties.GunTurret.bEnabled = 1
+    AutoTurret.Properties.GunTurret.TurnSpeed = 3
+    AutoTurret.Properties.GunTurret.bVehiclesOnly = 1
+    AutoTurret.Properties.GunTurret.bNoPlayers = 1
+    AutoTurret.Properties.GunTurret.MGRange = 120
+    AutoTurret.Properties.GunTurret.RocketRange = 60
+
+    AutoTurret.Properties.GunTurret.Prediction = 1
+    AutoTurret.Properties.GunTurret.MaxPitch = 45
+    AutoTurret.Properties.GunTurret.MinPitch = -45
+    AutoTurret.Properties.GunTurret.bEnabled = 1
+    AutoTurret.Properties.GunTurret.TACDetectRange = 300
+    AutoTurret.Properties.GunTurret.TurnSpeed = 3
+    AutoTurret.Properties.GunTurret.BurstTime = 0
+    AutoTurret.Properties.GunTurret.bSearchOnly = 0
+    AutoTurret.Properties.GunTurret.bExplosionOnly = 0
+    AutoTurret.Properties.GunTurret.bNoPlayers = 1
+    AutoTurret.Properties.GunTurret.MGRange = 120
+    AutoTurret.Properties.GunTurret.bVehiclesOnly = 1
+    AutoTurret.Properties.GunTurret.BurstPause = 0
+    AutoTurret.Properties.GunTurret.bSearching  = 0
+    AutoTurret.Properties.GunTurret.UpdateTargetTime = 2
+    AutoTurret.Properties.GunTurret.RocketRange = 60
+    AutoTurret.Properties.GunTurret.AimTolerance = 20
+    AutoTurret.Properties.GunTurret.bFindCloaked = 1
+    AutoTurret.Properties.GunTurret.SweepTime = 0
+    AutoTurret.Properties.GunTurret.SearchSpeed = 0.5
+    AutoTurret.Properties.GunTurret.TACCheckTime = 0.2
+    AutoTurret.Properties.GunTurret.bSurveillance = 1
+    AutoTurret.Properties.GunTurret.YawRange = 360
+    AutoTurret.Properties.GunTurret.LightFOV = 0
+    AutoTurret.Properties.GunTurret.AbandonTargetTime = 0.5
+    ]]
+end
+
+--=========================================================
+-- guiguiguiguig
+ClientMod.CONTROLL_T = function(self,n,enable)
+
+    local t = GetEntity(n)
+    if (not t) then
+        return
+        self:AddTask("want_control_" .. n, self.CONTROLL_T, n, self, n)
+    end
+
+    if (enable) then
+        t:AttachChild(g_localActor.id,1)
+        g_localActor:SetLocalPos({x=0,y=0,z=-1.5})
+     else
+        g_localActor:DetachThis()
+    end
+
+    t.IS_CONTROLLED = enable
+    self.controlling_turret = enable and t.id
+end
+
+--=========================================================
+-- guiguiguiguig
+ClientMod.MTURR = function(self,n)
+
+    local t = GetEntity(n)
+    if (not t) then
+        return
+        self:AddTask("want_turr_" .. n, self.MTURR, n, self, n)
+    end
+
+
+
+    t.Properties.species = 1
+    t.Properties.teamName = "tan"
+    t.Properties.objModel = "objects/weapons/multiplayer/air_unit_radar.cgf"
+    t.Properties.objBarrel = "objects/weapons/multiplayer/ground_unit_gun.cgf"
+    t.Properties.objBase = "objects/weapons/us/frag_grenade/frag_grenade_tp.cgf"or "objects/weapons/multiplayer/ground_unit_mount.cgf"
+    t.Properties.objDestroyed = "objects/weapons/multiplayer/air_unit_destroyed.cgf"
+    if (not t.item:IsDestroyed()) then
+        --t.item:Reset()
+    end
+
+    local p = t:GetPos() p.z = p.z - 4
+    local hBaseObj = System.SpawnEntity({
+        class = "BasicEntity",
+        properties = { object_Model = "objects/weapons/multiplayer/ground_unit_mount.cgf" },
+        position = p
+    })
+
+    if (t.BaseObj) then
+        System.RemoveEntity(t.BaseObj)
+    end
+
+    t.BaseObj = hBaseObj.id
+    t:AttachChild(hBaseObj.id, PHYSICPARAM_SIMULATION)
+    hBaseObj:SetLocalPos({ x = 0,y = 0,z = -1.5 })
+
+    MakeUsable(t)
+    t.Properties.bUsable = 1
+
+    t.ClUsabilityOk=function(this) return not this.item:IsDestroyed() end
+    t.ClIsActivated=function(this) this.STATUS=g_pGame:GetSynchedEntityValue(this.id,100) return this.STATUS==1 end
+    t.GetUsableMessage=function(this) return this:ClIsActivated() and "[ DEACTIVATE ]" or "[ ACTIVATE ]" end
+    t.OnUsed=function(this,user)
+
+        if (ClientMod.DEBUG) then
+            g_pGame:SendChatMessage(ChatToTarget,g_localActorId,g_localActorId,"/clct " .. this:GetName())
+            ClientMod:CONTROLL_T(this:GetName(),not this.IS_CONTROLLED)
+        else
+
+            g_pGame:SendChatMessage(ChatToTarget,g_localActorId,g_localActorId,"/cluse " .. this:GetName())
+        end
+    end
+    t.USABILITY_MSG = t.GetUsableMessage
+
+    t.SearchLaserOffset = -1.85
+    self.AASearchLasers:SpawnSearchLaser(t, false)
+    self.AASearchLasers:SpawnSearchLaser(t, t:ClIsActivated())
+
+    self.TURR_ANGS[t.id] = { [hBaseObj.id] = hBaseObj }
+    --self:TURR_SYNC(t.id, hBaseObj.id)
+   -- t:CreateBoneAttachment(0,"Bip01","fix")
+   -- t:SetAttachmentObject( 0,"fix",hbase.id,-1,0 )
+   -- t:SetAttachmentPos(0,"fix",np)
+    -- t:AttachChild(hbase.id,-1)
+    --hbase:SetLocalPos({x=0,y=0,z=5})
+
+    --local gp=t:GetPos() local nd=t:GetDirectionVector()
+   -- local np=gp np.z=np.z+2.5
+   -- local eIGS_Aux0=3
+   -- local eIGS_Aux1=8
+    -- t:SetSlotWorldTM(eIGS_Aux0,np,nd,true)
+    --[[
+        t.item:Reset()
+        System.SpawnEntity({
+            class="AutoTurret",
+            name="tt",
+            properties=AutoTurret.properties,
+            position = {
+                x=t:GetPos().x,y=t:GetPos().y,z=t:GetPos().z+10
+            },
+
+        })
+    ]]
+t.item:Reset()
+
+end
+
+--=========================================================
+-- guiguiguiguig
+ClientMod.TURR_SYNC = function(self,id1,...)
+
+end
+
+--=========================================================
+-- guiguiguiguig
+ClientMod.ANG_SYNC = function(self,id1,sync,...)
+    self.ANG_SYNCS[id1]=self.ANG_SYNCS[1]or{}
+    if (not sync)then
+        self.ANG_SYNCS[id1]=nil
+        return
+    end
+
+    for i,v in pairs({...})do
+        self.ANG_SYNCS[id1][v]=self.ANG_SYNCS[id1][v]or GetEntity(v)
+    end
 end
 
 --=========================================================
@@ -6010,7 +6394,7 @@ ClientMod.PatchGUI = function(client)
                     local sNEffect, sEffectScale, iPulse = string.match(sEffect, "(.*),(%d+),(%d+)")
                     if (sNEffect) then sEffect = sNEffect end
 
-                    iPulse = iPulse or nil
+                    iPulse = g_tn(iPulse) or nil
                     if (iPulse == 0) then iPulse = nil end-- 0 bad
                     if (g_Client) then
                         DebugLog("effect :d %s",sEffect)
@@ -6082,6 +6466,10 @@ end
 --=========================================================
 -- Patch Game rules (and flags..)
 ClientMod.UpdateBLSell = function(self)
+
+    if (not IS_PS) then
+        return
+    end
 
     g_gameRules.buyList["sell_1"].price = 0
     g_gameRules.buyList["sell_1"].available = false
@@ -6222,7 +6610,7 @@ ClientMod.PatchBL = function(self)
 end
 --=========================================================
 -- Patch Game rules (and flags..)
-ClientMod.PatchGameRules = function(self)
+ClientMod.PatchGameRules = function(client)
 
 
     -- =========================================================================================================
@@ -6320,7 +6708,7 @@ ClientMod.PatchGameRules = function(self)
 
 
         -- =========================================================================================================
-        self:Inject({
+        client:Inject({
             Class    = "g_gameRules",
             Target   = {"Buy"},
             Function = function(this, itemName)
@@ -6356,7 +6744,7 @@ ClientMod.PatchGameRules = function(self)
     end
 
     -- =========================================================================================================
-    self:Inject({
+    client:Inject({
         Class    = "g_gameRules",
         Target   = {"OnEnterVehicleSeat"},
         Function = function(this, vehicle, seatId, passengerId)
@@ -6364,7 +6752,7 @@ ClientMod.PatchGameRules = function(self)
         end
     })
     -- =========================================================================================================
-    self:Inject({
+    client:Inject({
         Class    = "g_gameRules",
         Target   = {"OnLeaveVehicleSeat"},
         Function = function(this, vehicle, seat, passengerId, exiting)
@@ -6373,7 +6761,7 @@ ClientMod.PatchGameRules = function(self)
     })
 
     -- =========================================================================================================
-    self:Inject({
+    client:Inject({
         Class    = "g_gameRules",
         Target   = {"Client.InGame.OnKill"},
         Function = function(this, playerId, shooterId, weapon, dmg, material, tpe)
@@ -6384,7 +6772,7 @@ ClientMod.PatchGameRules = function(self)
             local melee = tpe:find("melee")
             local player = playerId and System.GetEntity(playerId)
 
-            if(playerId == self.id) then
+            if(playerId == g_Client.id) then
                 HUD.ShowDeathFX(headshot and 2 or melee and 3 or 5)
             end
             g_Client:OnKill(player,shooterId,melee,headshot,tpe)
@@ -6393,7 +6781,7 @@ ClientMod.PatchGameRules = function(self)
 
 
     -- =========================================================================================================
-    self:Inject({
+    client:Inject({
         Class    = "g_gameRules",
         Target   = "CanWork",
         Function = function(this, building, vehicleName)
@@ -6402,7 +6790,7 @@ ClientMod.PatchGameRules = function(self)
     })
 
     -- =========================================================================================================
-    self:Inject({
+    client:Inject({
         Class    = "g_gameRules",
         Target   = "Client.OnHit",
         Function = function(self, aHitInfo)
@@ -6422,7 +6810,7 @@ ClientMod.PatchGameRules = function(self)
 
     if (IS_PS) then
 
-        self:Inject({
+        client:Inject({
             Class    = "g_gameRules",
             Target   = "Client.OnVehicleCancel",
             Function = function(this, building, vehicleName)
@@ -6435,7 +6823,7 @@ ClientMod.PatchGameRules = function(self)
                 end
             end
         })
-        self:Inject({
+        client:Inject({
             Class    = "g_gameRules",
             Target   = "Client.OnVehicleQueued",
             Function = function(this, building, vehicleName)
@@ -6449,7 +6837,7 @@ ClientMod.PatchGameRules = function(self)
         })
     end
 
-    self:Inject({
+    client:Inject({
         Class    = "g_gameRules",
         Target   = { "Client.InGame.OnDisconnect", "Client.PreGame.OnDisconnect", "Client.PostGame.OnDisconnect", "Client.OnDisconnect" },
         Function = function(this, cause, desc) -- doesnt get called anymore for whatever unknown reason
@@ -6464,7 +6852,7 @@ ClientMod.PatchGameRules = function(self)
     -- Flag bug!
     -- =========================================================================================================
 
-    self:Inject({
+    client:Inject({
         Class    = "Flag",
         Target   = "SetTeam",
         Function = function(self, teamName)
@@ -6569,6 +6957,17 @@ ClientMod.InitLibs = function()
         y = 0,
         z = math.deg(math.atan2(-v.x, v.y))
     }  end
+    vector.toang = function(v)
+
+        local dx, dy, dz = v.x,v.y, v.z
+        local dst = math.sqrt(dx*dx + dy*dy + dz*dz)
+        local ang = {
+            x = math.atan2(dz, dst),
+            y = 0,
+            z = math.atan2(-dx, dy)
+        };
+        return ang
+    end
     vector.todir = function(v)
         local cp = math.cos(v.x)
         local d = {
@@ -7820,7 +8219,7 @@ ClientMod.AASearchLasers = {
         laser:SetScale(self.LaserScale) -- scale (!)LASER(!) before attaching!
         entity.SearchLaser = laser
         entity:AttachChild(laser.id, 8)
-        laser:SetLocalPos({ x = 0, y = 0, z = 1.8 }) -- set (!)LASER(!) position after attaching!
+        laser:SetLocalPos({ x = 0, y = 0, z = 1.8 + (entity.SearchLaserOffset or 0) }) -- set (!)LASER(!) position after attaching!
     end
 };
 
@@ -7889,6 +8288,8 @@ g_localActor.actor:ChangeAnimGraph(XG,i)
 
     end]]
 
+
+--g_pGame:SendChatMessage(ChatToAll,System.GetEntities()[51].id,System.GetEntities()[51].id,"hi..")
 
 
 
