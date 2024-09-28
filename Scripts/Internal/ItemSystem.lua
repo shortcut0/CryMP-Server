@@ -7,11 +7,17 @@ ServerItemSystem = {
     RegisteredProjectiles = {},
     RegisteredClassTypes  = {},
     RegisteredAmmoClasses = {},
+    RegisteredItemClasses = {},
     SpawnedProjectiles    = {}
 }
 
 --------------------
 eProjectileEvent_OnTimeout = 0
+
+eItemEvent_OnShoot = 0
+
+eItemType_Ammo = 0
+eItemType_Item = 1
 
 --------------------
 ServerItemSystem.Init = function(self)
@@ -45,7 +51,7 @@ ServerItemSystem.Init = function(self)
     -- =========================================
 
 
-    LinkEvent(eServerEvent_OnUpdate, "ServerItemSystem.OnUpdate")
+    --LinkEvent(eServerEvent_ScriptUpdate, "ServerItemSystem.OnUpdate")
     self:LoadDirectory(self.DataDirType) -- before ammo classes!
     self:LoadDirectory(self.DataDirAmmo)
 end
@@ -97,12 +103,35 @@ ServerItemSystem.CheckCollision = function(self, hEntity, hTarget, aInfo)
 end
 
 --------------------
-ServerItemSystem.SpawnProjectile = function(self, aParams)
+ServerItemSystem.OnShoot = function(self, hShooter, hWeapon, vPos, vDir, vHit)
+
+    if (hWeapon) then
+    end
+end
+
+--------------------
+ServerItemSystem.SpawnProjectile = function(self, aParams, iSeq)
 
     local sID   = (aParams.Name or aParams.ID)
     local aInfo = self:GetAmmoInfo(sID)
     if (aInfo == nil) then
         return
+    end
+
+    local aPelletInfo = aInfo.Pellets
+    if (aPelletInfo.Count > 1) then
+        if ((iSeq or 1) < aPelletInfo.Count) then
+            local aNewParams = new(aParams)
+
+            local iRandomness = aPelletInfo.RandomDir
+            aNewParams.Dir.x = aNewParams.Dir.x + (math.frandom(-iRandomness.x, iRandomness.x))
+            aNewParams.Dir.y = aNewParams.Dir.y + (math.frandom(-iRandomness.y, iRandomness.y))
+            aNewParams.Dir.z = aNewParams.Dir.z + (math.frandom(-iRandomness.z, iRandomness.z))
+            Script.SetTimer(0 + (aPelletInfo.Delay or 0), function()
+                self:SpawnProjectile(aNewParams, (iSeq or 1) + 1)
+            end)
+            Debug("new pellet..",(iSeq or 1)+1)
+        end
     end
 
     local vPos = aParams.Pos
@@ -135,6 +164,16 @@ ServerItemSystem.SpawnProjectile = function(self, aParams)
         sEffectProps = ""
     end
 
+    local vSpawnDir = vector.copy(vDir)
+    local vSpawnAng = vector.toang(vDir)
+    local vOffset = aEntityProps.Offset
+    if (vOffset) then
+        vSpawnAng.x=vSpawnAng.x+vOffset.x---1.5675
+        vSpawnAng.y=vSpawnAng.y+vOffset.y
+        vSpawnAng.z=vSpawnAng.z+vOffset.z
+    end
+
+
     local hProjectile = SpawnGUI({
 
         Model       = sModel,
@@ -147,7 +186,8 @@ ServerItemSystem.SpawnProjectile = function(self, aParams)
         Scale = fScale,
 
         Pos = vPos,
-        Dir = vDir,
+        Dir = nil, --vSpawnDir,
+        Ang = vSpawnAng,
 
         Sound   = sSound,
         Effect  = sEffectProps,
@@ -158,6 +198,7 @@ ServerItemSystem.SpawnProjectile = function(self, aParams)
         Network = true,
     })
 
+    hProjectile.SvIgnoreRWI = true
     hProjectile.SvReportCollisions = true
     hProjectile.SvOnCollision = function(this, hTarget, aCollisionInfo)
         ServerItemSystem:CheckCollision(this, hTarget, aCollisionInfo)
@@ -181,7 +222,19 @@ ServerItemSystem.SpawnProjectile = function(self, aParams)
     aProjectile:SetWeaponID(hWeaponID)
 
    -- Debug(aInfo.Entity.DeathEffect)
+    --[[
+    local vOffset = aEntityProps.Offset or vector.make()
+    vSpawnDir.x = ((vDir.x < 0 and -1 or 1) * vOffset.x)
+    vSpawnDir.y = ((vDir.y < 0 and -1 or 1) * vOffset.y)
+    vSpawnDir.z = ((vDir.z < 0 and -1 or 1) * vOffset.z)
+    hProjectile:SetAngles(vector.toang(vSpawnDir))]]
 
+   -- local ang=vector.toang({x=vDir.x,y=vDir.y+0,z=vDir.z+0})
+   -- ang.x=ang.x+-1.5675
+   -- hProjectile.scp:RotateToAngles(ang, 0, 99, 99, 1);
+  --  hProjectile.scp:MoveTo(vPos, 99, 99, 99, 1);
+
+    --Debug(":§")
     self.SpawnedProjectiles[hProjectile.id] = aProjectile
     return aProjectile
 end
@@ -228,12 +281,78 @@ ServerItemSystem.CreateClassType = function(self, aParams)
 end
 
 --------------------
+ServerItemSystem.GetRegisteredAmmoClasses = function(self)
+    return self.RegisteredAmmoClasses
+end
+
+--------------------
+ServerItemSystem.GetRegisteredItemClasses = function(self)
+    return self.RegisteredItemClasses
+end
+
+--------------------
+ServerItemSystem.OnEvent = function(self, iEvent, hItem, hPlayer, hArgs)
+
+    local sID = (hItem.CrazyItem)
+    if (not sID) then
+        return
+    end
+
+    local aInfo = (self.RegisteredItemClasses[sID] or self.RegisteredAmmoClasses[sID])
+    if (not aInfo) then
+        return
+    end
+
+    local hFunc
+    if (iEvent == eItemEvent_OnShoot) then
+        hFunc = aInfo.Listeners.OnShoot
+
+    else
+        HandleError("implementation missing for event")
+    end
+
+    if (hFunc) then
+        hFunc(hItem, hPlayer, unpack(hArgs))
+    end
+end
+
+--------------------
+ServerItemSystem.CreateItemClass = function(self, aParams)
+
+    local aProperties = table.deepMerge(aParams.Empty and {} or {
+
+        Name = "Default",
+        ID   = "Default",
+
+        Listeners = {
+            OnShoot     = nil, -- todo
+            OnSelect    = nil, -- todo
+            OnDrop      = nil, -- todo
+            OnReload    = nil, -- todo
+        }
+    }, aParams, true)
+
+    aProperties.Type = eItemType_Item
+    self.RegisteredItemClasses[aProperties.ID] = aProperties
+end
+
+--------------------
 ServerItemSystem.CreateAmmoClass = function(self, aParams)
 
-    local aProperties = table.deepMerge({
+    local aProperties = table.deepMerge(aParams.Empty and {} or {
 
         Class = "SProjectile",
         ID = "Default",
+
+        Pellets = {
+            Count  = 1,
+            Delay  = 0,
+            RandomDir = {
+                x = 0.1,
+                y = 0.1,
+                z = 0.1
+            }
+        },
 
         Entity = {
 
@@ -271,7 +390,7 @@ ServerItemSystem.CreateAmmoClass = function(self, aParams)
                     UseNormal = true, -- Uses collision-normal direction
 
                     Effects     = {
-                        Default = { "explosions.rocket.generic", "explosions.rocket.concrete" },
+                        Default = { "explosions.rocket.generic", },
                         Water   = { "explosions.rocket.water" },
                         Ground  = nil,
                         Grunt   = nil, -- can set properties for specific entities!
@@ -294,6 +413,8 @@ ServerItemSystem.CreateAmmoClass = function(self, aParams)
         },
 
         Movement = {
+
+            InitialImpulse = 0,
 
             Following = {
 
@@ -345,9 +466,8 @@ ServerItemSystem.CreateAmmoClass = function(self, aParams)
 
 
     --Debug(aProperties)
-    local sID = aProperties.ID
-    Debug(sID,"=",aProperties.Entity.DeathEffect)
-    self.RegisteredAmmoClasses[sID] = aProperties
+    aProperties.Type = eItemType_Ammo
+    self.RegisteredAmmoClasses[aProperties.ID] = aProperties
 end
 
 --------------------

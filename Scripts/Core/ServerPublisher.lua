@@ -55,7 +55,7 @@ eGSUpdate_Team   = 2
 ServerPublisher.Init = function(self)
 
     -----
-    Logger.CreateAbstract(self, { Base = ServerLog, ErrorBase = replace_pre(ServerLog, HandleError), LogClass = "ServerPublisher", LogTemplate = "{class} " })
+    Logger.CreateAbstract(self, { Base = ServerLog, ErrorBase = Utils.replace_pre(ServerLog, HandleError), LogClass = "ServerPublisher", LogTemplate = "{class} " })
     self:Log("ServerPublisher.Init()")
 
     -----
@@ -202,7 +202,7 @@ ServerPublisher.UpdateServer = function(self)
         ServerPublisher:OnUpdated(a, b, c)
     end)
 
-    self:Log("Updating Server")
+    --self:Log("Updating Server")
 end
 
 --------------------------------
@@ -224,7 +224,7 @@ ServerPublisher.OnUpdated = function(self, sError, sResponse, iCode)
     end
 
     self.UpdateFail = nil
-    self:Log("Server Status Updated")
+    --self:Log("Server Status Updated")
 end
 
 --------------------------------

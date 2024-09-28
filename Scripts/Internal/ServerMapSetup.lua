@@ -30,6 +30,24 @@ ServerMapSetup.CreateMapSetup = function(self, sMap, sRules, aSetup)
 
     table.checkM(self.Setups, sRules, {})
 
+    aSetup.SpawnArchetype = function(this, aProperties)
+
+        local hEntity = System.SpawnEntity({
+            class = aProperties.Class,
+            name = aProperties.Name,
+            archetype = aProperties.Archetype,
+            position = aProperties.Pos,
+            orientation = aProperties.Dir,
+            properties = aProperties.Properties or aProperties.properties
+        })
+        if (hEntity) then
+            hEntity.MapSetup = true
+            hEntity.Properties.IsMapSetup = true -- cant be too sure! :D
+        end
+
+        Debug(g_ts(hEntity))
+    end
+
     aSetup.Spawn = function(this, aProperties)
 
         aProperties.Properties.IsMapSetup = true

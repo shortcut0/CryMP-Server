@@ -111,11 +111,6 @@ ServerInit.Init = function(self)
         --error("game rules does not exist")
     end
 
-    if (g_gameRules) then
-        g_sGameRules = g_gameRules.class
-        g_pGame = g_gameRules.game
-    end
-
     -----
     GetCVar  = System.GetCVar
     SetCVar  = System.SetCVar
@@ -147,7 +142,7 @@ ServerInit.Init = function(self)
 
     -- Allow server to load before gamerules exist, this is important for patching entities
     if (g_gameRules ~= nil) then
-        self:InitServer()
+    --    self:InitServer()
     end
 
     -- Link Some Stuff
@@ -250,6 +245,15 @@ end
 
 ----------------
 ServerInit.InitServer = function(self)
+
+
+    -----
+    if (g_gameRules) then
+        g_sGameRules = g_gameRules.class
+        g_pGame = g_gameRules.game
+    else
+        ServerLog(LOG_STARS..LOG_STARS.."NOT FOUND")
+    end
 
     -----
     local sFile = (SERVER_DIR_CORE .. SERVER_FILE_MAIN)

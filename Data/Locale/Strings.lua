@@ -301,7 +301,7 @@ CreateLocalization("l_ui_buyVehicleMissingPrestige", {
 })
 
 CreateLocalization("l_ui_buyItemMissingPrestige", {
-    english = "You need ${red}${2}${gray} more Prestige to the Item ${magenta}${1}",
+    english = "You need ${red}${2}${gray} more Prestige to buy the Item ${magenta}${1}",
     czech   = "Potrebujete jeste ${red}${2}${gray} prestizi k polozce ${magenta}${1}",
     german  = "Sie benotigen noch ${red}${2}${gray} Prestige fur den Gegenstand ${magenta}${1}",
     spanish = "Necesitas ${red}${2}${gray} mas prestigio para el articulo ${magenta}${1}",

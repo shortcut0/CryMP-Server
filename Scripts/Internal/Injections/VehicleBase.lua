@@ -110,7 +110,7 @@ local ServerVehicleBase = {
                 if (hShooter:GetVehicle() ~= self) then
                     return
                 end
-                if (not self:IsOnDriverSeat(hShooter)) then
+                if (not self:IsOnDriverSeat(hShooter) and not hShooter:IsTesting()) then
                     return
                 end
             end
@@ -123,19 +123,19 @@ local ServerVehicleBase = {
                 hMG.weapon:Sv_SetOwnerID(hShooter.id)
                 hMG.weapon:SetAmmoCount(nil, 10)
                 hMG.weapon:SetAmmoCount(hMG.weapon:GetAmmoType(), 10)
-                Debug(hMG.weapon:GetAmmoType())
-                Debug(hMG.weapon:GetAmmoType())
+                --Debug(hMG.weapon:GetAmmoType())
+               -- Debug(hMG.weapon:GetAmmoType())
 
                 --if (not self.HeliMGClientSpawn) then
                     if (bFire and not hMG.Firing) then
                         hMG.Firing = true
                         hMG.weapon:Sv_RequestStartFire()
-                        Debug("fire!")
+                       -- Debug("fire!")
 
                     elseif (not bFire and hMG.Firing) then
                         hMG.Firing = false
                         hMG.weapon:Sv_RequestStopFire()
-                        Debug("stop RIGHT NOW")
+                       -- Debug("stop RIGHT NOW")
                     end
                 --end
             end
@@ -198,15 +198,25 @@ local ServerVehicleBase = {
 
             self.HeliMGs = {}
 
+            local sMG1 = self:GetName() .. "_mg_left"
+            if (GetEntity(sMG1)) then
+                System.RemoveEntity(GetEntity(sMG1).id)
+            end
+
+            local sMG2 = self:GetName() .. "_mg_right"
+            if (GetEntity(sMG2)) then
+                System.RemoveEntity(GetEntity(sMG2).id)
+            end
+
             local hMG1 = System.SpawnEntity({
                 class    = sClass,
                 position = self:GetPos(),
-                name     = self:GetName() .. "_mg_left"
+                name     = sMG1
             })
             local hMG2 = System.SpawnEntity({
                 class    = sClass,
                 position = self:GetPos(),
-                name     = self:GetName() .. "_mg_right"
+                name     = sMG2
             })
 
             hMG1.SvCannotGrab = true
@@ -249,7 +259,7 @@ local ServerVehicleBase = {
                     iX = vHood.x
                     iY = vHood.y
                     iZ = vHood.z
-                    Debug("hood",vHood)
+                  --  Debug("hood",vHood)
                 end
 
                 -- Firing info
@@ -263,7 +273,7 @@ local ServerVehicleBase = {
             -- Right now, only used to determine fire rates..
             local sFM = hMG1.weapon:Sv_GetFireModeName()
             local bClientSpawn = (sFM ~= "Automatic" and sFM ~= "Rapid") --hMG1.weapon:IsClientSpawn()
-            Debug(hMG1.weapon:Sv_GetFireModeName())
+           -- Debug(hMG1.weapon:Sv_GetFireModeName())
 
             Script.SetTimer(100, function()
 

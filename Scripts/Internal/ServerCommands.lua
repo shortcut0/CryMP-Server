@@ -168,7 +168,18 @@ end
 
 -------------------
 --- Init
+ServerCommands.DebugEffect = function(self, hClient, sMessage)
+
+    -- FIXME
+    if (true) then
+        SpawnEffect(ePE_Flare,hClient:GetPos())
+    end
+end
+
+-------------------
+--- Init
 ServerCommands.OnCommand = function(self, hClient, sMessage)
+
 
     local aArgs = string.split(string.gsuba(sMessage, {
         { "%s+", " " },
@@ -556,6 +567,7 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
     local bVehicle = aCmdProps.Vehicle
     local bAlive = aCmdProps.Alive
     local bFlying = aCmdProps.Flying
+    local bSpectating = aCmdProps.Spectating
 
     local iCooldown = (aCmdProps.Timer or aCmdProps.Cooldown or 0)
     local sTimerID  = string.format("cmd_%s_timer", string.lower(sName))
@@ -575,6 +587,14 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
                 hClient:Execute(string.format("g_Client.Event(eEvent_BLE, eBLE_Warning,\"!%s\")", hClient:LocalizeNest(string.capitalN(sName) .. " @l_ui_cooldown ( " .. math.calctime(hClient:TimerExpiry(sTimerID), nil, 3) .. " )")))
                 return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_cooldown", math.calctime(hClient:TimerExpiry(sTimerID), nil, 3))
             end
+        end
+
+        if (hClient:IsSpectating()) then
+            if (bSpectating == false) then
+                return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_notInSpec")
+            end
+        elseif (bSpectating == true) then
+            return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandresp_onlyInSpec")
         end
 
         if (hClient:IsAlive()) then
@@ -782,7 +802,8 @@ ServerCommands.ProcessCommand = function(self, hClient, aCommand, aUserArgs)
                 -- =========================================================
                 --argument expects a cvar
             elseif (aCmdArg.IsCVar) then
-                if (GetCVar(sArg) == nil) then
+                local sCVar = ServerUtils.FindCVarByName(hClient, sArg)
+                if (sCVar == nil or GetCVar(sArg) == nil) then
                     return self:SendResponse(hClient, eCommandResponse_Failed, sName, "@l_commandarg_notcvar", _)
                 end
 

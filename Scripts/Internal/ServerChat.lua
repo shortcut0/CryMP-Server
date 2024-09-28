@@ -102,7 +102,7 @@ ServerChat.Init = function(self)
     self.ChatFilterMatchingLevel = math.max(0, math.min(15, ConfigGet("Messages.Chat.FilterAggressiveness", 2, eConfigGet_Number)))
 
     --------------
-    LinkEvent(eServerEvent_ScriptUpdate, "ServerChat", "OnUpdate")
+    --LinkEvent(eServerEvent_ScriptUpdate, "ServerChat", "OnUpdate")
 end
 
 ----------------
@@ -271,6 +271,7 @@ end
 ----------------
 ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage, iForcedteam, bServerMessage)
 
+    local ts=timernew()
     -- bServerMessage, Was this message sent by the server itself?
     -- iForcedteam,    Was this message forcefully sent to a team?
 
@@ -369,12 +370,14 @@ ServerChat.OnChatMessage = function(self, iType, iSenderID, iTargetID, sMessage,
     end
 
     if (hSender.IsPlayer and iType == ChatToTeam) then
-        aReturn.NewMessage = string.format("(Coords, %s): %s", hSender:GetMapCoords(), (sMessage or ""))
+        aReturn.NewMessage = string.format("(Coord, %s): %s", hSender:GetMapCoords(), (sMessage or ""))
     end
 
     if (hSender.IsPlayer) then
         aReturn.NewMessage = self:FilterMessage(aReturn.NewMessage)
+       -- Debug("diff",ts.diff())
     end
+
     return aReturn
 end
 

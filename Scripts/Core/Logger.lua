@@ -403,24 +403,24 @@ Logger.LogChatEvent = function(self, iLogType, iChatType, sMessage, hSender, aCl
 
 
     if (iChatType == ChatToTeam) then
-        sTag = "@l_console_chatmessage_teamtag"
-        sTagClass = (sSenderName .. " ")
+        sTag = "@l_console_chatmessage_teamtag " .. GetTeamName(g_pGame:GetTeam(hSender.id))
+        sTagClass = (sSenderName .. "")
     elseif (iChatType == ChatToTarget) then
         if (iLogType == eLogEvent_ChatMessagePM) then
             sTag = "@l_console_chatmessage_pmtag"
-            sTagClass = (sSenderName .. " ")
+            sTagClass = (sSenderName .. "")
         end
     end
 
     if (aInfo.PlayerMessages) then
         self:LogToPlayers({
-            AppendTag = sTag,
+            --AppendTag = sTag,
             TagClass = sTagClass,
             Color = sColor,
             Access = {
                 Regular = RANK_GUEST
             }
-        }, sMessage, { sSenderName, sChatMsg }, aClients)
+        }, sMessage, { sSenderName, (sTag and ("$9($1" .. sTag .. "$9) $1") or "") .. sChatMsg }, aClients)
     end
 
     -----------
@@ -514,7 +514,7 @@ Logger.LogToPlayers = function(self, aInfo, sMessage, aFormat, aClients, sLogTag
                 --ServerLog("ENTITY:::: %s",g_ts(sEntity))
 
                 if (sAppendTag) then
-                    sEntity = sEntity .. ("(" .. LocalizeForClient(hClient, sAppendTag, {}) .. ")")
+                    sEntity = sEntity .. ("$9($1" .. LocalizeForClient(hClient, sAppendTag, {}) .. "$9)")
                 end
 
                 SendMsg((aInfo.ConsoleType or MSG_CONSOLE), hClient, ((aInfo.MsgColor or "") .. sLocalized), sEntity, unpack(aFormat))

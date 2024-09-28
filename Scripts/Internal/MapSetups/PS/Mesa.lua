@@ -223,7 +223,161 @@ CreateMapSetup("Mesa", "PS", {
 
         for _, hBunker in pairs(g_gameRules.SortedBuildings["bunker"]) do
             self:SpawnBunkerDoors(hBunker, hBunker:GetDirectionVector())
+            self:SpawnBunkerAA(hBunker, hBunker:GetDirectionVector())
         end
+    end,
+
+    -- ==================
+    SpawnBunkerAA = function(self, hBunker, vRot)
+
+        local vUp = vector.modifyz(hBunker:GetPos(), 3.55)
+
+        local aSpawnParams = {}
+        aSpawnParams.Pos = vUp
+        aSpawnParams.Dir = vRot
+        aSpawnParams.Class = "AutoTurret"
+
+        aSpawnParams.Properties = {}
+        aSpawnParams.Properties.teamName = (g_pGame:GetTeam(hBunker.id) == 2 and "black" or "tan")
+        aSpawnParams.Properties.objModel = "objects/weapons/multiplayer/air_unit_radar.cgf"
+        aSpawnParams.Properties.objBarrel = "objects/weapons/multiplayer/ground_unit_gun.cgf"
+        aSpawnParams.Properties.objBase = "objects/weapons/multiplayer/ground_unit_mount.cgf"
+        aSpawnParams.Properties.objDestroyed = "objects/weapons/multiplayer/air_unit_destroyed.cgf"
+        aSpawnParams.Properties.bPhysics = 1
+        aSpawnParams.Properties.objBarrel = "objects/weapons/multiplayer/ground_unit_gun.cgf"
+        aSpawnParams.Properties.species = 0
+        aSpawnParams.Properties.HitPoints = 1500
+        aSpawnParams.Properties.bExplosionOnly = 1
+
+        aSpawnParams.Properties.GunTurret = {}
+        aSpawnParams.Properties.GunTurret.bFindCloaked = 1      -- turret will find cloaked players
+        aSpawnParams.Properties.GunTurret.bVulnerable = 1       -- vulnerability status
+        aSpawnParams.Properties.GunTurret.bExplosionOnly = 1    -- only explosions deal damage
+        aSpawnParams.Properties.GunTurret.bEnabled = 1          -- status
+        aSpawnParams.Properties.GunTurret.bNoPlayers = 0        -- dont target players
+        aSpawnParams.Properties.GunTurret.bVehiclesOnly = 0     -- only target vehicles
+        aSpawnParams.Properties.GunTurret.MGRange = 120          -- mg range
+        aSpawnParams.Properties.GunTurret.RocketRange = 60      -- rpg range
+
+        aSpawnParams.Properties.GunTurret.bSearching  = 1       -- search status
+        aSpawnParams.Properties.GunTurret.bSearchOnly = 0       -- turret will only search
+        aSpawnParams.Properties.GunTurret.SearchSpeed = 2       -- rotation speed
+
+        aSpawnParams.Properties.GunTurret.bSurveillance = 0     -- if a target has been lost, checks the area for a bit
+
+        aSpawnParams.Properties.GunTurret.SweepTime = 0.75
+        aSpawnParams.Properties.GunTurret.TACCheckTime = 0.2
+        aSpawnParams.Properties.GunTurret.TACDetectRange = 300
+
+        aSpawnParams.Properties.GunTurret.TurnSpeed = 10        -- turning speed
+        aSpawnParams.Properties.GunTurret.UpdateTargetTime = 0  -- time between updating targets
+        aSpawnParams.Properties.GunTurret.YawRange = 360        -- yaw turning limit
+
+        aSpawnParams.Properties.GunTurret.AbandonTargetTime = 0.5
+        aSpawnParams.Properties.GunTurret.AimTolerance = 20
+        aSpawnParams.Properties.GunTurret.BurstPause = 0
+        aSpawnParams.Properties.GunTurret.BurstTime = 0
+
+        aSpawnParams.Properties.GunTurret.LightFOV = 0
+
+        aSpawnParams.Properties.GunTurret.MaxPitch = 65
+        aSpawnParams.Properties.GunTurret.MinPitch = 5          -- minimum pitch
+        aSpawnParams.Properties.GunTurret.Prediction = 1        -- predict where entities will go
+
+       -- ServerLog(table.tostring(System.GetEntitiesByClass("AutoTurret")[3]))
+
+        local hTurret = self:Spawn(aSpawnParams)
+        if (not hTurret) then
+            return
+        end
+
+        hTurret.Properties = aSpawnParams.Properties
+        hTurret.weapon:Sv_ResetGunTurretAll()
+        hTurret.weapon:Sv_GunTurretEnableServerFiring(true)
+        --hTurret.item:Reset()
+
+        hTurret.SvOnClFiring = function(this, hUser, bFire)
+
+            local bFiring = this.weapon:Sv_IsFiring()
+           -- Debug("fire=",bFiring)
+            if (bFire) then
+                if (not bFiring) then
+                    local vDir = hUser:SmartGetDir()
+                    local vPos = this:GetPos()
+                    local vHit = vector.copy(vPos)
+                    vector.fastsum(vHit, vHit, vector.scaleInPlace(vDir, 1000))
+
+                    this.weapon:Sv_RequestStartFire(vDir, vPos, vHit, 0.0001)
+                    this.weapon:Sv_SetFiringInfo(vDir, vPos, vHit, 0.0001)
+                    this.weapon:Sv_Update()
+                    this.weapon:Sv_UpdateFM()
+                    this.weapon:Sv_StartFireGunTurret(false)
+                    this.weapon:Sv_StartFireGunTurret(true)
+                    -- Debug("fire no!")
+                end
+            elseif (not bFire) then-- and bFiring) then
+                this.weapon:Sv_RequestStopFire()
+                this.weapon:Sv_StopFireGunTurret(false)
+                this.weapon:Sv_StopFireGunTurret(true)
+                this.weapon:Sv_GunTurretResetLookAt()
+             --   Debug("stop")
+            end
+        end
+
+        hTurret.SvOnControl = function(this, hUser)
+            if (this.SvControlled) then
+                this.SvControlled = false
+            else
+                this.SvControlled = true
+            end
+
+            SendMsg(CHAT_SERVER, hUser, "took control " .. g_ts(this.SvControlled))
+            hUser.SvControllingTurret = (this.SvControlled and this)
+            this.Properties.GunTurret.bEnabled = (this.SvControlled and 1 or 0)
+            this.weapon:Sv_ResetGunTurret()
+        end
+        hTurret.SvOnUse = function(this, hUser)
+
+            local bDestroyed = this.item:IsDestroyed()
+            if (bDestroyed) then
+                return
+            end
+
+            Debug("bDestroyed",bDestroyed)
+
+            this.SvStatus = (this.SvStatus + 1)
+            if (this.SvStatus > 1) then
+                this.SvStatus = 0
+            end
+
+            this.Properties.GunTurret.bEnabled = (this.SvStatus)
+            this.weapon:Sv_ResetGunTurret()
+
+            g_pGame:SetSynchedEntityValue(this.id, 100, this.SvStatus)
+            if (hUser) then
+                SendMsg(CHAT_SERVER_LOCALE, hUser or GetPlayers({ Pos = this:GetPos(), Range = 60, }), "@l_ui_bunkerProtection", (this.SvStatus == 1 and "@l_ui_activated" or "@l_ui_deactivated"), "")
+            end
+
+            Debug("status !",this.SvStatus,">>",this.Properties.GunTurret.bEnabled)
+            Debug("x=",string.hexencode("hellooooo!!"..this.Properties.GunTurret.bEnabled))
+        end
+
+        hTurret.RepairSpeedMult = 0.2
+        hTurret.SvStatus = 1
+        hTurret:SvOnUse()
+
+        ClientMod:OnAll(string.format([[g_Client:MTURR("%s")]], hTurret:GetName()), {
+            Sync = true,
+            SyncID = "f",
+            BindID = hTurret.id,
+        })
+
+        hBunker.SvGunTurret = hTurret.id
+        g_pGame:SetTeam(g_pGame:GetTeam(hBunker.id), hTurret.id)
+
+        CryAction.CreateGameObjectForEntity(hTurret.id)
+        CryAction.BindGameObjectToNetwork(hTurret.id)
+        --CryAction.ForceGameObjectUpdate(hTurret.id, true)
     end,
 
     -- ==================

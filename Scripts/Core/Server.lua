@@ -389,10 +389,14 @@ Server.OnUpdate = function(self)
     if (self.FastTickTimer.expired()) then
         EventCall(eServerEvent_ScriptTickFast)
         self.FastTickTimer.refresh()
+
+        if (g_gameRules.IS_PS) then
+            g_gameRules:UpdateReviveQueue()
+        end
     end
 
-    g_gameRules:UpdateReviveQueue()
-
+    ServerChat:OnUpdate()
+    ServerItemSystem:OnUpdate()
     EventCall(eServerEvent_ScriptUpdate)
 end
 

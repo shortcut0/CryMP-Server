@@ -59,7 +59,49 @@ local ServerGameRules = {
         ---------
         local iTeamKillDamage = ConfigGet("General.GameRules.HitConfig.TeamKill.DamageMultiplier", 0, eConfigGet_Number)
         SetCVar("g_friendlyFireRatio", g_ts(iTeamKillDamage))
-        g_pGame:InitScriptTables()
+        if (g_pGame.InitScriptTables) then
+            g_pGame:InitScriptTables()
+        end
+
+        self.FirstBlood = {
+            Reward  = ConfigGet("General.GameRules.HitConfig.FirstBlood.Reward", 500, eConfigGet_Number),
+            Enabled = ConfigGet("General.GameRules.HitConfig.FirstBlood.Enabled", true, eConfigGet_Boolean),
+            Shooters = {
+                [TEAM_NK] = nil,
+                [TEAM_US] = nil,
+                [TEAM_NEUTRAL] = nil,
+            }
+        }
+
+        ---------
+
+        self.StreakMessages = {
+            Deaths  = ConfigGet("General.GameRules.HitConfig.KillStreaks.DeathMessages", {}, eConfigGet_Array),
+            Kills   = ConfigGet("General.GameRules.HitConfig.KillStreaks.KillMessages", {}, eConfigGet_Array),
+            Repeats = ConfigGet("General.GameRules.HitConfig.KillStreaks.RepeatMessages", {}, eConfigGet_Array)
+        }
+
+        ---------
+
+        self.KillConfig = {
+            SuicideKills    = ConfigGet("General.GameRules.HitConfig.DeductSuicideKills", 0,  eConfigGet_Number),
+            SuicideDeaths   = ConfigGet("General.GameRules.HitConfig.SuicideAddDeaths", 1,    eConfigGet_Number),
+            TeamKill        = ConfigGet("General.GameRules.HitConfig.DeductTeamKill", 1,      eConfigGet_Number),
+            BotScore        = ConfigGet("General.GameRules.HitConfig.DeductBotKills", false,  eConfigGet_Boolean),
+            NewMessages     = ConfigGet("General.GameRules.EnableNewKillMessages", true, eConfigGet_Boolean)
+        }
+
+        FSetCVar("mp_killMessages", g_ts(self.KillConfig.NewMessages and 0 or 1))
+
+        self.PingControl = {
+            Limit   = ConfigGet("General.PingControl.PingLimit.Limit", 300, eConfigGet_Number),
+            Delay   = ConfigGet("General.PingControl.PingLimit.InfractionDelay", 10, eConfigGet_Number),
+            Type    = ConfigGet("General.PingControl.PingLimit.CheckType", "Real", eConfigGet_String),
+            Warns   = ConfigGet("General.PingControl.PingLimit.InfractionLimit", 5, eConfigGet_Number),
+            BanTime = ConfigGet("General.PingControl.PingLimit.BanTime", 0, eConfigGet_Number),
+            Text    = ConfigGet("General.PingControl.PingLimit.WarningMessage", "@l_ui_pingwarning", eConfigGet_String),
+        }
+        Debug("shoul dbe 10, its:",ConfigGet("General.PingControl.InfractionLimit", -6969696, eConfigGet_Number))
 
         ---------
         self:NetExpose()
@@ -83,6 +125,9 @@ local ServerGameRules = {
 
             hClient.TagPlayerAlert = timernew(10)
             hClient.TagAward = { PP = 0, CP = 0, Timer = nil, Num = 0, Hostiles = 0 }
+            hClient.PingControl = { Timer = timernew(), WarnCount = 0 }
+
+            self:SvInitClientStreaks(hClient)
             ServerLog("GameRules.InitClient")
         end
 
@@ -248,7 +293,7 @@ local ServerGameRules = {
                         local hPlayer = System.GetEntity(hPlayerID)
                         if (hPlayer and hPlayer.actor and (not hPlayer:IsDead()) and (hPlayer.actor:GetSpectatorMode() == 0)) then
 
-                            hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest(hBuilding.LocaleType .. " @l_ui_captured ( +" .. iValue .. " PP )")..[[")]])
+                            hPlayer:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hPlayer:LocalizeNest((hBuilding.LocaleType or "Unknown") .. " @l_ui_captured ( +" .. iValue .. " PP )")..[[")]])
                             self:AwardPPCount(hPlayerID, iValue, nil, hPlayer:HasClientMod())
                             self:AwardCPCount(hPlayerID, self.cpList.CAPTURE)
                         end
@@ -280,19 +325,32 @@ local ServerGameRules = {
                     if (IsAny(hNearby.class, "claymoreexplosive", "avexplosive", "c4explosive"
                     )) then
                         self.TaggedExplosives[hNearby.id] = {
-                            Timer = timernew(),
+                            Timer       = timernew(),
                             EffectTimer = timernew(),
-                            TeamID = hShooter:GetTeam()
+                            MsgTimer    = timernew(),
+                            TeamID      = hShooter:GetTeam()
                         }
                         hShooter.TagAward.Num = hShooter.TagAward.Num + 1
                         hShooter.TagAward.PP  = hShooter.TagAward.PP + 5
                         hShooter.TagAward.CP  = hShooter.TagAward.CP + 1
 
+                        local vPos = hNearby:GetPos()
                         if (iTeam ~= TEAM_NEUTRAL) then
-                            ClientMod.ExecuteOn(GetPlayers({ TeamID = iTeam }), 'g_Client:SLH("' .. hNearby:GetName() .. '","red",15)')
+                            Debug("hello! not neutral!!! on team",iTeam)
+                            Debug(hNearby:GetName(), iTeam, #GetPlayers({ TeamID = iTeam }))
+                            --ClientMod.ExecuteOn(GetPlayers({ TeamID = iTeam }), 'g_Client:SLH("' .. hNearby:GetName() .. '","red",15)ClientLog("slh")')
+                            ClientMod.ExecuteOn(GetPlayers({ TeamID = iTeam }), string.format([[g_Client:ESLH("%s","%s",{x=%f,y=%f,z=%f},%d,0.15)]],
+                                    hNearby:GetName(), hNearby.class, vPos.x, vPos.y, vPos.z, g_pGame:GetTeam(hNearby.id)
+                            ))
                         else
-                            ClientMod.ExecuteOn(GetPlayers({ NotID = hShooter.id }), 'g_Client:SLH("' .. hNearby:GetName() .. '","red",15)')
-                            ClientMod.ExecuteOn({ hShooter }, 'g_Client:SLH("' .. hNearby:GetName() .. '","green",15)')
+                            --ClientMod.ExecuteOn(GetPlayers({ NotID = hShooter.id }), 'g_Client:SLH("' .. hNearby:GetName() .. '","red",15)')
+                            --ClientMod.ExecuteOn({ hShooter }, 'g_Client:SLH("' .. hNearby:GetName() .. '","green",15)')
+                            ClientMod.ExecuteOn(GetPlayers({ NotID = hShooter.id }), string.format([[g_Client:ESLH("%s","%s",{x=%f,y=%f,z=%f},%d,0.15,"red")]],
+                                    hNearby:GetName(), hNearby.class, vPos.x, vPos.y, vPos.z, g_pGame:GetTeam(hNearby.id)
+                            ))
+                            ClientMod.ExecuteOn({ hShooter }, string.format([[g_Client:ESLH("%s","%s",{x=%f,y=%f,z=%f},%d,0.15,"green")]],
+                                    hNearby:GetName(), hNearby.class, vPos.x, vPos.y, vPos.z, g_pGame:GetTeam(hNearby.id)
+                            ))
                         end
                         --ClientMod.ExecuteOn(GetPlayers({ TeamID = GetOtherTeam(hShooter:GetTeam()) }), 'g_Client:SLH("' .. hNearby:GetName() .. '","red",15)')
                     end
@@ -307,7 +365,7 @@ local ServerGameRules = {
                     local iHostile = hShooter.TagAward.Hostiles
                     Debug(iHostile)
                     if (iHostile > 0) then
-                        local aNearby = GetPlayers({ NotID = true and NULL_ENTITY or hShooter.id, Range = iScanDistance, Pos = hShooter:GetPos(), Team = hShooter:GetTeam() })
+                        local aNearby = GetPlayers({ NotID = hShooter.id, Range = iScanDistance, Pos = hShooter:GetPos(), Team = hShooter:GetTeam() })
                         for _, hNearby in pairs(aNearby) do
 
                             hNearby:Execute(string.format([[g_Client:PSE("sounds/interface:multiplayer_interface:mp_tac_alarm_suit",nil,"hostiles")ClientEvent(eEvent_BLE,eBLE_Warning,"%s")]],
@@ -1147,6 +1205,21 @@ local ServerGameRules = {
             self:HandlePings()
 
             --ServerDLL.UpdateGameSpyReport(eGSUpdate_Server, "")
+            for _, aInfo in pairs(self.TaggedExplosives) do
+                local hExplosive = GetEntity(_)
+                if (not hExplosive) then
+                    self.TaggedExplosives[_] = nil
+                else
+                    if (aInfo.Timer.expired(15)) then
+                        self.TaggedExplosives[_] = nil
+                    elseif (aInfo.MsgTimer.expired_refresh(1)) then
+                        --SendMsg(MSG_CENTER, GetPlayers({ TeamID = aInfo.TeamID, Pos = hExplosive:GetPos(), Range = 8 }), "@l_ui_explosiveNearby")
+                        for __, hNearby in pairs(GetPlayers({ TeamID = aInfo.TeamID, Pos = hExplosive:GetPos(), Range = 8 })) do
+                            SendMsg(MSG_CENTER, hNearby, hNearby:LocalizeNest("@l_ui_explosiveNearby", { string.format("%0.2f", hNearby:Distance(hExplosive)) }))
+                        end
+                    end
+                end
+            end
 
             local iCPU      = ServerDLL.GetCPUUsage()
             local iMem      = ServerDLL.GetMemUsage()
@@ -1173,6 +1246,9 @@ local ServerGameRules = {
             local iPingFixed      = ConfigGet("General.PingControl.FixedPing",     -1, eConfigGet_Number)
             local iPingMultiplier = ConfigGet("General.PingControl.PingMultiplier", 1, eConfigGet_Number)
 
+            local aControlInfo = self.PingControl
+            local iBanTime     = aControlInfo.BanTime
+
             local aClients = g_pGame:GetPlayers()
             if (table.count(aClients) > 0) then
 
@@ -1194,6 +1270,30 @@ local ServerGameRules = {
                     end
 
                     hClient:SetPing(iPing)
+
+                    local iCheck = (string.lower(aControlInfo.Type) == "real" and hClient:GetRealPing() or iPing)
+                    local iLimit = aControlInfo.Limit
+                    if (hClient:IsTesting()) then
+                        iLimit = 10
+                    end
+                    if (iCheck >= iLimit) then
+                        if (hClient.PingControl.Timer.expired_refresh(aControlInfo.Delay)) then
+
+                            local iWarns = (hClient.PingControl.WarnCount + 1)
+                            if (iWarns > aControlInfo.Warns) then
+
+                                if (iBanTime > 0) then
+                                    ServerPunish:BanPlayer(Server.ServerEntity, hClient, iBanTime, ("High Latency (Limit " .. iLimit .. ")"))
+                                else
+                                    KickPlayer(hClient, ("High Latency (Limit " .. iLimit .. ")"), nil, "Server")
+                                end
+                            else
+
+                                hClient.PingControl.WarnCount = (hClient.PingControl.WarnCount + 1)
+                                SendMsg(CHAT_SERVER, hClient, hClient:LocalizeNest(aControlInfo.Text, { iLimit, hClient.PingControl.WarnCount, aControlInfo.Warns, iCheck }))
+                            end
+                        end
+                    end
                 end
 
                 iPingAverage = (iPingTotal / table.count(aClients))
@@ -1277,6 +1377,10 @@ local ServerGameRules = {
 
         ------------------------
         Function = function(self)
+
+            if (not self.IS_PS) then
+                return
+            end
 
             -- todo: someone with free time rewrite this
             local iAutoSpecTime   = ConfigGet("General.GameRules.AutoSpectateTimer", 30, eConfigGet_Number)
@@ -1432,6 +1536,7 @@ local ServerGameRules = {
         Function = function(self, hPlayerID)
 
             local hPlayer = GetEntity(hPlayerID)
+            local iQueueTimer = (g_pGame:GetRemainingReviveCycleTime() or 0)
 
             --Debug("reques?")
             --Debug("spawngrou=",g_ts(hPlayer.spawnGroupId),"team=",g_pGame:GetTeam(hPlayer.spawnGroupId),"(null=",NULL_ENTITY)
@@ -1447,7 +1552,7 @@ local ServerGameRules = {
                         if (((hPlayer.actor:GetSpectatorMode() == 3 and self.game:GetTeam(hPlayerID) ~= 0) or (hPlayer:IsDead() and hPlayer.death_time and _time - hPlayer.death_time > 2.5)) and (not self:IsInReviveQueue(hPlayerID))) then
                             self:QueueRevive(hPlayerID)
                             --Debug("SHOUL DBE IN QUEU !!")
-                        elseif (self:IsInReviveQueue(hPlayerID)) then
+                        elseif (iQueueTimer >= 2 and self:IsInReviveQueue(hPlayerID)) then
                             self:ResetRevive(hPlayerID)
                             SendMsg(MSG_CENTER, hPlayer, "@l_ui_reviveQueuePaused")
                         end
@@ -1483,6 +1588,10 @@ local ServerGameRules = {
                 end
                 if (not bForce) then
                 end
+            end
+
+            if (hPlayer.IsPlayer) then
+                hPlayer.SpawnTimer.refresh()
             end
 
             if (bForce) then --or (hPlayer:GetTeam() == 0 and self.IS_PS)) then
@@ -1759,11 +1868,14 @@ local ServerGameRules = {
             local iKillType = eKillType_Unknown
             local bHeadshot = false
 
-            local bSuicide = (not hShooter or hShooter == hTarget)
-            local iSuicideKills   = ConfigGet("General.GameRules.HitConfig.DeductSuicideKills", 0,  eConfigGet_Number)
-            local iSuicideDeaths  = ConfigGet("General.GameRules.HitConfig.SuicideAddDeaths", 1,    eConfigGet_Number)
-            local iTeamKillReward = ConfigGet("General.GameRules.HitConfig.DeductTeamKill", 1,      eConfigGet_Number)
-            local bRemoveBotScore = ConfigGet("General.GameRules.HitConfig.DeductBotKills", false,  eConfigGet_Boolean)
+            local bSuicide    = (not hShooter or hShooter == hTarget)
+            local aKillConfig = self.KillConfig
+
+            local iSuicideKills   = aKillConfig.SuicideKills --ConfigGet("General.GameRules.HitConfig.DeductSuicideKills", 0,  eConfigGet_Number)
+            local iSuicideDeaths  = aKillConfig.SuicideDeaths --ConfigGet("General.GameRules.HitConfig.SuicideAddDeaths", 1,    eConfigGet_Number)
+            local iTeamKillReward = aKillConfig.TeamKill --ConfigGet("General.GameRules.HitConfig.DeductTeamKill", 1,      eConfigGet_Number)
+            local bRemoveBotScore = aKillConfig.BotScore --ConfigGet("General.GameRules.HitConfig.DeductBotKills", false,  eConfigGet_Boolean)
+
 
             if (hTarget.IsPlayer) then
 
@@ -1772,7 +1884,7 @@ local ServerGameRules = {
                     hTarget:SetKills(hTarget:GetKills() + (iSuicideKills + 1))
                     hTarget:SetDeaths(hTarget:GetDeaths() + (iSuicideDeaths))
 
-                elseif (hShooter.isPlayer) then
+                elseif (hShooter.IsPlayer) then
 
                     -- detect teamkill
                     if (not self.IS_IA and g_pGame:GetTeam(hShooter.id) == g_pGame:GetTeam(hTarget.id)) then
@@ -1790,7 +1902,7 @@ local ServerGameRules = {
                 end
 
             elseif (hShooter) then
-                if (hShooter.isPlayer) then
+                if (hShooter.IsPlayer) then
 
                     -- target is not player -> remove points
                     iKillType = eKillType_Bot
@@ -1830,6 +1942,42 @@ local ServerGameRules = {
                 hShooter:RefreshHitAccuracy()
             end
 
+            aHitInfo.kill_type = iKillType
+
+            Debug("iKillType=",iKillType)
+            if (iKillType == eKillType_Enemy) then-- or (hShooter.IsPlayer and hShooter:IsTesting())) then
+               -- Debug("fb?")
+                local aFPConfig = self.FirstBlood
+                local iTeam = g_pGame:GetTeam(hShooter.id)
+
+               -- Debug("a1=",aFPConfig.Shooters[iTeam],"a2=",aFPConfig.Enabled)
+                if (aFPConfig.Shooters[iTeam] == nil and aFPConfig.Enabled) then
+                    aFPConfig.Shooters[iTeam] = timernew()
+
+                    local iRewardPP = aFPConfig.Reward
+                    local iRewardCP = aFPConfig.RewardCP or 10
+                    SendMsg(CHAT_SERVER_LOCALE, ALL, "@l_ui_firstBlood", hShooter:GetName(), GetTeamName(iTeam), iRewardPP, iRewardCP)
+                   -- Debug("first blood for team ", GetTeamName(iTeam))
+                end
+            end
+
+            if (aKillConfig.NewMessages) then
+                self:SvSendKillMessage(aHitInfo)
+            end
+
+
+            if (hShooter ~= hTarget and hShooter.IsPlayer and hTarget and hWeapon and hWeapon.class == "DSG1" and self.class == "PowerStruggle") then
+                local iDist = vector.distance(hTarget:GetPos(), hShooter:GetPos())
+                if (iDist > 100) then
+                    local iReward = math.floor((iDist / 100) + 0.5) * 100 * (bHeadshot and 2.5 or 1)
+                    self:AwardPPCount(hShooter.id, iReward, nil, hShooter:HasClientMod())
+
+                    local sMsg = string.format("SNIPER-KILL :: %0.2fm, ( + %d PP )", iDist, iReward)
+                    SendMsg(MSG_CENTER, hShooter, sMsg)
+                    hShooter:SendBLE(eBLE_Information, sMsg)
+                end
+
+            end
         end
     },
 
@@ -2304,7 +2452,6 @@ local ServerGameRules = {
 
         ------------------------
         Function = function(self, aHitInfo)
-
             ---------
             if (not ServerItemHandler:CheckHit(aHitInfo)) then
                 return false
@@ -2628,6 +2775,13 @@ local ServerGameRules = {
         ------------------------
         Function = function(self, hTurret, aHitInfo)
 
+            local hShooter = aHitInfo.shooter
+            if (hShooter and hShooter.IsPlayer and hShooter:IsTesting()) then
+                aHitInfo.damage = 99999
+                hTurret.item:OnHit(aHitInfo)
+                Debug("ded")
+            end
+
             if (hTurret and self:GetState() == "InGame") then
                 local teamId = (self.game:GetTeam(hTurret.id) or 0)
                 hTurret.LastHitTimer = timernew()
@@ -2649,10 +2803,9 @@ local ServerGameRules = {
                         end
                     end
 
-                    if ((teamId == 0 or (teamId ~= self.game:GetTeam(aHitInfo.shooterId))) and hTurret.item:IsDestroyed()) then
+                    if (hShooter and hShooter.IsPlayer and (teamId == 0 or (teamId ~= self.game:GetTeam(aHitInfo.shooterId))) and hTurret.item:IsDestroyed()) then
 
                         local iPP = self.ppList.TURRETKILL
-                        local hShooter = aHitInfo.shooter
                         hShooter:Execute(string.format([[ClientEvent(eEvent_BLE,eBLE_Currency,"%s ( +%d PP )")]],
                             hShooter:LocalizeNest("@l_ui_turret @l_ui_eliminated"),
                             iPP
@@ -2859,7 +3012,12 @@ local ServerGameRules = {
                 if (entity) then
                     local workamount = amount * frameTime
                     if (player:IsTesting()) then
-                        workamount = workamount*100
+                        workamount = workamount * 100
+                    end
+
+                    local iMult = entity.RepairSpeedMult
+                    if (iMult) then
+                        workamount = (workamount * iMult)
                     end
 
                     player.LastWorkCount = (player.LastWorkCount + workamount)
@@ -3299,12 +3457,9 @@ local ServerGameRules = {
 
             if (iPlayerTeam == iVehicleTeam or iVehicleTeam == 0) then
                 local bOk = (hVehicle.vehicle:GetOwnerId() == nil)
-                Debug(g_ts(bCheck))
                 return (bOk and bCheck)
 
             elseif (iPlayerTeam ~= iVehicleTeam) then
-
-                Debug("other team!",iPlayerTeam,iVehicleTeam)
                 return false
             end
 

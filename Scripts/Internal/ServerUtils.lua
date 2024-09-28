@@ -16,6 +16,27 @@ ePE_BarrelExplo	= "explosions.barrel.explode"
 
 ----------------
 
+eSE_ExplosionFrag   = "sounds/physics:explosions:grenade_explosion"
+eSE_ExplosionFrag2  = "sounds/physics:explosions:explo_grenade"
+eSE_ExplosionFrag3  = "sounds/physics:explosions:grenade_launcher_explosion"
+
+eSE_ExplosionLarge  = "sounds/physics:explosions:large_explosion"
+
+eSE_ExplosionHuge   = "sounds/physics:explosions:sphere_cafe_explo_3"
+eSE_ExplosionHuge2  = "sounds/physics:explosions:sphere_cafe_explo_2"
+eSE_ExplosionHuge3  = "sounds/physics:explosions:sphere_cafe_explo_1"
+eSE_ExplosionMHeli   = "sounds/physics:explosions:missile_helicopter_explosion"
+
+eSE_ExplosionMissileVtol   = "sounds/physics:explosions:missile_vtol_explosion"
+eSE_ExplosionMissileLAW    = "sounds/physics:explosions:law_explosion"
+eSE_ExplosionMissileLAW2   = "sounds/physics:explosions:explo_rocket"
+
+eSE_ExplosionWater  = "sounds/physics:explosions:water_explosion_small"
+eSE_ExplosionWaterM = "sounds/physics:explosions:water_explosion_medium"
+eSE_ExplosionWaterL = "sounds/physics:explosions:water_explosion_large"
+
+----------------
+
 ALL_ENTITIES = {}
 ALL_ITEMS    = {}
 
@@ -178,7 +199,7 @@ ServerUtils.AddImpulse = function(hEntity, vDir, iStrength, iPlayerStrength)
 
     if (not bClient) then
         hEntity:AddImpulse(-1, hEntity:GetCenterOfMassPos(), vDir, iStrength, 1)
-        Debug("impulse")
+      --  Debug("impulse")
     end
 
 end
@@ -654,8 +675,9 @@ ServerUtils.GetFacingPos = function(hEntityID, iFace, iDistance, iFollowType, iF
     elseif (iFollowType == eFollow_Auto) then
         local iFollow = math.max(iGround or 0, iWater or 0)
         if (iFollow) then
-            iDiff = iFollow - vPos.z--math.abs()
-           -- Debug("auto",iDiff,"w",iWater,"g",iGround)
+            iDiff =  math.abs(iFollow - vPos.z)--math.abs()
+            Debug("auto",iDiff,"w",iWater,"g",iGround)
+            Debug("max",iFollowMax,"min",iFollowMin)
             if (iFollowMax == nil or iDiff < iFollowMax and (iFollowMin == nil or iDiff > iFollowMin)) then
                 vPos.z = iFollow
                 iFollowed = (((iGround or 0) > (iWater or 0)) and eFollow_Terrain or eFollow_Water)
@@ -697,6 +719,56 @@ ServerUtils.GetOtherTeam = function(iTeam)
 end
 
 ----------------
+ServerUtils.FindValueByName = function(hClient, sClass)
+
+end
+
+----------------
+ServerUtils.FindCVarByName = function(hClient, sCVar)
+
+    local aCVars = ServerDLL.GetVars()
+    local iCVars = table.size(aCVars)
+    if (iCVars == 0) then
+        return nil, hClient:Localize("@l_ui_noCVarsFound")
+    end
+
+    local aFound
+    if (sCVar) then
+        aFound = table.it(aCVars, function(x, i, v)
+            local t = x
+            local a = string.lower(v)
+            local b = string.lower(sCVar)
+            if (a == b) then
+                return { v }, 1
+            elseif (string.len(b) > 1 and string.match(a, "^" .. b)) then
+                if (t) then
+                    table.insert(t, v)
+                    return t
+                end
+                return { v }
+            end
+            return t
+        end)
+
+        if (table.count(aFound) == 0) then aFound = nil end
+    end
+
+    if (sCVar == nil or (not aFound or table.count(aFound) > 1)) then
+        ListToConsole({
+            Client      = hClient,
+            List        = (aFound or aCVars),
+            Title       = hClient:Localize("@l_ui_cvarList"),
+            ItemWidth   = 108 / 3,
+            PerLine     = 3,
+            Value       = 1
+        })
+        return nil, hClient:Localize("@l_ui_entitiesListedInConsole", { table.count((aFound or aCVars)) })
+    end
+
+    return aFound[1]
+end
+
+----------------
 ServerUtils.FindItemByClass = function(hClient, sClass)
 
     local aItems = GetItemClasses(1)
@@ -730,6 +802,51 @@ ServerUtils.FindItemByClass = function(hClient, sClass)
         ListToConsole({
             Client      = hClient,
             List        = (aFound or aItems),
+            Title       = hClient:Localize("@l_ui_itemList"),
+            ItemWidth   = 20,
+            PerLine     = 4,
+            Value       = 1
+        })
+        return nil, hClient:Localize("@l_ui_entitiesListedInConsole", { table.count((aFound or aItems)) })
+    end
+
+    return aFound[1]
+end
+
+----------------
+ServerUtils.FindAmmoByClass = function(hClient, sClass)
+
+    local aAmmo = GetAmmoClasses(1)
+    local iItems = table.size(aAmmo)
+    if (iItems == 0) then
+        return nil, hClient:Localize("@l_ui_noItemsFound")
+    end
+
+    local aFound
+    if (sClass) then
+        aFound = table.it(aAmmo, function(x, i, v)
+            local t = x
+            local a = string.lower(v)
+            local b = string.lower(sClass)
+            if (a == b) then
+                return { v }, 1
+            elseif (string.len(b) > 1 and string.match(a, "^" .. b)) then
+                if (t) then
+                    table.insert(t, v)
+                    return t
+                end
+                return { v }
+            end
+            return t
+        end)
+
+        if (table.count(aFound) == 0) then aFound = nil end
+    end
+
+    if (sClass == nil or (not aFound or table.count(aFound) > 1)) then
+        ListToConsole({
+            Client      = hClient,
+            List        = (aFound or aAmmo),
             Title       = hClient:Localize("@l_ui_itemList"),
             ItemWidth   = 20,
             PerLine     = 4,
@@ -896,6 +1013,10 @@ end
 ----------------
 ServerUtils.GetPlayers = function(aParams)
 
+    if (not g_pGame) then
+        return {}
+    end
+
     local aPlayers = g_pGame:GetPlayers()
     if (aParams == 1) then
         return table.count(aPlayers)
@@ -919,9 +1040,16 @@ ServerUtils.GetPlayers = function(aParams)
             bInsert = false
         end
 
-        if (bInsert and table.size(aParams) > 0) then
+        if (bInsert and iParams > 0) then
             if (aParams.Access) then
                 if (not hPlayer:HasAccess(aParams.Access)) then
+                    bInsert = false
+                end
+            end
+
+            if (aParams.Pos and aParams.Range) then
+                local iDistance = vector.distance(aParams.Pos, hPlayer:GetPos())
+                if (iDistance > aParams.Range) then
                     bInsert = false
                 end
             end
@@ -944,8 +1072,9 @@ ServerUtils.GetPlayers = function(aParams)
                 end
             end
 
-            if (aParams.TeamID) then
-                if (hPlayer:GetTeam() ~= aParams.TeamID) then
+            local iTeamID = (aParams.TeamID or aParams.Team)
+            if (iTeamID) then
+                if (hPlayer:GetTeam() ~= iTeamID) then
                     bInsert = false
                 end
             end
@@ -1052,17 +1181,17 @@ ServerUtils.GetEntity = function(hId)
         return System.GetEntityByName(hId)
     end
 
-    -- Exhaused
+    -- Exhausted
     return
 end
 
 ----------------
-ServerUtils.GetEntityName = function(hId)
+ServerUtils.GetEntityName = function(hId, hDef)
     local hEntity = GetEntity(hId)
     if (not hEntity) then
-        return
+        return (hDef or "<null>")
     end
-    return hEntity:GetName()
+    return (hEntity:GetName() or hDef)
 end
 
 ----------------

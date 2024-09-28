@@ -48,7 +48,8 @@ ServerDefense = {
         -- a List of detected cheats that will be ignored (blocked, but ignored)
         Blacklist = {
             eCheat_StopFire,
-            eCheat_StartFire
+            eCheat_StartFire,
+            eCheat_DropItem,
         },
 
         ChatProtection = {
@@ -178,7 +179,7 @@ ServerDefense = {
             hPlayer.SvChatSpam = (hPlayer.SvChatSpam + 1)
             if (hPlayer.SvChatSpam > iSpamThreshold) then
                 bOk = false
-                self:HandleCheater(hPlayer:GetChannel(), eCheat_ChatSpam, string.format("Spamming Chat (%d / %d)", hPlayer.SvChatSpam, iSpamThreshold), hPlayer.id, true)
+                self:HandleCheater(hPlayer:GetChannel(), eCheat_ChatSpam, string.format("Spamming Chat (%d / %d)", hPlayer.SvChatSpam, iSpamThreshold), hPlayer.id, hPlayer.id, true)
                 hPlayer.SvChatSpam = 0
             end
         else
@@ -191,7 +192,7 @@ ServerDefense = {
                 hPlayer.SvChatFlood = (hPlayer.SvChatFlood + 1)
                 if (hPlayer.SvChatFlood > iFloodThreshold) then
                     bOk = false
-                    self:HandleCheater(hPlayer:GetChannel(), eCheat_ChatFlood, string.format("Flooding Chat (%d / %d)", hPlayer.SvChatFlood, iFloodThreshold), hPlayer.id, true)
+                    self:HandleCheater(hPlayer:GetChannel(), eCheat_ChatFlood, string.format("Flooding Chat (%d / %d)", hPlayer.SvChatFlood, iFloodThreshold), hPlayer.id, hPlayer.id, true)
                     hPlayer.SvChatFlood = 0
                 end
             else
@@ -231,7 +232,7 @@ ServerDefense = {
             return true
         end
 
-        self:HandleCheater(hPlayer:GetChannel(), ((sFunc or "") .. " Distance"), string.format("%0.2f > %0.2f", iDistance, 120.0), nil, false)
+        self:HandleCheater(hPlayer:GetChannel(), ((sFunc or "") .. " Distance"), string.format("%0.2f > %0.2f", iDistance, 120.0), nil, nil, false)
         return false
     end,
 
@@ -294,7 +295,7 @@ ServerDefense = {
     end,
 
     -------------------
-    HandleCheater = function(self, iNetChannel, sName, sDetect, hVictimID, bSure, hP1, hP2)
+    HandleCheater = function(self, iNetChannel, sName, sDetect, hNetUserId, hVictimID, bSure, hP1, hP2)
 
         local aConfig = self.Config
         local sInfo   = string.match(sDetect, "^%w-:?:?Handle_(.*)") or sDetect
@@ -320,14 +321,14 @@ ServerDefense = {
             Lag  = bLagging
         })
 
-        self:LogCheat(iNetChannel, sName, sInfo, bSure, bLagging, hVictimID)
-        if (bSure and self:GetDetects(iNetChannel, iTimeout, true, true) >= iThreshold) then
+        self:LogCheat(iNetChannel, sName, sInfo, bSure, bLagging, hVictimID, hNetUserId)
+        if (bSure == true and self:GetDetects(iNetChannel, iTimeout, true, true) >= iThreshold) then
             self:PunishCheater(iNetChannel, sName, sDetect)
         end
     end,
 
     -------------------
-    LogCheat = function(self, iNetChannel, sDetect, sInfo, bSure, bLag, hVictimID)
+    LogCheat = function(self, iNetChannel, sDetect, sInfo, bSure, bLag, hVictimID, hNetUserId)
 
         local iLogClass = RANK_PLAYER
         local sName     = "Channel " .. iNetChannel
@@ -336,6 +337,7 @@ ServerDefense = {
         local hItem
         local sItems = "None"
         local sVictim = GetEntityName(hVictimID, "<Null>")
+        local sNetUser = GetEntityName(hNetUserId, "<Null>")
 
         if (hPlayer) then
             sName = hPlayer:GetName()
@@ -355,7 +357,7 @@ ServerDefense = {
 
         if (self:CanLog(iNetChannel, sDetect)) then
             Logger:LogEventTo(GetPlayers({ Access = iLogClass }), eLogEvent_Cheat, "@l_ui_cheat_Detected", sName, sInfo, sDetect, (bSure and "Positive " or ""), (bLag and "${orange}Lagger ${red}" or ""))
-            Logger:LogEventTo(GetPlayers({ Access = iLogClass }), eLogEvent_Cheat, string.format("${gray}Victim ${orange}%s", sVictim))
+            Logger:LogEventTo(GetPlayers({ Access = iLogClass }), eLogEvent_Cheat, string.format("${gray}NetUser ${orange}%s ${gray}Victim ${orange}%s", sNetUser, sVictim))
             Logger:LogEventTo(GetPlayers({ Access = iLogClass }), eLogEvent_Cheat, string.format("${gray}Equip ${orange}%s", sItems))
             self.LogTimers[iNetChannel][sDetect].refresh()
         end

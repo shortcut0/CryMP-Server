@@ -422,6 +422,27 @@ CreateLocalization("l_ui_stadiumRemoved", {
 
 
 
+
+
+CreateLocalization("l_ui_bunkerProtection", {
+    english = "${2}BUNKER-PROTECTION :: ${1}"
+})
+
+
+
+CreateLocalization("l_ui_activated", {
+    english = "Activated"
+})
+CreateLocalization("l_ui_deactivated", {
+    english = "Deactivated"
+})
+CreateLocalization("l_ui_removed", {
+    english = "Removed"
+})
+
+
+
+
 CreateLocalization("l_ui_floodBlocked", {
     english = ""
 })
@@ -498,6 +519,25 @@ CreateLocalization("l_ui_clm_hwidReceived", {
 
 
 
+CreateLocalization("l_ui_explosiveNearby", {
+    english = "WARNING: Explosive Nearby ( ${1}m )"
+})
+
+
+
+
+
+
+CreateLocalization("l_ui_firstBlood", {
+    english = "${1} :: Scored FIRST BLOOD for Team ${2} ( + ${3} PP, + ${4} EXP )"
+})
+
+
+
+
+
+
+
 CreateLocalization("l_ui_captureTheProtoToEnter", {
     english = "Capture the Prototype Facility to use this Vehicle"
 })
@@ -513,8 +553,13 @@ CreateLocalization("l_ui_captureTheBuildingToEnter", {
 
 
 
+CreateLocalization("l_ui_pingwarning", {
+    english = "WARNING: Ping Limit ( ${1} ) exceeded! (Infraction #${2} / ${3})"
+})
+
+
 CreateLocalization("l_ui_changedLang", {
-    english = "Changing Preferred Language for $4${1} to $4${2}"
+    english = "$4${1}$9 Changed Language to $4${2}"
 })
 
 
@@ -580,3 +625,12 @@ CreateLocalization("l_ui_mapSetupIsDisabled", {
 
 
 
+
+
+
+CreateLocalization("l_commandresp_notInSpec", {
+    english = "Not usable while Spectating"
+})
+CreateLocalization("l_commandresp_onlyInSpec", {
+    english = "Only usable while Spectating"
+})

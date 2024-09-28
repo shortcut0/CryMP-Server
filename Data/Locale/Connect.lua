@@ -41,12 +41,12 @@ local LocaleList = {
 
     ["l_console_on_disconnected"] = {
         -- 1 = Name, 2 = Channel, 3 = IP
-        english  = { regular = "${gray}${1}${gray} Disconnected from Channel ${2}", extended = "${gray}${1}${gray} Disconnected from Channel ${2} (${3})" },
-        spanish  = { regular = "${gray}${1}${gray} Desconectado de Canal ${2}", extended = "${gray}${1}${gray} Desconectado de Canal ${2} (${3})" },
-        german   = { regular = "${gray}${1}${gray} Getrennt von Kanal ${2}", extended = "${gray}${1}${gray} Getrennt von Kanal ${2} (${3})" },
-        turkish  = { regular = "${gray}${1}${gray} Kanal ${2}'den Baglantisi Kesildi", extended = "${gray}${1}${gray} Kanal ${2}'den Baglantisi Kesildi (${3})" },
-        russian  = { regular = "${gray}${1}${gray} Otklyuchen ot Kanala ${2}", extended = "${gray}${1}${gray} Otklyuchen ot Kanala ${2} (${3})" },
-        czech    = { regular = "${gray}${1}${gray} Odpojeno z Kanalu ${2}", extended = "${gray}${1}${gray} Odpojeno z Kanalu ${2} (${3})" }
+        english  = { regular = "${gray}${1}${gray} Disconnected from Channel ${2} (${3})", extended = "${gray}${1}${gray} Disconnected from Channel ${2} (${3}, ${4})" },
+        spanish  = { regular = "${gray}${1}${gray} Desconectado de Canal ${2} (${3})", extended = "${gray}${1}${gray} Desconectado de Canal ${2} (${3}, ${4})" },
+        german   = { regular = "${gray}${1}${gray} Getrennt von Kanal ${2} (${3})", extended = "${gray}${1}${gray} Getrennt von Kanal ${2} (${3}, ${4})" },
+        turkish  = { regular = "${gray}${1}${gray} Kanal ${2}'den Baglantisi Kesildi (${3})", extended = "${gray}${1}${gray} Kanal ${2}'den Baglantisi Kesildi (${3}, ${4})" },
+        russian  = { regular = "${gray}${1}${gray} Otklyuchen ot Kanala ${2} (${3})", extended = "${gray}${1}${gray} Otklyuchen ot Kanala ${2} (${3}, ${4})" },
+        czech    = { regular = "${gray}${1}${gray} Odpojeno z Kanalu ${2} (${3})", extended = "${gray}${1}${gray} Odpojeno z Kanalu ${2} (${3}, ${4})" }
     },
 
     ["l_chat_on_Disconnected"] = {

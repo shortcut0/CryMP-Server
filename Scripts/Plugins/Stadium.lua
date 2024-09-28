@@ -301,7 +301,7 @@ ServerStadium = {
 
             self.Temp.Balls[_].SvOnCollision = function(this, hEntity)
                 if (hEntity and hEntity.IsPlayer) then
-                    Debug("coll!")
+                  --  Debug("coll!")
                     local iSpeed = hEntity:GetSpeed()
                     local fImpulse = (iSpeed * 10)
                     this:AddImpulse(-1, this:GetCenterOfMassPos(), hEntity:SmartGetDir(), fImpulse, 1)

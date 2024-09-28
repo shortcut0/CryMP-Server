@@ -500,7 +500,22 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
 
         return vector.distance(hTarget:GetPos(), vPos)
     end
-    hClient.GetHitPos = function(self, iDist, iTypes, vDir, vPos)
+    hClient.GetHitPos_Timer = function(self, nIgnore)
+        local aTempHit = self.Info.TempRayHit
+        if (aTempHit and not self.LastRayHitTimer.expired()) then
+            return aTempHit
+        end
+
+        local aHit = self:GetHitPos(4024, nil, self:SmartGetDir(), self:GetHeadPos(), nIgnore)
+        if (aHit) then
+            self.LastRayHitTimer.refresh()
+            self.Info.TempRayHit = aHit.pos
+            return aHit.pos
+        end
+
+        return
+    end
+    hClient.GetHitPos = function(self, iDist, iTypes, vDir, vPos, nIgnore)
         iTypes = iTypes or ent_all
         iDist = iDist or 5
 
@@ -526,8 +541,11 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
 
         --SpawnEffect(ePE_Flare,vPos,vDir,0.1)
 
-        local nIgnore = (self:GetVehicleId() or self.id)
-        local iHits = (ServerDLL.RayWorldIntersection or Physics.RayWorldIntersection)(vPos, vDir, 1, iTypes, self.id, self:GetVehicleId(), g_PlayerRayTable)
+        --local nIgnore = (self:GetVehicleId() or self.id)
+        local iHits = (ServerDLL.RayWorldIntersection or Physics.RayWorldIntersection)(vPos, vDir, 1, iTypes, self.id, nIgnore, g_PlayerRayTable)
+        local iSelHit = 1
+
+
         local aHit = g_PlayerRayTable[1]
         if (iHits and iHits > 0) then
             aHit.surfaceName = System.GetSurfaceTypeNameById( aHit.surface )
@@ -535,6 +553,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
         end
         return
     end
+    hClient.CalcPos             = function(self, distance, dv) local d = self:SmartGetDir(dv) local p = self:GetHeadPos() vector.fastsum(p, p, vector.scaleInPlace(d, (distance or 5))) return p end
     hClient.IsSwimming          = function(self) return self:IsUnderwater(1) or self:GetStance(STANCE_SWIM)  end
     hClient.IsUnderground       = function(self, iThreshold) return ServerUtils.IsEntityUnderground(self, iThreshold)  end
     hClient.IsUnderwater        = function(self, iThreshold) return ServerUtils.IsEntityUnderwater(self, iThreshold)  end
@@ -661,6 +680,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.VoteKicked      = function(self, admin, msg) ServerPunish:DisconnectPlayer(eKickType_Kicked, self, (msg or "No Reason Specified"), nil, admin or "Server") end
 
     --> Data
+    hClient.GetSessionTime  = function(self) return self.Info.ConnectionTimer.diff()  end
     hClient.GetGameTime     = function(self) return self:GetData(ePlayerData_GameTime, 0)  end
     hClient.GetPlayTime     = function(self) return self:GetData(ePlayerData_PlayTime, 0) + self:GetGameTime()  end
     hClient.DataLoaded      = function(self) return self.Info.StoredData.Loaded end
@@ -704,9 +724,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     -- LOOOONGS
     hClient.HasUnlimitedAmmo     = function(self) return self:HasGodMode(eGodMode_Extended) end
     hClient.IsInventoryEmpty     = function(self, count) return (table.count(self.inventory:GetInventoryTable()) <= (count or 0)) end
-    hClient.SetPreferredLanguage = function(self, sLang) self.Info.Language.Preferred = sLang self:SetData(ePlayerData_PreferredLang, sLang)
-        Logger:LogEventTo(RANK_MODERATOR, eLogEvent_Game, "@l_ui_changedLang", self:GetName(), sLang)
-    end
+    hClient.SetPreferredLanguage = function(self, sLang) self.Info.Language.Preferred = sLang self:SetData(ePlayerData_PreferredLang, sLang) Logger:LogEventTo(RANK_MODERATOR, eLogEvent_Game, "@l_ui_changedLang", self:GetName(), sLang) end
     hClient.GetPreferredLanguage = function(self) return self.Info.Language.Preferred end
     hClient.GetHitAccuracy       = function(self) return self.Info.HitAccuracy:Get() end
     hClient.RefreshHitAccuracy   = function(self) return self.Info.HitAccuracy:Refresh() end
@@ -811,7 +829,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
         local sCountry = self:GetCountry()
         local sAutoLang = ServerChannels:CountryToLanguage(sCountry)
         --Debug(sCountry,"===",sAutoLang)
-        if (not self.WantNoLanguage and self:GetPreferredLanguage() == NO_LANGUAGE and table.findv(AVAILABLE_LANGUAGES, sAutoLang) and sAutoLang ~= NO_LANGUAGE) then
+        if (not self.WantNoLanguage and IsAny(self:GetPreferredLanguage(), NO_LANGUAGE, "default") and table.findv(AVAILABLE_LANGUAGES, sAutoLang) and sAutoLang ~= NO_LANGUAGE) then
 
             self:SetPreferredLanguage(sAutoLang)
             Script.SetTimer(5000, function()
@@ -944,6 +962,96 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
         local hVehicle = self:GetVehicle()
         local hItem = self:GetCurrentItem()
 
+        local hCrazyGun = GetEntity(self.CrazyGunId)
+        if (hCrazyGun) then
+            --local bFiring = hCrazyGun.weapon:Sv_IsFiring()
+            --if (bFiring and not self.Info.FiringTimer.expired(1)) then
+                --self:UpdateFiringInfo(hCrazyGun)
+                --hCrazyGun.weapon:Sv_Update()
+            --elseif (bFiring) then
+                --hCrazyGun.weapon:Sv_RequestStopFire()
+            --end
+        end
+
+
+        local hTurret = GetEntity(self.SvControllingTurret)
+        if (hTurret) then
+            --self:UpdateFiringInfo(hTurret)
+            --hTurret.weapon:Sv_Update()
+
+            --[[
+            local vAng = self:GetAngles()
+
+            function DirToYawPitch(vDir)
+                local x, y, z = vDir.x, vDir.y, vDir.z
+
+                -- Calculate yaw (rotation around the Z-axis)
+                local yaw = math.atan2(y, x)
+
+                -- Calculate pitch (rotation around the X-axis)
+                local pitch = math.atan2(z, math.sqrt(x * x + y * y))
+
+                return pitch, yaw
+            end
+
+            local p,y=DirToYawPitch(vAng)
+            p=vAng.x
+            y=vAng.z*2--math.abs(vAng.z*100)
+
+
+            function NormalizeZAngle(angleZ)
+                -- Normalize Z to stay within the range of [-pi, pi]
+                local pi = math.pi
+
+                -- If Z is greater than pi (3.14159), wrap it to negative
+                if angleZ > pi then
+                    angleZ = angleZ - (2 * pi)
+                    -- If Z is less than -pi, wrap it to positive
+                elseif angleZ < -pi then
+                    angleZ = angleZ + (2 * pi)
+                end
+
+                return angleZ
+            end
+            function ZAngleToYaw(angleZ)
+                -- Convert from radians to degrees
+                local degrees = math.deg(angleZ)
+
+                -- Normalize the degrees to be within 0 to 360
+                if degrees < 0 then
+                    degrees = degrees + 360
+                end
+
+                return degrees
+            end
+            function WrapYaw(yaw)
+                local pi2 = math.pi * 2
+                return yaw % pi2
+            end
+
+
+
+
+            Debug(vAng)
+            p=0
+            y=NormalizeZAngle(vAng.z)
+            y=WrapYaw(ZAngleToYaw(vAng.z))
+
+           -- y=( vAng.z*2 )%math.pi
+            y=vAng.z-0.5
+            p=vector.toang(self:SmartGetDir()).x+0.3
+            Debug(vector.toang(self:SmartGetDir()))
+            Debug("p,y=",p,y)
+            --hTurret.weapon:Sv_UpdateFM()
+            --Debug("u")]]
+
+            local vAng = self:GetAngles()
+            local iYaw = (vAng.z - 1.25)
+            local iPitch = (vector.toang(self:SmartGetDir()).x + 0.3)
+            hTurret.weapon:Sv_GunTurretSetLookAt(iYaw, iPitch)
+            hTurret.weapon:Sv_Update()
+        end
+
         if (hItem) then
             self:UpdateFiringInfo(hItem)
             if (hItem.class == "C4" and self:GetActorMode(ACTORMODE_RAPIDFIRE) > 0) then
@@ -1003,6 +1111,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     -- EXPERIMENTAL
     ServerStats:SetEntityUpdateRate(hClient)
 
+    hClient.Info.ConnectionTimer = (hClient.Info.ConnectionTimer or timernew())
     hClient.Info.FiringTimer = timernew()
     hClient.Info.IdleTimer   = timernew()
     hClient.Info.IdleTime    = 0
@@ -1012,6 +1121,7 @@ PlayerHandler.RegisterFunctions = function(hClient, iChannel, bServer)
     hClient.InitTimer        = (hClient.InitTimer or timernew(12))
     hClient.LastTick         = timernew()
     hClient.FrameTick        = timernew()
+    hClient.LastRayHitTimer  = timernew(0.5)
 
     ClientMod:InitClient(hClient)
     g_gameRules:SvInitClient(hClient)

@@ -29,15 +29,20 @@ AddCommand({
     Access = RANK_DEVELOPER, -- Must be accessible to all!
 
     Arguments = {
+        { "@l_ui_player", "@l_ui_player_d", IsPlayer = true, Required = true, AcceptSelf = true, Default = "self", AcceptAll = true}
     },
 
     Properties = {
-        NoLogging = true
     },
 
-    Function = function(self,a)
-
-        ClientMod:Install(self,a)
+    Function = function(self, hTarget)
+        if (hTarget == ALL_PLAYERS) then
+            for _, hPlayer in pairs(GetPlayers()) do
+                ClientMod:Install(hPlayer)
+            end
+            return true
+        end
+        ClientMod:Install(hTarget or self)
         return true
     end
 })

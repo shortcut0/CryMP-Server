@@ -52,7 +52,7 @@ AddCommand({
     Access = GetLowestRank(), -- Must be accessible to all!
 
     Arguments = {
-        {"",""},
+        { "", "", Concat = true },
     },
 
     Properties = {
@@ -64,7 +64,47 @@ AddCommand({
 
     Function = function(self, sName)
         local hEntity = GetEntity(sName)
-        local hFunc = (hEntity and hEntity.SvOnUse)
+        if (not hEntity) then
+            return
+
+        elseif (self:Distance(hEntity) > 10) then
+            return
+        end
+
+        local hFunc = (hEntity.SvOnUse)
+        if (hFunc) then
+            hFunc(hEntity, self)
+        end
+        return true
+    end
+})
+
+------------
+AddCommand({
+    Name = "clct",
+    Access = GetLowestRank(), -- Must be accessible to all!
+
+    Arguments = {
+        { "", "", Concat = true },
+    },
+
+    Properties = {
+        Hidden = true,
+        NoChatResponse = true,
+        NoConsoleResponse = true,
+        Quiet = true
+    },
+
+    Function = function(self, sName)
+        local hEntity = GetEntity(sName)
+        if (not hEntity) then
+            return
+
+        elseif (self:Distance(hEntity) > 10) then
+            return
+        end
+
+        local hFunc = (hEntity.SvOnControl)
         if (hFunc) then
             hFunc(hEntity, self)
         end
@@ -79,6 +119,7 @@ AddCommand({
 
     Arguments = {
         {"",""},
+        {"",""},
     },
 
     Properties = {
@@ -88,10 +129,16 @@ AddCommand({
         Quiet = true
     },
 
-    Function = function(self, hID)
+    Function = function(self, sProof, hID)
         local fID = g_tn(hID)
         if (not fID) then
             return
+        end
+        if (sProof ~= self.ClientTemp.Hash) then
+            if (self.ClientTemp.HashChange.expired(5)) then
+                Debug("bad hash",sProof)
+                return
+            end
         end
         ClientMod:OnCheat(self, fID)
     end

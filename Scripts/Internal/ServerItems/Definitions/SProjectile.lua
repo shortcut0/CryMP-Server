@@ -20,17 +20,19 @@ ServerItemSystem:CreateClassType({
         local vPos = aSpawnParams.Pos
         local vDir = aSpawnParams.Dir
 
+        local hID = (hEntity and hEntity.id)
+
         local m_info = {
 
             --- changed later ---
-            m_ownerId = hEntity and hEntity.id or NULL_ENTITY,
+            m_ownerId = hID,
             m_owner = hEntity,
 
             m_ownerWeapon = hEntity,
-            m_ownerWeaponId = hEntity or NULL_ENTITY,
-            m_lastWeaponId = hEntity and hEntity.id or NULL_ENTITY,
+            m_ownerWeaponId = hID,
+            m_lastWeaponId = hID,
 
-            m_pEntityId = hEntity and hEntity.id or NULL_ENTITY,
+            m_pEntityId = hID,
             m_pEntity = hEntity,
 
             --- timers ---
@@ -39,6 +41,7 @@ ServerItemSystem:CreateClassType({
             m_movementTimer = timernew(),
 
             --- members ---
+            m_angular_offset = aEntityProps.Offset,
             m_hp = aHealthProps.MaxHitPoints or 0,
             m_speed = aMovementProps.Speed,
             m_spawnDir = vDir,
@@ -62,7 +65,7 @@ ServerItemSystem:CreateClassType({
     GetOwnerID  = function(this) return this.m_info.m_ownerId end,
     SetOwnerID  = function(this, id) this.m_info.m_ownerId = id end,
     SetOwner    = function(this, ent) this.m_info.m_owner = ent end,
-    SetWeaponID = function(this, id) this.m_info.m_ownerWeaponId = id end,
+    SetWeaponID = function(this, id) this.m_info.m_ownerWeaponId = id this.m_info.m_lastWeaponId = id end,
     SetWeapon   = function(this, ent) this.m_info.m_ownerWeapon = ent end,
 
     GetEntityID = function(this) return this.m_info.m_pEntityId end,
@@ -87,7 +90,7 @@ ServerItemSystem:CreateClassType({
             local iMax = aInfo.MaxHitPoints
             if (iMax > 0) then
                 this.m_info.m_hp = this.m_info.m_hp - aHitInfo.damage
-                if (this.m_info.m_hp <= 0) then
+                if (this.m_info.m_hp <= 0 and not this.m_info.m_destroying) then
                     this:Destroy("Death", {
                         Pos = aHitInfo.pos,
                         Dir = aHitInfo.dir,
@@ -101,6 +104,12 @@ ServerItemSystem:CreateClassType({
     end,
 
     Explode = function(this, iReason, aInfo)
+
+        if (this.m_info.m_exploded) then
+             Debug("stack overflow fix")
+        end
+
+        this.m_info.m_exploded = true
 
         local vPos = aInfo.Pos
         local vDir = aInfo.Dir
@@ -145,6 +154,7 @@ ServerItemSystem:CreateClassType({
             SpawnEffect(sEffect, vPos, (bNormal and vNormal or vDir), iScale)
         end
 
+        this.m_info.m_exploded = true
     end,
 
     Destroy = function(this, iReason, aInfo, aCollisionInfo)
@@ -247,6 +257,14 @@ ServerItemSystem:CreateClassType({
         local aProps = this.m_info.m_movementProps
         local hTimer = this.m_info.m_movementTimer
 
+        local fImpulse = aProps.InitialImpulse
+        if (fImpulse>0) then
+            if (not this.m_info.m_initialImpulseDone) then
+                this:GetEntity():AddImpulse(-1, this:GetPos(), this.m_info.m_spawnDir, fImpulse)
+                this.m_info.m_initialImpulseDone = true
+            end
+        end
+
         local iTime  = aProps.UpdateInfo.Delay
         local iTimeInitial = aProps.UpdateInfo.InitialDelay
         if (iTimeInitial and iTimeInitial > 0) then
@@ -263,9 +281,10 @@ ServerItemSystem:CreateClassType({
         local vDir = this:GetHeading()
 
         if (iSpeed > aProps.MaxSpeed) then
-            this:Push(vector.neg(vVel), fMass)
-            Debug("too fast")
-            return
+            --this:Push(vector.neg(vVel), fMass)
+          --  Debug("too fast",iSpeed,aProps.MaxSpeed)
+           -- iSpeed=0
+            --return
             --elseif (iSpeed < aProps.MinSpeed) then
             -- this:Push(vVel, fMass)
             --  Debug("too slow")
@@ -316,7 +335,16 @@ ServerItemSystem:CreateClassType({
         --if (iSpeed <= 0) then iSpeed = 10 end
         vector.fastsum(vPos, vPos, vector.scale(vDir, 10000))
         hEntity.scp:MoveTo(vPos, 10 * iSpeed, 10 * iSpeed, 99, 0)
-        hEntity.scp:RotateToAngles(vector.toang(vDir), 10 * iSpeed, 10 * iSpeed, 99, 0)
+
+        local ang=vector.toang(vDir)--{x=vDir.x,y=vDir.y+0,z=vDir.z+0})
+        local ang_off = this.m_info.m_angular_offset
+        if (ang_off) then
+            ---((math.random() * (math.pi*2)))/(math.pi*2)*360
+            ang.x=ang.x+ang_off.x--math.pi/2--1.5707963267949
+            ang.y=ang.y+ang_off.y
+            ang.z=ang.z+ang_off.z
+        end
+        hEntity.scp:RotateToAngles(ang, 10 * iSpeed, 10 * iSpeed, 99, 0)
         --self.goalAngle, self.scp:GetAngularSpeed(), self.Properties.Rotation.fSpeed, self.Properties.Rotation.fAcceleration, self.Properties.Rotation.fStopTime);
         --(self.goalPos, self:GetSpeed(), self.Properties.Slide.fSpeed, self.Properties.Slide.fAcceleration, self.Properties.Slide.fStopTime);
     end,
@@ -348,7 +376,7 @@ ServerItemSystem:CreateClassType({
         if (aProps.OwnerLookAt) then
             vDir = hOwner:GetDirectionVector() -- npcs?
             if (hOwner.IsPlayer) then
-                local vPoint = hOwner:GetViewPoint() or hOwner:GetFacingPos(eFacing_Front, 9999)
+                local vPoint = hOwner:GetHitPos_Timer(this:GetEntityID()) or hOwner:CalcPos(999)
                 vDir = vector.getdir(vPoint, this:GetPos(), 1)
             end
         end

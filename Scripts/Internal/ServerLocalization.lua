@@ -285,7 +285,7 @@ ServerLocale.TranslateRussianToAndrey = function(self, sMsg) -- TODO: Rename thi
     end
 
     if (DebugMode()) then
-        ServerLog("Translated %-60s <===> %s", sMsg, sTrans)
+     --   ServerLog("Translated %-60s <===> %s", sMsg, sTrans)
     end
 
     --if (sMsg == "Igroka") then

@@ -27,7 +27,7 @@ local ServerGameRulesBuying = {
             self.buyList["nktank"].price = 700
 
             -- Weapons!
-            self.weaponList["shiten"] = { id = "shiten", name = "ShiTen", category = "@mp_catWeapons", price = 400, loadout = 1, weapon = true, class = "ShiTen", uniqueId = 620, uniqueloadoutgroup = 1, uniqueloadoutcount =2};
+            self.weaponList["shiten"] = { tags = { DamageMultiplier = 0.5 }, select = true, id = "shiten", name = "ShiTen", category = "@mp_catWeapons", price = 400, loadout = 1, weapon = true, class = "ShiTen", uniqueId = 620, uniqueloadoutgroup = 1, uniqueloadoutcount =2};
             self.buyList["rpg"].price = 200
             self.buyList["dsg1"].price = 350
             self.buyList["gauss"].price = 650
@@ -440,7 +440,7 @@ local ServerGameRulesBuying = {
 
             if (aDef.level and aDef.level > 0 and aDef.level > iLevel) then
 
-                ServerItemHandler:HandleMessage(hPlayer, "@l_ui_alienEnergyRequired")
+                ServerItemHandler:HandleMessage(hPlayer, "@l_ui_alienEnergyRequired", { aDef.level })
                 self.game:SendTextMessage(TextMessageError, "@mp_AlienEnergyRequired", TextMessageToClient, hPlayerID, aDef.name)
                 return false
             end
@@ -612,7 +612,7 @@ local ServerGameRulesBuying = {
                     if (bAlive and aServerProperties.NoItemLimit ~= true) then
                         if (aDef.category == "@mp_catEquipment") then
                             if (iKitCount > iKitLimit) then
-                                ServerItemHandler:HandleMessage(hPlayer, "@l_ui_cannotCarryMoreKits", iKitLimit)
+                                ServerItemHandler:HandleMessage(hPlayer, "@l_ui_cannotCarryMoreKits", { iKitLimit })
                                 g_pGame:SendTextMessage(TextMessageError, "@mp_CannotCarryMoreKit", TextMessageToClient, hPlayerID)
                             end
                         else
@@ -660,8 +660,8 @@ local ServerGameRulesBuying = {
 
             -- FIXME: Bypass xyz mode
             if (aDef.level and aDef.level > 0 and aDef.level > level) then
-                self.game:SendTextMessage(TextMessageError, "@mp_AlienEnergyRequired", TextMessageToClient, hPlayerID, aDef.name)
-                ServerItemHandler:HandleMessage(hPlayer, "@l_ui_alienEnergyRequired", (aDef.level - level))
+                self.game:SendTextMessage(TextMessageError, "@mp_AlienEnergyRequired", TextMessageToClient, hPlayerID, aDef.name, aDef.level)
+                ServerItemHandler:HandleMessage(hPlayer, "@l_ui_alienEnergyRequired", { aDef.level - level })
                 return false
             end
 
@@ -675,11 +675,11 @@ local ServerGameRulesBuying = {
             if (not limitOk) then
                 if (teamCheck) then
                     ServerItemHandler:HandleMessage(hPlayer, "@l_ui_itemteamLimit", { iLimit, aDef.class })
-                    self.game:SendTextMessage(TextMessageError, "@mp_TeamItemLimit", TextMessageToClient, hPlayerID, aDef.name)
+                    self.game:SendTextMessage(TextMessageError, "@mp_TeamItemLimit" .. string.format(" (Limit %d)", iLimit), TextMessageToClient, hPlayerID, aDef.name)
                 else
 
                     ServerItemHandler:HandleMessage(hPlayer, "@l_ui_itemglobalLimit", { iLimit, aDef.class })
-                    self.game:SendTextMessage(TextMessageError, "@mp_GlobalItemLimit", TextMessageToClient, hPlayerID, aDef.name)
+                    self.game:SendTextMessage(TextMessageError, "@mp_GlobalItemLimit" .. string.format(" (Limit %d)", iLimit), TextMessageToClient, hPlayerID, aDef.name)
                 end
 
                 return false;
@@ -740,6 +740,22 @@ local ServerGameRulesBuying = {
                     if (not aServerProperties.DontGiveItem) then
                         hItemID = hPlayer:GiveItem(aDef.class, true)
                         hItem   = GetEntity(hItemID)
+
+                        if (hItem) then
+
+                            table.checkM(hItem, "Properties")
+                            for _, hTag in pairs(aDef.tags or {}) do
+                                hItem["Properties"][_] = hTag
+                            end
+
+                            if (aDef.callback) then
+                                aDef.callback(hItem, hPlayer)
+                            end
+
+                            if (aDef.select) then
+                                hPlayer:SelectItem(hItem.class)
+                            end
+                        end
                     end
 
                     ServerItemHandler:OnItemBought(hPlayer, hItem, aDef, iPrice, aFactory)
@@ -763,7 +779,7 @@ local ServerGameRulesBuying = {
                 if (aDef.class) then
                     ServerItemHandler:HandleMessage(hPlayer, "@l_ui_cannotCarryMoreType", { string.capitalN(ServerDLL.GetItemCategory(aDef.class)) })
                 else
-                    ServerItemHandler:HandleMessage(hPlayer, "@l_ui_cannotCarryMore")
+                    ServerItemHandler:HandleMessage(hPlayer, "@l_ui_cannotCarryMore", {})
                 end
 
                 self.game:SendTextMessage(TextMessageError, "@mp_CannotCarryMore", TextMessageToClient, hPlayerID)
@@ -885,6 +901,21 @@ local ServerGameRulesBuying = {
         Function = function(self, hSpawn, iTeam)
 
             hSpawn.CapturedBy = {}
+
+            local hGunTurret = GetEntity(hSpawn.SvGunTurret)
+            if (hGunTurret) then
+                local sTeam = ""
+                if (iTeam == TEAM_US) then
+                    sTeam = "black"
+
+                elseif (iTeam == TEAM_NK) then
+                    sTeam = "tan"
+                end
+
+                g_pGame:SetTeam(iTeam, hGunTurret.id)
+                hGunTurret.Properties.teamName = sTeam
+                hGunTurret.weapon:Sv_ResetGunTurret()
+            end
 
             local aInside = hSpawn.inside
             if (aInside) then

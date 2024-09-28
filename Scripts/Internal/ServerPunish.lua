@@ -460,6 +460,8 @@ ServerPunish.ListBans = function(self, hAdmin, hIndex, hOption)
         end
     end
 
+   -- ServerLog(table.tostring(aBans))
+    --Debug(hIndex)
     local aBanInfo = aBans[hIndex]
     if (aBanInfo) then
 

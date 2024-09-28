@@ -183,6 +183,7 @@ ServerPCH.OnConnected = function(self, hClient)
 
     local iChannel = (hClient.actor:GetChannel())
     local sName = (hClient:GetName())
+    hClient.Connected = true
 
     ServerChannels:OnChannelDisconnect(iChannel)
 
@@ -207,11 +208,10 @@ ServerPCH.OnConnected = function(self, hClient)
 
     -- FIXME: Good place?
     ServerAccess:InitClient(hClient)
-
-    hClient.Connected = true
     self:SendBanner(hClient)
 
     -- Just log
+   -- ServerLog(debug.traceback())
     SendMsg(CHAT_SERVER_LOCALE, GetPlayers(), "@l_chat_on_Connected", sName, iChannel, hClient:GetProfileID())
     Logger:LogEvent(eLogEvent_Connection, "@l_console_on_connected", sName, iChannel, hClient:GetProfileID())
 end
@@ -240,7 +240,10 @@ ServerPCH.OnDisconnected = function(self, hClient, sReason)
     -- Just log
     if (not hClient:WasBanned()) then
         SendMsg(CHAT_SERVER_LOCALE, GetPlayers(), "@l_chat_on_disconnected", sName, iChannel, sReasonShort)
-        Logger:LogEvent(eLogEvent_Connection, "@l_console_on_disconnected", sName, iChannel, sReasonShort)
+
+        local sTime = math.calctime(hClient:GetSessionTime(),nil,2)
+        sTime = "$4" .. string.gsub(sTime, ":", "$9:$4") .. "$9"
+        Logger:LogEvent(eLogEvent_Connection, "@l_console_on_disconnected", sName, iChannel, sTime, sReasonShort)
     end
 end
 

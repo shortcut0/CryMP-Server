@@ -25,10 +25,10 @@ end
 --------------------------------
 --------------------------------
 --- Init
-ServerRPC.Callbacks.OnCheat = function(self, iNetChannel, sName, sInfo, hVictimID, ...)
+ServerRPC.Callbacks.OnCheat = function(self, iNetChannel, sName, sInfo, hNetUserId, hVictimID, ...)
 
     if (ServerDefense) then
-        ServerDefense:HandleCheater(iNetChannel, sName, sInfo, hVictimID, ...)
+        ServerDefense:HandleCheater(iNetChannel, sName, sInfo, hNetUserId, hVictimID, ...)
     else
         ServerLog("Cheater detected! channel %d, info %s (victim: %s)", iNetChannel, sInfo, g_ts(hVictimID))
     end

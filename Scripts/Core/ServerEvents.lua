@@ -17,7 +17,6 @@ eServerEvent_ScriptMinuteTick   = 5  -- ()           When Server Initialized
 eServerEvent_ScriptHourTick     = 6  -- ()           When Server Initialized
 eServerEvent_OnClientInit       = 7  -- ()           When Server Initialized
 eServerEvent_OnClientTick       = 8  -- ()           When Server Initialized
-eServerEvent_OnUpdate           = 3  -- ()           When Server Initialized
 eServerEvent_OnClientValidated  = 10  -- ()           When Server Initialized
 eServerEvent_OnClientDisconnect = 11  -- ()           When Server Initialized
 eServerEvent_SavePlayerData     = 12  -- ()           When Server Initialized

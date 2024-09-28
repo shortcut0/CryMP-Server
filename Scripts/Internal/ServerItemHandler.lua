@@ -247,7 +247,7 @@ ServerItemHandler.OnItemBought = function(self, hPlayer, hItem, aDef, iPrice, aF
             local iShare = math.floor((iPrice * (iInvestmentShare / 100)) + 0.5)
             if (iShare > 0) then
                 for _, hUser in pairs(aFactory.CapturedBy or {}) do
-                    if (GetEntity(hUser.id) and hUser.IsPlayer and hUser ~= hPlayer) then
+                    if (GetEntity(hUser.id) and g_pGame:GetTeam(hUser.id) == g_pGame:GetTeam(aFactory.id) and hUser.IsPlayer and hUser ~= hPlayer) then
                         hUser:Execute([[ClientEvent(eEvent_BLE,eBLE_Currency,"]]..hUser:LocalizeNest("@l_ui_investmentShare ( +" .. iShare .. " PP )")..[[")]])
                         g_gameRules:AwardPPCount(hUser.id, iShare, nil, hUser:HasClientMod())
                     end
@@ -480,7 +480,7 @@ end
 ----------------------
 ServerItemHandler.CanDropWeapon = function(self, hPlayerID, hItemID)
 
-    Debug("droppa")
+    --Debug("droppa")
     local hPlayer = GetEntity(hPlayerID)
     if (not hPlayer or not hPlayer.IsPlayer) then
         return true
@@ -756,6 +756,14 @@ ServerItemHandler.CheckHit = function(self, aHitInfo)
     --ServerLog("Dir        ==> " .. Vec2Str(aHitInfo.pos))
 
     -----------
+    local hWeapon = GetEntity(aHitInfo.weaponId)
+    local iMult = (hWeapon and (hWeapon.Properties or {}).DamageMultiplier)
+    if (hWeapon and hWeapon.class == "ShiTen" and iMult) then-- and not hWeapon.item:IsMounted()) then
+        Debug("old",aHitInfo.damage)
+        aHitInfo.damage = aHitInfo.damage * iMult--(hWeapon.DamageMultiplier or 0.41)
+        Debug("new",aHitInfo.damage)
+    end
+
     local hShooter = GetEntity(aHitInfo.shooterId)
     local hTarget = GetEntity(aHitInfo.targetId)
     if (hShooter and hShooter.IsPlayer and hShooter.id ~= aHitInfo.targetId and aHitInfo.target and not aHitInfo.explosion and not ServerDefense:CheckDistance(hShooter, aHitInfo.target:GetPos(), aHitInfo.pos, "Hit")) then
@@ -765,13 +773,19 @@ ServerItemHandler.CheckHit = function(self, aHitInfo)
     if (hShooter) then
 
         local hCMParent = hShooter.VehicleCMParent
-        if (hShooter.vehicle and hCMParent and GetEntity(hCMParent)) then
+        if (hCMParent and hCMParent.vehicle and hCMParent and GetEntity(hCMParent)) then
             aHitInfo.shooterId = hCMParent.id
             aHitInfo.shooter = hCMParent
             if (aHitInfo.weaponId == hCMParent.id) then
                 aHitInfo.weaponId = hCMParent.id
                 aHitInfo.weapon = hCMParent
             end
+            if (hCMParent.IsJetVM) then
+                aHitInfo.damage = 0
+            end
+        end
+        if (hShooter.IsJetVM) then
+            aHitInfo.damage = 0
         end
 
         local hOwner = GetEntity(hShooter.OwnerID)
@@ -784,14 +798,14 @@ ServerItemHandler.CheckHit = function(self, aHitInfo)
 
             if (hOwner.id == aHitInfo.targetId) then
                 aHitInfo.damage = 0
-                Debug("blocked object kill hit")
+                --Debug("blocked object kill hit")
             end
-            Debug("swap owner")
+           -- Debug("swap owner")
         end
 
         -- we need extended god mode to kill in god mode..
         if (hShooter.IsPlayer) then
-            if (hShooter:HasGodMode(1) and not hShooter:HasGodMode(2)) then
+            if (hShooter:HasGodMode() and not hShooter:HasGodMode(2)) then
                 aHitInfo.damage = 0
             end
             if (hShooter ~= hTarget and aHitInfo.type == "melee" and hShooter:IsSuperman()) then
@@ -814,7 +828,7 @@ ServerItemHandler.CheckHit = function(self, aHitInfo)
 
     if (hTarget and hTarget.IsPlayer and hShooter) then
         if (aHitInfo.damage > 50 and hShooter.vehicle and ((hTarget.ExitVehicleID == hShooter.id and not hTarget.ExitVehicleTimer.expired()) or hShooter:GetSpeed() == 0)) then
-            Debug("blocked vehicle kill hit!")
+          --  Debug("blocked vehicle kill hit!")
             aHitInfo.damage = 0
         end
     end
@@ -840,7 +854,7 @@ end
 
 ----------------------
 ServerItemHandler.GetRPGEffect = function(self, hPlayer, hWeapon, vPos)
-    Debug("aHit")
+   -- Debug("aHit")
 
     local sEffectName
     local aHit = hPlayer:GetHitPos(3, nil, hPlayer:GetPos(), g_Vectors.down)
@@ -965,7 +979,7 @@ ServerItemHandler.OnProjectileExplosion = function(self, pWeapon, sWeapon, sProj
                         if (isArray(sWaterSound)) then
                             sWaterSound = getrandom(sWaterSound)
                         end
-                        Debug("play ",sWaterSound or aEffect.Sound)
+                       -- Debug("play ",sWaterSound or aEffect.Sound)
                         PlaySound({
                             File = (sWaterSound or aEffect.Sound),
                             Pos = vPos,
@@ -1178,7 +1192,7 @@ ServerItemHandler.OnExplosivePlaced = function(self, nPlayer, nExplosive, iType,
 
             local sCheatID   = eCheat_ExpDistance
             local sCheatDesc = (sType .. " " .. iDistance .. "m")
-            ServerDefense:HandleCheater(hPlayer:GetChannel(), sCheatID, sCheatDesc, nPlayer, false)
+            ServerDefense:HandleCheater(hPlayer:GetChannel(), sCheatID, sCheatDesc, nPlayer, nPlayer, false)
 
             --ServerDLL.SetProjectilePos(nExplosive, hPlayer:GetPos())
             --ServerDLL.ExplodeProjectile(nExplosive)
@@ -1234,6 +1248,30 @@ end
 ----------------------
 ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, hAmmo, sAmmo, vPos, vHit, vDir)
 
+    --[[
+    if (hWeapon.weapon:Sv_IsFiring()) then
+        if (IsAny(sAmmo, "tacgunprojectile")) then
+            Debug("KICK")
+            hAmmo:AddImpulse(-1, vPos, vDir, 1000, 1)
+        end
+    end]]
+
+
+    -- ================================================
+    -- TODO: move to item sys
+    if (hWeapon.CrazyProjectile) then
+        ServerItemSystem:SpawnProjectile({
+            ID = hWeapon.CrazyProjectile,
+            Pos = vPos,
+            Dir = vDir,
+            Hit = vHit,
+            Owner = hShooter,
+            Weapon = hWeapon
+        })
+    end
+
+    ServerItemSystem:OnEvent(eItemEvent_OnShoot, hWeapon, hShooter, { vPos, vDir, vHit, g_Vectors.up, hAmmo, sAmmo })
+
     if (hShooter and hShooter.IsPlayer) then
         hShooter.Info.FiringTimer.refresh()
         if (hShooter:IsTesting()) then
@@ -1249,6 +1287,32 @@ ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, hAmmo, sAmmo, vPos
                 Owner = hShooter,
                 Weapon = hWeapon
             })]]
+        end
+
+        if (hShooter.CrazyAmmo) then
+            local hCrazyWeapon = GetEntity(hShooter.CrazyGunId) or System.SpawnEntity({
+                class = hShooter.CrazyAmmo,
+                name = "ammo_" .. UpdateCounter(eCounter_Spawned),
+                position = vector.make(),
+                orientation = vDir
+            })
+
+            --Debug(hShooter.CrazyAmmo)
+
+            hCrazyWeapon:SetWorldPos(vPos)
+            hCrazyWeapon:SetDirectionVector(vDir)
+            hCrazyWeapon:SetAngles(vector.toang(vDir))
+
+            if (not hCrazyWeapon.weapon:Sv_IsFiring()) then
+            end
+
+            hCrazyWeapon.weapon:Sv_RequestStartFire(vDir, vPos, vHit, 0.0001)
+            hCrazyWeapon.weapon:Sv_SetFiringInfo(vDir, vPos, vHit, 0.0001)
+            hCrazyWeapon.weapon:Sv_Update()
+            hCrazyWeapon.weapon:Sv_UpdateFM()
+            hCrazyWeapon.weapon:Sv_RequestStopFire()
+
+            hShooter.CrazyGunId = hCrazyWeapon.id
         end
     end
 
@@ -1336,9 +1400,9 @@ ServerItemHandler.OnShoot = function(self, hShooter, hWeapon, hAmmo, sAmmo, vPos
     end
 
     --------------------------------
-    if (CallEvent(eServerEvent_OnShoot, aShotInfo) == false) then
-        return false
-    end
+    --if (CallEvent(eServerEvent_OnShoot, aShotInfo) == false) then
+    --    return false
+    --end
 
 
     --------------------------------

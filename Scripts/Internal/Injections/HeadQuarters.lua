@@ -201,7 +201,7 @@ local ServerHQ = {
                         if (iNewHP > 0) then
 
                             SendMsg(MSG_ERROR, sTeamPlayers, "@l_ui_enemyHQHIt", sShooterName, sRewardString)--"** ENEMY HQ HIT BY :: %s %s**", shooterName, (reward and "- GOT " .. pp .. " PRESTIGE "or""));
-                            SendMsg(MSG_ERROR, oTeamPlayers, "@l_ui_ourHQHIt", sShooterName, iRemaining)--"** ENEMY HQ HIT BY :: %s %s**", shooterName, (reward and "- GOT " .. pp .. " PRESTIGE "or""));
+                            SendMsg(MSG_ERROR, oTeamPlayers, "@l_ui_ourHQHIt", sShooterName, self.RemainingHits)--"** ENEMY HQ HIT BY :: %s %s**", shooterName, (reward and "- GOT " .. pp .. " PRESTIGE "or""));
 
                             -- TODO: CLientMod()
                             --SendMsg(BLE_INFO,  sTeamPlayers, "%s: Hit the Enemy HQ - %d Hits Remaining", shooterName, neededhits);

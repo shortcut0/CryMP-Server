@@ -23,12 +23,71 @@ ConfigCreate({
     --- Server CVars
     CVars = {
 
+        -- Net
+        SV_BANDWIDTH = 100000,  -- 50k Default
+        NET_INACTIVITYTIMEOUT = 60,
+
+        -- Graphical
+        e_vegetation_sprites = 0,
+        e_view_dist_ratio_vegetation = 30,
+        cl_screeneffects = 0,
+
+
+        aim_assistMaxDistance = 0,
+        aim_assistSearchBox = 0,
+        aim_assistSingleCoeff = 0,
+        aim_assistSnapDistance = 0,
+        aim_assistVerticalScale = 0,
+        aim_assistTriggerEnabled = 0,
+        aim_assistRestrictionTimeout = 2000,
+        aim_assistAutoCoeff = 0,
+        aim_assistAimEnabled = 0,
+
+        -- Misc
+        e_profile_level_loading = 0,
+        ca_AttachmentCullingRation = 200,
+
+        SYS_FLASH_WARNING_LEVEL = 0,
+        r_TexturesStreamingMaxAsync = 0.25,
+        r_TexturesStreamPoolSize = 128,
+        r_GlowScreenMultiplier = 0.5,
+        r_ColorGrading = 1,
+        g_radialBlur = 0,
+
+        g_teamlock = 1,
+        g_battleDust_effect = "",
+
+        hit_assistMultiplayerEnabled = 0,
+        hit_assistSingleplayerEnabled = 0,
+
+        p_max_velocity = 135,
+        p_max_player_velocity = 30,
+        p_max_object_splashes = 0,
+
+        p_num_bodies_large_group = 30,
+        g_enableIdleCheck = 0,
+        g_enableLoadingScreen = 1,
+
+        fg_abortOnLoadError = -1,
+
+        p_splash_force0 = 15000,
+        p_splash_force1 = 150000,
+        pl_zeroGAimResponsiveness = 100,
+        pl_zeroGBaseSpeed = 4,
+        pl_zeroGEnableGBoots = 1,
+        pl_zeroGParticleTrail = 1,
+        pl_zeroGSpeedModeEnergyConsumption = 0,
+        hud_attachBoughEquipment = 1,
+        hud_onScreenFarSize = 0.5,
+        hud_onScreenNearSize = 1.1,
+        hud_showBigVehicleReload = 1,
+
         -- Network
         SV_DEDICATEDMAXRATE = 60.0,
 
         -- Physics (Lag Smooth, Credits FAPP! <3)
-        P_NET_SMOOTHTIME    = 2.5,  -- Time it takes to smoothen out a desynchronized position
-        P_NET_MINSNAPDIST   = 5,    -- Minimum distance at which we start snapping
+        P_NET_SMOOTHTIME    = 5,   -- Time it takes to smoothen out a desynchronized position
+        P_NET_MINSNAPDIST   = 10,   -- Minimum distance at which we start snapping
         P_NET_MINSNAPDOT    = 0.99, -- Idk!
         P_NET_VELSNAPMULT   = 1,    -- 1 Means x10 Here! 0.1 Is 10%!
 
@@ -41,6 +100,7 @@ ConfigCreate({
         MP_PICKUPVEHICLES = 1,
         MP_WEAPONSONBACK  = 1,
         MP_THRIDPERSON    = 1,
+        MP_AALOCKON       = 1,
 
         MP_UNRESTRICTEDRAGDOOLS   = 1,
         MP_ANIMATIONGRENADESWITCH = 1,
@@ -48,6 +108,7 @@ ConfigCreate({
         --
         G_REVIVETIME   = 6,
 
+        g_playerSuitEnergyRechargeDelay = 1,
         G_SUITSPEEDMULTMULTIPLAYER = 1.0,
         G_SUITSPEEDENERGYCONSUMPTIONMULTIPLAYER = 35,
 
@@ -121,7 +182,7 @@ ConfigCreate({
                 { Authority   = 7, ID = "SUPERADMIN", Name = "SuperAdmin",  Color = CRY_COLOR_WHITE }, -- indicating that this class is a developer class
                 { Authority   = 8, ID = "DEVELOPER",  Name = "Developer",   Color = CRY_COLOR_MAGENTA,  Developer = true },
                 { Authority   = 9, ID = "OWNER",      Name = "Owner",       Color = CRY_COLOR_MAGENTA,  Developer = true }
-            }
+            } ---< RankList
 
         }, ---< Ranks
 
@@ -151,7 +212,7 @@ ConfigCreate({
                 -- The default ban time if none was specified
                 DefaultBanTime = 86400,
 
-                -- The maximum amount of time anyone can be banned (in seconds)
+                -- The maximum amount of time anyone can be muted (in seconds)
                 MaximumMuteTime = 86400,
 
                 -- The default ban time if none was specified
@@ -168,7 +229,7 @@ ConfigCreate({
 
             }, ---< Welcome
 
-            -- The available languages on this server
+            --- The available languages on this server
             AvailableLanguages = {
                 "english",
                 "german",
@@ -200,7 +261,7 @@ ConfigCreate({
                 --  <bold>...</bold>
                 --- > {mod_name}        > Server Mod Name
                 --- > {mod_version}     > Server Mod Version
-                Description = "\tServer Running on {mod_exe} ${mod_version} (x${mod_bits})\nCompiled Using ${mod_compiler}\n\nUp-Time: ${server_uptime} | Mem: ${server_mem} (${server_peakm})\n\n[debug]: se(${dbg_scripterr})\nmem min: ${server_memPM}, mem hrs: ${server_memPH}, mem day: ${server_memPD}\ntransferred data: ${sever_rpc_transferred_session}, total: ${sever_rpc_transferred_total}",
+                Description = "\tServer Running on $mod_exe} ${mod_version} (x${mod_bits})\nCompiled Using ${mod_compiler}\n\nUp-Time: ${server_uptime} | Mem: ${server_mem} (${server_peakm})\n\n[debug]: se(${dbg_scripterr})\nmem min: ${server_memPM}, mem hrs: ${server_memPH}, mem day: ${server_memPD}\ntransferred data: ${sever_rpc_transferred_session}, total: ${sever_rpc_transferred_total}",
 
             }, ---< Report
 
@@ -255,19 +316,19 @@ ConfigCreate({
             --- Item Config
             Weapons = {
 
-                -- Use client side enhanced explosion effects
+                --- Use client side enhanced explosion effects
                 CreateExplosionEffects = true,
 
-                -- Use improved weapon effects
+                --- Use improved weapon effects
                 UseWeaponEffects = true,
 
-                -- Use special RPG ground effects
+                --- Use special RPG ground effects
                 RPGGroundEffects = true,
 
-                -- Enhance underwater explosions
+                --- Enhance underwater explosions
                 EnhanceUWExplosions = true,
 
-                -- loads a second round of grenades into grenade launcher attachments!
+                --- loads a second round of grenades into grenade launcher attachments!
                 DoubleChamberGL = true
 
             }, ---< Weapons
@@ -299,6 +360,7 @@ ConfigCreate({
                 Blacklist = {
                     eCheat_StopFire,
                     eCheat_StartFire,
+                    eCheat_DropItem,
                 }, ---< Blacklist
 
                 ChatProtection = {
@@ -398,11 +460,11 @@ ConfigCreate({
 
                     -- The map rotation
                     Rotation = {
-                        { Map = "Multiplayer/IA/Outpost", TimeLimit = "1h" },
-                        { Map = "Multiplayer/IA/SteelMill", TimeLimit = "1h" },
-                        { Map = "Multiplayer/IA/Quarry", TimeLimit = "1h" },
-                        { Map = "Multiplayer/IA/Poolday_v2", TimeLimit = "2h" },
-                        { Map = "Multiplayer/PS/Mesa", TimeLimit = "6h" },
+                        { Map = "Multiplayer/IA/Outpost",       TimeLimit = "1h" },
+                        { Map = "Multiplayer/IA/SteelMill",     TimeLimit = "1h" },
+                        { Map = "Multiplayer/IA/Quarry",        TimeLimit = "1h" },
+                        { Map = "Multiplayer/IA/Poolday_v2",    TimeLimit = "2h" },
+                        { Map = "Multiplayer/PS/Mesa",          TimeLimit = "6h" },
                     } ---< Rotation
 
                 } ---< Rotation
@@ -429,13 +491,13 @@ ConfigCreate({
                     CheckType = "Real",
 
                     -- Maximum ping after which the player will receive a warning
-                    Limit = 300,
+                    Limit = 10000,
 
                     -- Infraction Delay (in seconds)
-                    InfractionDelay = 3,
+                    InfractionDelay = 10,
 
                     -- Maximum infractions after which the Player will be kicked
-                    MaxInfractions = 3,
+                    InfractionLimit = 10,
 
                     -- Warning Message
                     WarningMessage = "@l_ui_pingwarning",
@@ -443,8 +505,6 @@ ConfigCreate({
                     -- Amount of time to ban after exceeding infeaction limit
                     -- If it's 0, the player will only be kicked
                     BanTime = 0,
-
-
 
                 } ---< PingLimit
 
@@ -462,6 +522,9 @@ ConfigCreate({
 
                 -- Automatically place dead players into spectator mode after this amount of time passed since their death
                 AutoSpectateTimer = 180, -- FIXME
+
+                -- Enables new extended kill messages
+                EnableNewKillMessages = true,
 
                 ----------------------
                 --- Work Configuration
@@ -490,6 +553,66 @@ ConfigCreate({
                 ----------------------
                 --- Hit Configuration
                 HitConfig = {
+
+                    ----------------
+                    --- Kill Streaks
+                    KillStreaks = {
+
+                        --- formats are:
+                        --- ${shooter} = name of the shooter
+                        --- ${target} = name of the target
+                        --- ${kills} = the amount of kills the shooter has
+
+                        --- the message list for KILL streaks
+                        KillMessages = {
+                            [03] = "${shooter} IS on a KILLING SPREE ( #${kills} Kills )",
+                            [05] = "${shooter} IS on a RAMPAGE ( #${kills} Kills )",
+                            [08] = "${shooter} IS DOMINATING : ( #${kills} Kills )",
+                            [12] = "${shooter} IS AMAZING : ( #${kills} Kills )",
+                            [15] = "${shooter} IS UNSTOPPABLE : ( #${kills} Kills )",
+                            [19] = "${shooter} IS INSANE : ( #${kills} Kills )",
+                            [23] = "${shooter} IS OVERPOWERED : ( #${kills} Kills )",
+                            [28] = "${shooter} IS GODLIKE : ( #${kills} Kills )",
+                            [35] = "${shooter} IS MORE THAN GODLIKE : ( #${kills} Kills )",
+                            [40] = "${shooter} IS AMD USER : ( #${kills} Kills )",
+                            [50] = "${shooter} IS AMD ENTHUSIAST : ( #${kills} Kills )",
+                            [60] = "${shooter} IS AMD KING : ( #${kills} Kills )",
+                            [80] = "${shooter} IS AMD GOD : ( #${kills} Kills )",
+                            [90] = "${shooter} IS AMD SUPREME RULER : ( #${kills} Kills )",
+                           [100] = "${shooter} is LISA SU : ( #${kills} Kills )"
+                        }, ---< KillMessages
+
+                        --- the message list for DEATH streaks
+                        DeathMessages = {
+
+                        }, ---< DeathMessages
+
+                        --- the message list for REPEATING kills
+                        RepeatMessages = {
+                            [04] = "${shooter} is SLAYING ${target} (  #${kills} Kills )",
+                            [08] = "${shooter} is DESTROYING ${target} (  #${kills} Kills )",
+                            [12] = "${shooter} is DOMINATING ${target} (  #${kills} Kills )",
+                            [14] = "${shooter} is ERADICATING ${target} (  #${kills} Kills )",
+                            [18] = "${shooter} is SHOWING ${target} the AMD WAY (  #${kills} Kills )",
+                            [22] = "${shooter} is FLEXING their AMD on ${target} (  #${kills} Kills )",
+                            [26] = "${shooter} is TEACHING the WAY OF AMD to ${target} (  #${kills} Kills )",
+                        }, ---< DeathMessages
+
+
+                    }, ---< KillStreaks
+
+                    -----------------
+                    --- First Blood
+                    FirstBlood = {
+
+                        -- the reward for the player who scores the first blood
+                        Reward = 500,
+
+                        -- (de)activates first blood scoring
+                        Enabled = true,
+
+
+                    }, ---< FirstBlood
 
                     -----------------
                     --- HQ Hit Config

@@ -238,6 +238,10 @@ ClientMod.InitClient = function(self, hClient)
     hClient.GetMapCoords  = function(this) return string.format("%s%d", unpack(this.ClientTemp.Coords)) end
     hClient.GetClientHash = function(this) local h = this.ClientTemp.Hash if (this.ClientTemp.Hash == nil) then ClientMod:SetClientHash(this) end return this.ClientTemp.Hash end
 
+    hClient.SendBLE = function(this, iType, sMsg)
+        this:Execute([[ClientEvent(eEvent_BLE,]].. (iType or "eBLE_Currency") .. [[,"]] .. sMsg .. [[")]])
+    end
+
     -------
     table.checkM(hClient, "CM", {
         Restored = false,
@@ -246,7 +250,10 @@ ClientMod.InitClient = function(self, hClient)
     })
 
     table.checkM(hClient, "ClientTemp", {
-        Coords = { "A", 1 }
+
+        Coords = { "A", 1 },
+        Hash = nil,
+        HashChange = timernew(5),
     })
 
     -------
@@ -259,6 +266,10 @@ ClientMod.ClientTick = function(self, hClient)
 
     -------
     if (hClient:GetClientMod("IsInstalled")) then
+
+        if (hClient.ClientTemp.HashChange.expired(60)) then
+            self:SetClientHash(hClient)
+        end
 
     else
         if (hClient:GetClientMod("InstallFailed") ~= true and hClient.ClientInstallTimer.expired(30)) then
@@ -378,6 +389,26 @@ ClientMod.SyncAll = function(self, hClient)
 
     self:SyncPart(hClient, "", true)
     Logger:LogEventTo(RANK_ADMIN, eLogEvent_ClientMod, "@l_ui_clm_syncFinished", hClient:GetName(), iDeleted, iOk)
+end
+
+---------------
+ClientMod.SendBLE = function(self, hClients, sMsg, sType)
+
+    if (hClients == ALL_PLAYERS or (isArray(hClients) and hClients.id == nil)) then
+        for _, hPlayer in pairs((hClients == ALL_PLAYERS and GetPlayers() or hClients) or {}) do
+            self:SendBLE(hPlayer, sMsg)
+        end
+        return
+    end
+
+    if (not hClients:GetClientMod("IsInstalled")) then
+        Debug("info for ", hClients:GetName())
+        SendMsg(MSG_INFO, hClients, sMsg)
+        return
+    end
+
+    sType = (sType or "2")
+    self.ExecuteOn({ hClients }, string.format([[HUD.BattleLogEvent(%s,"%s")]], sType, sMsg))
 end
 
 ---------------
@@ -667,6 +698,11 @@ ClientMod.DecodeSpecRequest = function(self, hClient, iMessage)
             hWeapon.weapon:Sv_SetRMIPlanting(iMessage == eClientResp_AttackStart)
         end
 
+        local hTurret = GetEntity(hClient.SvControllingTurret)
+        if (hTurret) then
+            hTurret:SvOnClFiring(hClient, iMessage == eClientResp_AttackStart)
+        end
+
         if (hVehicle or bParachuting) then
 
             if (hWeapon) then
@@ -684,8 +720,10 @@ ClientMod.DecodeSpecRequest = function(self, hClient, iMessage)
             end
 
             Debug("faia")
-            hVehicle.FiringTimer.refresh()
-            hVehicle:FireHeliMGs(hClient, (iMessage == eClientResp_AttackStart), true)
+            if (hVehicle) then
+                hVehicle.FiringTimer.refresh()
+                hVehicle:FireHeliMGs(hClient, (iMessage == eClientResp_AttackStart), true)
+            end
         end
 
     elseif (iMessage == eClientResp_MeleeAttack or iMessage == eClientResp_StopMelee) then
@@ -725,10 +763,10 @@ ClientMod.DecodeSpecRequest = function(self, hClient, iMessage)
     elseif (iMessage == eClientResp_ChairEffectsOn or iMessage == eClientResp_ChairEffectsOff) then
         self:ChairEffects(hClient, iMessage == eClientResp_ChairEffectsOn)
 
-    elseif ((iMessage >= 100 and iMessage <= 107)) then
-        hClient.ClientTemp.Coords[1] = ({"A","B","C","D","E","F","G"})[iMessage - 100] or "?"
+    elseif ((iMessage >= 100 and iMessage <= 108)) then
+        hClient.ClientTemp.Coords[1] = ({"A","B","C","D","E","F","G","H"})[iMessage - 100] or "?"
 
-    elseif ((iMessage >= 110 and iMessage <= 117)) then
+    elseif ((iMessage >= 110 and iMessage <= 118)) then
         hClient.ClientTemp.Coords[2] = iMessage - 110
 
     elseif ((iMessage >= eClientResp_NumKeys[1] and iMessage <= eClientResp_NumKeys[2])) then
@@ -780,7 +818,7 @@ ClientMod.OnCheat = function(self, hClient, iMsg)
         return Logger:LogEventTo(GetDevs(), eLogEvent_ClientMod, "Invalid Cheat from %s (%d)", hClient:GetName(), (g_tn(iMsg) or -1))
     end
 
-    ServerDefense:HandleCheater(hClient:GetChannel(), aCheat.ID, aCheat.Description, hClient.id, aCheat.Positive)
+    ServerDefense:HandleCheater(hClient:GetChannel(), aCheat.ID, aCheat.Description, hClient.id, hClient.id, aCheat.Positive)
 end
 
 ---------------
@@ -1210,6 +1248,10 @@ ClientMod.RequestModel = function(self, hClient, iModel, bQuiet, bIsChar)
             return false, "@l_ui_youHaveNoCM"
         end
 
+        g_pGame:SetSynchedEntityValue(hClient.id, 1000, nil)
+        g_pGame:SetSynchedEntityValue(hClient.id, 1001, g_gameRules.teamModel.tan[1])
+        g_pGame:SetSynchedEntityValue(hClient.id, 1002, g_gameRules.teamModel.black[1])
+
         hClient.CM.ID = CM_NONE
         hClient.CM.IsCharacter = false
         hClient.CM.File = nil
@@ -1276,6 +1318,10 @@ ClientMod.RequestModel = function(self, hClient, iModel, bQuiet, bIsChar)
     if (not bQuiet) then
         SendMsg(CHAT_SERVER_LOCALE, ALL_PLAYERS, "@l_ui_playerCM", hClient:GetName(), sName, "")
     end
+
+    g_pGame:SetSynchedEntityValue(hClient.id, 1000, sPath)
+    g_pGame:SetSynchedEntityValue(hClient.id, 1001, sPath)
+    g_pGame:SetSynchedEntityValue(hClient.id, 1002, sPath)
 end
 
 ---------------
@@ -1475,7 +1521,7 @@ ClientMod.ChangeVehicleModel = function(self, hClient, hVehicle, iModel, bQuiet)
         if (iScale) then CM:SetScale(iScale) end
         if (bHideTires) then for i = 1, 4 do vehicle:DrawSlot(i, 0) end end
         if (iModel == VM_AUDI or iModel == VM_TESLA) then
-            hVehicle:AttachHeliMGs()
+            hVehicle:AttachHeliMGs((iModel == VM_TESLA and "VehicleShiTenV2" or "Hurricane"))
         end
 
         self:OnAll(string.format([[g_Client:V_MODEL('%s','%s',%d,{x=%f,y=%f,z=%f},{x=%f,y=%f,z=%f},%f,%s)]],
@@ -1516,6 +1562,7 @@ ClientMod.SetClientHash = function(self, hClient)
 
     local sHash = string.random(24)
     hClient.ClientTemp.Hash = sHash
+    hClient.ClientTemp.HashChange.refresh()
     hClient:Execute("g_localActor.SYNC_HASH = \"" .. sHash .. "\"")
 end
 

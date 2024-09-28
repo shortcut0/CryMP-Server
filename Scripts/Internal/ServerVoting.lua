@@ -20,20 +20,20 @@ ServerVoting.Init = function(self)
 end
 
 -----------------
-ServerVoting.LoadFiles = function(self)
+ServerVoting.LoadFiles = function(self, sDir)
 
     -- TODO: Make it recursive
-    local aFiles = ServerLFS.DirGetFiles(self.DataPath, GETFILES_FILES, ".*\.lua$")
+    local aFiles = ServerLFS.DirGetFiles((sDir or self.DataPath), GETFILES_FILES)--, ".*\.lua$")
     if (table.empty(aFiles)) then
         return
     end
 
     for _, sFile in pairs(aFiles) do
-        if (not FileLoader:LoadFile(sFile)) then
 
-            -- TODO: Error Handler
-            -- ErrorHandler()
+        if (ServerLFS.DirIsDir(sFile)) then
+            self:LoadFiles(sFile)
 
+        elseif (string.lower(FileGetExtension(sFile)) == "lua" and not FileLoader:LoadFile(sFile)) then
             HandleError("Failed to load file %s (%s)", ServerLFS.FileGetName(sFile), FileLoader.LAST_ERROR)
         end
 

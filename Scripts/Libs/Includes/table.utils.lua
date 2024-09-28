@@ -122,7 +122,7 @@ table.getnested = function(t, val, default)
 		l = h
 		sl = sMember
 		if (h == nil) then
-			ServerLog("nil at %s",sMember)
+			--ServerLog("nil at %s",sMember)
 			return default, f, l, sf, sl
 		end
 	end

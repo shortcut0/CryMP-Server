@@ -510,7 +510,7 @@ function InstantAction.Server:OnTimer(timerId, msec)
 
 		if (self.NoMapChange) then
 			self.NoMapChange = nil
-			Debug("DONT change! FUCK")
+			--Debug("DONT change! FUCK")
 			return
 		end
 

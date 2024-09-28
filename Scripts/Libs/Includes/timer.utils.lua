@@ -47,6 +47,15 @@ timer.new = function(expiry)
 		return (timer.expired(hNew.timer, checkNumber(i, hNew.expiry)))
 	end
 	--------
+	hNew.expired_refresh = function(i)
+		local expired = (timer.expired(hNew.timer, checkNumber(i, hNew.expiry)))
+		if (expired) then
+			hNew.refresh(i)
+			return true
+		end
+		return false
+	end
+	--------
 	hNew.getexpiry = function()
 		local i = (timer.diff(hNew.timer))
 		return (hNew.expiry - i)

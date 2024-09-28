@@ -364,7 +364,7 @@ ServerArena = {
     OnEntered = function(self, hUser, hID)
 
         if (not hID) then
-            return Debug("NOPE! no ID!")
+            return --Debug("NOPE! no ID!")
         end
 
         local aInfo = self.Data[hID]
